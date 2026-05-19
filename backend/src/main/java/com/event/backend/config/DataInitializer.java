@@ -4,6 +4,7 @@ import com.event.backend.model.*;
 import com.event.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,15 @@ public class DataInitializer implements CommandLineRunner {
     private final UsuarioRepository usuarioRepo;
     private final UsuarioRolRepository usuarioRolRepo;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.admin.email}")
+    private String adminEmail;
+
+    @Value("${app.admin.password}")
+    private String adminPassword;
+
+    @Value("${app.admin.nombre}")
+    private String adminNombre;
 
     @Override
     @Transactional
@@ -66,18 +76,18 @@ public class DataInitializer implements CommandLineRunner {
                     .rol(jugador).permiso(p).build());
         }
 
-        if (!usuarioRepo.existsByEmail("admin@event.com")) {
+        if (!usuarioRepo.existsByEmail(adminEmail)) {
             Usuario admin = usuarioRepo.save(Usuario.builder()
-                    .nombre("Super Admin")
-                    .email("admin@event.com")
-                    .passwordHash(passwordEncoder.encode("Admin123!"))
+                    .nombre(adminNombre)
+                    .email(adminEmail)
+                    .passwordHash(passwordEncoder.encode(adminPassword))
                     .build());
 
             usuarioRolRepo.save(UsuarioRol.builder()
                     .id(new UsuarioRolId(admin.getId(), superAdmin.getId()))
                     .usuario(admin).rol(superAdmin).build());
 
-            log.info("SuperAdmin creado: admin@event.com / Admin123!");
+            log.info("Admin creado desde variables de entorno: {}", adminEmail);
         }
 
         log.info("Seed completado: {} roles, {} permisos", rolesRepo.count(), permisosRepo.count());
