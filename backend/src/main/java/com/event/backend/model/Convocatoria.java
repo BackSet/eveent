@@ -1,0 +1,46 @@
+package com.event.backend.model;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "convocatorias")
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
+@Builder
+public class Convocatoria {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 150)
+    private String titulo;
+
+    @Column(length = 500)
+    private String descripcion;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "deporte_id", nullable = false)
+    private Deporte deporte;
+
+    @Column(nullable = false)
+    private LocalDateTime fechaHora;
+
+    @Column(length = 200)
+    private String lugar;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "creado_por_id", nullable = false)
+    private Usuario creadoPor;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private EstadoConvocatoria estado = EstadoConvocatoria.BORRADOR;
+
+    @Column(nullable = false, updatable = false)
+    @Builder.Default
+    private LocalDateTime fechaCreacion = LocalDateTime.now();
+}
