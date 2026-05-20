@@ -1,63 +1,118 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { AuthState } from '../types'
-import api from '../services/api'
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import api from "@/services/api";
+
+interface User {
+  id: number;
+  nombre: string;
+  email: string;
+  roles: string[];
+  permissions: string[];
+}
+
+interface AuthState {
+  token: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+}
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>
-  register: (nombre: string, email: string, password: string) => Promise<void>
-  logout: () => void
-  hasRole: (role: string) => boolean
-  isAuthenticated: boolean
+  login: (email: string, password: string) => Promise<void>;
+  register: (nombre: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
+  hasRole: (role: string) => boolean;
+  hasPermission: (permission: string) => boolean;
+  isLoading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null)
-
-function loadState(): AuthState {
-  const token = localStorage.getItem('token')
-  const raw = localStorage.getItem('user')
-  if (token && raw) {
-    const user = JSON.parse(raw)
-    return { token, email: user.email, nombre: user.nombre, roles: user.roles ?? [] }
-  }
-  return { token: null, email: null, nombre: null, roles: [] }
-}
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(loadState)
+  const [authState, setAuthState] = useState<AuthState>({
+    token: localStorage.getItem("token"),
+    user: JSON.parse(localStorage.getItem("user") || "null"),
+    isAuthenticated: !!localStorage.getItem("token"),
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { data } = await api.post('/auth/login', { email, password })
-    const auth: AuthState = { token: data.token, email: data.email, nombre: data.nombre, roles: data.roles }
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify({ email: data.email, nombre: data.nombre, roles: data.roles }))
-    setState(auth)
-  }, [])
+  useEffect(() => {
+    if (authState.token) {
+      api.defaults.headers.common["Authorization"] = `Bearer ${authState.token}`;
+    } else {
+      delete api.defaults.headers.common["Authorization"];
+    }
+  }, [authState.token]);
 
-  const register = useCallback(async (nombre: string, email: string, password: string) => {
-    const { data } = await api.post('/auth/register', { nombre, email, password })
-    const auth: AuthState = { token: data.token, email: data.email, nombre: data.nombre, roles: data.roles }
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify({ email: data.email, nombre: data.nombre, roles: data.roles }))
-    setState(auth)
-  }, [])
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.post("/api/auth/login", { email, password });
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data));
+      setAuthState({
+        token: data.token,
+        user: data,
+        isAuthenticated: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    setState({ token: null, email: null, nombre: null, roles: [] })
-  }, [])
+  const register = async (nombre: string, email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.post("/api/auth/register", {
+        nombre,
+        email,
+        password,
+      });
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data));
+      setAuthState({
+        token: data.token,
+        user: data,
+        isAuthenticated: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const hasRole = (role: string) => state.roles.includes(role)
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setAuthState({ token: null, user: null, isAuthenticated: false });
+  };
+
+  const hasRole = (role: string) => {
+    return authState.user?.roles?.some(r => r.toLowerCase() === role.toLowerCase()) || false;
+  };
+
+  const hasPermission = (permission: string) => {
+    return authState.user?.permissions?.some(p => p.toLowerCase() === permission.toLowerCase()) || false;
+  };
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, hasRole, isAuthenticated: !!state.token }}>
+    <AuthContext.Provider
+      value={{
+        ...authState,
+        login,
+        register,
+        logout,
+        hasRole,
+        hasPermission,
+        isLoading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
-  return ctx
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }

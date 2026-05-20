@@ -43,4 +43,13 @@ public class Convocatoria {
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime fechaCreacion = LocalDateTime.now();
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer cupoMaximo = 0;
+
+    @Column(length = 100)
+    private String categoria;
+
+    private LocalDateTime fechaLimiteInscripcion;
 }

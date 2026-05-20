@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { Mail, Lock, User, ArrowRight, ShieldCheck, Trophy, Sparkles } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -25,7 +26,6 @@ export default function Login() {
       } else {
         await login(email, password)
       }
-      navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error de autenticación'
       setError(msg)
@@ -33,83 +33,122 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Event</h1>
-          <p className="text-zinc-400 mt-1 text-sm">Gestión Deportiva</p>
+    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden bg-background">
+      {/* Decorative Premium Ambient Gradients */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[120px] animate-pulse-slow" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-500/10 blur-[120px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
+
+      <div className="w-full max-w-md z-10 transition-all duration-500">
+        {/* Header / Brand Logo */}
+        <div className="text-center mb-8 flex flex-col items-center">
+          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-primary/10 border border-primary/20 mb-4 animate-float">
+            <Trophy className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight">
+            <span className="text-gradient font-black">Event</span>
+          </h1>
+          <p className="text-muted-foreground mt-2 text-sm max-w-xs font-medium">
+            Plataforma Premium de Gestión de Eventos Deportivos
+          </p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-6">
-            {isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
-          </h2>
+        {/* Auth Card */}
+        <div className="glass-card rounded-3xl p-8 border border-border/80 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-primary to-purple-500" />
+          
+          <div className="flex items-center gap-2 mb-6">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-bold tracking-tight">
+              {isRegister ? 'Crear una cuenta' : 'Ingresar al sistema'}
+            </h2>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {isRegister && (
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-1.5">
-                  Nombre
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Nombre Completo
                 </label>
-                <input
-                  type="text"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 transition"
-                  placeholder="Tu nombre"
-                />
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground/60">
+                    <User size={18} />
+                  </span>
+                  <input
+                    type="text"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+                    placeholder="Tu nombre"
+                  />
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1.5">
-                Email
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                Correo Electrónico
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 transition"
-                placeholder="correo@ejemplo.com"
-              />
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground/60">
+                  <Mail size={18} />
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1.5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                 Contraseña
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 transition"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground/60">
+                  <Lock size={18} />
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+                  placeholder="••••••••"
+                />
+              </div>
             </div>
 
             {error && (
-              <p className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
-                {error}
-              </p>
+              <div className="flex items-start gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-3 animate-pulse-slow">
+                <ShieldCheck size={18} className="mt-0.5 shrink-0" />
+                <p className="font-medium">{error}</p>
+              </div>
             )}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-zinc-100 text-zinc-900 py-2.5 text-sm font-semibold hover:bg-white transition cursor-pointer"
+              className="glow-btn w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-semibold hover:bg-primary/95 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 mt-2 group"
             >
               {isRegister ? 'Registrarse' : 'Ingresar'}
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
         </div>
 
-        <p className="text-center text-sm text-zinc-500 mt-6">
+        {/* Toggle Mode Footer */}
+        <p className="text-center text-sm text-muted-foreground mt-8">
           {isRegister ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
           <button
-            onClick={() => setIsRegister(!isRegister)}
-            className="text-zinc-300 hover:text-white underline underline-offset-4 transition cursor-pointer"
+            onClick={() => {
+              setIsRegister(!isRegister);
+              setError('');
+            }}
+            className="text-primary hover:text-primary/80 font-bold underline underline-offset-4 transition cursor-pointer"
           >
             {isRegister ? 'Inicia sesión' : 'Regístrate'}
           </button>

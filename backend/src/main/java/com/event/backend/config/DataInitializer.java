@@ -10,7 +10,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -36,60 +38,96 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (rolesRepo.count() > 0) {
-            log.info("Datos iniciales ya existen. Saltando seed.");
+        seedRolesIfEmpty();
+        seedAdminIfNoUsers();
+        log.info("Seed completado: {} roles, {} permisos", rolesRepo.count(), permisosRepo.count());
+    }
+
+    private void seedRolesIfEmpty() {
+        Map<String, String> permisosData = new HashMap<>();
+        permisosData.put("crear_convocatoria", "Crear convocatorias");
+        permisosData.put("dividir_equipos", "Dividir equipos");
+        permisosData.put("invitar_externos", "Invitar externos");
+        permisosData.put("gestionar_roles", "Gestionar roles y permisos");
+        permisosData.put("ver_convocatoria", "Ver convocatorias");
+        permisosData.put("responder_asistencia", "Responder asistencia");
+        permisosData.put("gestionar_usuarios", "Gestionar usuarios");
+        permisosData.put("gestionar_deportes", "Gestionar deportes y posiciones");
+        permisosData.put("ver_permisos", "Ver lista de permisos");
+        permisosData.put("gestionar_convocatorias", "Gestionar convocatorias");
+
+        Map<String, List<String>> rolesPermisos = new HashMap<>();
+        rolesPermisos.put("SuperAdmin", List.of("crear_convocatoria", "dividir_equipos", "invitar_externos",
+                "gestionar_roles", "ver_convocatoria", "responder_asistencia", "gestionar_usuarios", "gestionar_deportes",
+                "ver_permisos", "gestionar_convocatorias"));
+        rolesPermisos.put("Organizador", List.of("crear_convocatoria", "dividir_equipos", "invitar_externos",
+                "ver_convocatoria", "responder_asistencia", "gestionar_deportes", "gestionar_convocatorias"));
+        rolesPermisos.put("Jugador", List.of("ver_convocatoria", "responder_asistencia"));
+
+        Map<String, Long> roleIds = new HashMap<>();
+
+        for (Map.Entry<String, List<String>> entry : rolesPermisos.entrySet()) {
+            String rolNombre = entry.getKey();
+            RolesSistema rol = rolesRepo.findByNombre(rolNombre)
+                    .orElseGet(() -> rolesRepo.save(RolesSistema.builder().nombre(rolNombre).build()));
+            roleIds.put(rolNombre, rol.getId());
+        }
+
+        for (Map.Entry<String, String> entry : permisosData.entrySet()) {
+            String clave = entry.getKey();
+            String desc = entry.getValue();
+            permisosRepo.findByClave(clave)
+                    .orElseGet(() -> permisosRepo.save(PermisosSistema.builder().clave(clave).descripcion(desc).build()));
+        }
+
+        for (Map.Entry<String, List<String>> entry : rolesPermisos.entrySet()) {
+            String rolNombre = entry.getKey();
+            Long rolId = roleIds.get(rolNombre);
+            RolesSistema rol = rolesRepo.findByNombre(rolNombre).get();
+
+            for (String clavePermiso : entry.getValue()) {
+                permisosRepo.findByClave(clavePermiso).ifPresent(permiso -> {
+                    boolean exists = rolPermisoRepo.findByIdRolId(rolId).stream()
+                            .anyMatch(rp -> rp.getPermiso().getClave().equals(permiso.getClave()));
+                    if (!exists) {
+                        rolPermisoRepo.save(RolPermiso.builder()
+                                .id(new RolPermisoId(rolId, permiso.getId()))
+                                .rol(rol).permiso(permiso).build());
+                    }
+                });
+            }
+        }
+
+        log.info("Roles y permisos sembrados");
+    }
+
+    private void seedAdminIfNoUsers() {
+        if (adminEmail == null || adminEmail.isBlank()) {
+            log.warn("No se ha configurado app.admin.email. Saltando creacion de admin.");
             return;
         }
 
-        log.info("Insertando datos iniciales del sistema...");
+        RolesSistema superAdmin = rolesRepo.findByNombre("SuperAdmin")
+                .orElseThrow(() -> new RuntimeException("Rol SuperAdmin no encontrado"));
 
-        var superAdmin = rolesRepo.save(RolesSistema.builder().nombre("SuperAdmin").build());
-        var organizador = rolesRepo.save(RolesSistema.builder().nombre("Organizador").build());
-        var jugador = rolesRepo.save(RolesSistema.builder().nombre("Jugador").build());
+        Usuario admin = usuarioRepo.findByEmail(adminEmail)
+                .orElseGet(() -> usuarioRepo.save(Usuario.builder()
+                        .nombre(adminNombre != null && !adminNombre.isBlank() ? adminNombre : "Super Admin")
+                        .email(adminEmail)
+                        .passwordHash(passwordEncoder.encode(adminPassword))
+                        .build()));
 
-        var pCrearConv = permisosRepo.save(PermisosSistema.builder().clave("crear_convocatoria").descripcion("Crear convocatorias").build());
-        var pDividirEq = permisosRepo.save(PermisosSistema.builder().clave("dividir_equipos").descripcion("Dividir equipos").build());
-        var pInvitarExt = permisosRepo.save(PermisosSistema.builder().clave("invitar_externos").descripcion("Invitar externos").build());
-        var pGestionarRoles = permisosRepo.save(PermisosSistema.builder().clave("gestionar_roles").descripcion("Gestionar roles y permisos").build());
-        var pVerConv = permisosRepo.save(PermisosSistema.builder().clave("ver_convocatoria").descripcion("Ver convocatorias").build());
-        var pResponderAsist = permisosRepo.save(PermisosSistema.builder().clave("responder_asistencia").descripcion("Responder asistencia").build());
+        admin.setPasswordHash(passwordEncoder.encode(adminPassword));
+        admin.setActivo(true);
+        usuarioRepo.save(admin);
 
-        List<PermisosSistema> todosPermisos = List.of(pCrearConv, pDividirEq, pInvitarExt, pGestionarRoles, pVerConv, pResponderAsist);
-
-        for (PermisosSistema p : todosPermisos) {
-            rolPermisoRepo.save(RolPermiso.builder()
-                    .id(new RolPermisoId(superAdmin.getId(), p.getId()))
-                    .rol(superAdmin).permiso(p).build());
-        }
-
-        List<PermisosSistema> permsOrg = List.of(pCrearConv, pDividirEq, pInvitarExt, pVerConv, pResponderAsist);
-        for (PermisosSistema p : permsOrg) {
-            rolPermisoRepo.save(RolPermiso.builder()
-                    .id(new RolPermisoId(organizador.getId(), p.getId()))
-                    .rol(organizador).permiso(p).build());
-        }
-
-        List<PermisosSistema> permsJug = List.of(pVerConv, pResponderAsist);
-        for (PermisosSistema p : permsJug) {
-            rolPermisoRepo.save(RolPermiso.builder()
-                    .id(new RolPermisoId(jugador.getId(), p.getId()))
-                    .rol(jugador).permiso(p).build());
-        }
-
-        if (!usuarioRepo.existsByEmail(adminEmail)) {
-            Usuario admin = usuarioRepo.save(Usuario.builder()
-                    .nombre(adminNombre)
-                    .email(adminEmail)
-                    .passwordHash(passwordEncoder.encode(adminPassword))
-                    .build());
-
+        if (usuarioRolRepo.findByIdUsuarioId(admin.getId()).stream()
+                .noneMatch(ur -> ur.getRol().getNombre().equals("SuperAdmin"))) {
             usuarioRolRepo.save(UsuarioRol.builder()
                     .id(new UsuarioRolId(admin.getId(), superAdmin.getId()))
                     .usuario(admin).rol(superAdmin).build());
-
-            log.info("Admin creado desde variables de entorno: {}", adminEmail);
         }
 
-        log.info("Seed completado: {} roles, {} permisos", rolesRepo.count(), permisosRepo.count());
+        log.info("Admin listo: {} con rol SuperAdmin", adminEmail);
     }
 }

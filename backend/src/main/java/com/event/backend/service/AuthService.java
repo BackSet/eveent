@@ -7,12 +7,12 @@ import com.event.backend.model.*;
 import com.event.backend.repository.UsuarioRepository;
 import com.event.backend.repository.UsuarioRolRepository;
 import com.event.backend.repository.RolesSistemaRepository;
+import com.event.backend.repository.RolPermisoRepository;
 import com.event.backend.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +26,7 @@ public class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final RolesSistemaRepository rolesSistemaRepository;
     private final UsuarioRolRepository usuarioRolRepository;
+    private final RolPermisoRepository rolPermisoRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
@@ -56,12 +57,16 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(usuario.getEmail());
         List<String> roles = List.of(rolJugador.getNombre());
+        List<String> permissions = rolPermisoRepository.findByIdRolId(rolJugador.getId()).stream()
+                .map(rp -> rp.getPermiso().getClave())
+                .toList();
 
         return JwtResponse.builder()
                 .token(token)
                 .email(usuario.getEmail())
                 .nombre(usuario.getNombre())
                 .roles(roles)
+                .permissions(permissions)
                 .build();
     }
 
@@ -71,16 +76,15 @@ public class AuthService {
 
         var userDetails = (com.event.backend.security.UserDetailsImpl) auth.getPrincipal();
         String token = jwtUtil.generateToken(userDetails.getEmail());
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .map(r -> r.replace("ROLE_", ""))
-                .toList();
+        List<String> roles = userDetails.getRoles();
+        List<String> permissions = userDetails.getPermissions();
 
         return JwtResponse.builder()
                 .token(token)
                 .email(userDetails.getEmail())
                 .nombre(userDetails.getNombre())
                 .roles(roles)
+                .permissions(permissions)
                 .build();
     }
 }

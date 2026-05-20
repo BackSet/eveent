@@ -4,6 +4,7 @@ import com.event.backend.model.Usuario;
 import com.event.backend.model.UsuarioRol;
 import com.event.backend.repository.UsuarioRepository;
 import com.event.backend.repository.UsuarioRolRepository;
+import com.event.backend.repository.RolPermisoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -19,6 +20,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UsuarioRepository usuarioRepository;
     private final UsuarioRolRepository usuarioRolRepository;
+    private final RolPermisoRepository rolPermisoRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -31,6 +33,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .map(UsuarioRol::getRol)
                 .toList();
 
-        return new UserDetailsImpl(usuario, roles);
+        List<String> permissions = roles.stream()
+                .flatMap(role -> rolPermisoRepository.findByIdRolId(role.getId()).stream())
+                .map(rp -> rp.getPermiso().getClave())
+                .distinct()
+                .toList();
+
+        return new UserDetailsImpl(usuario, roles, permissions);
     }
 }
