@@ -41,4 +41,6 @@ public class ConvocatoriaRequest {
     private String categoria;
 
     private LocalDateTime fechaLimiteInscripcion;
+
+    private String manejoExcedente;
 }

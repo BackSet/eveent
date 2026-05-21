@@ -21,4 +21,8 @@ public class UsuarioProfileRequest {
     @NotBlank(message = "El email es obligatorio")
     @Email(message = "El email debe ser valido")
     private String email;
+
+    private String username;
+
+    private Integer numeroCamiseta;
 }

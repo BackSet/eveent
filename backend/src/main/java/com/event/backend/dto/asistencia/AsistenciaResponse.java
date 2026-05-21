@@ -26,5 +26,6 @@ public class AsistenciaResponse {
     private String posicionNombre;
     private Long equipoId;
     private String equipoNombre;
+    private Integer numeroCamiseta;
     private LocalDateTime fechaRespuesta;
 }

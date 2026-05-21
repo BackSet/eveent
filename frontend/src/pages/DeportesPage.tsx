@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ export default function DeportesPage() {
   const { hasPermission } = useAuth();
   const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [selectedDeporte, setSelectedDeporte] = useState<Deporte | null>(null);
-  const [posiciones, setPosiciones] = useState<Posicion[]>([]);
+  const [Posiciónes, setPosiciones] = useState<Posicion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,15 +50,15 @@ export default function DeportesPage() {
   const [deporteSaving, setDeporteSaving] = useState(false);
   const [deporteError, setDeporteError] = useState("");
 
-  const [posicionDialogOpen, setPosicionDialogOpen] = useState(false);
+  const [PosiciónDialogOpen, setPosicionDialogOpen] = useState(false);
   const [editingPosicion, setEditingPosicion] = useState<Posicion | null>(null);
-  const [posicionForm, setPosicionForm] = useState<PosicionFormData>({ nombre: "", abreviatura: "" });
-  const [posicionSaving, setPosicionSaving] = useState(false);
-  const [posicionError, setPosicionError] = useState("");
+  const [PosiciónForm, setPosicionForm] = useState<PosicionFormData>({ nombre: "", abreviatura: "" });
+  const [PosiciónSaving, setPosicionSaving] = useState(false);
+  const [PosiciónError, setPosicionError] = useState("");
 
   const canManage = hasPermission("gestionar_deportes");
 
-  const fetchDeportes = async () => {
+  const fetchDeportes = useCallback(async () => {
     try {
       const { data } = await api.get("/api/deportes");
       setDeportes(data);
@@ -70,16 +70,16 @@ export default function DeportesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchPosiciones = async (deporteId: number) => {
+  const fetchPosiciones = useCallback(async (deporteId: number) => {
     try {
-      const { data } = await api.get(`/api/deportes/${deporteId}/posiciones`);
+      const { data } = await api.get(`/api/deportes/${deporteId}/Posiciónes`);
       setPosiciones(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Error al cargar posiciones");
+      setError(err.response?.data?.message || "Error al cargar Posiciónes");
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDeportes();
@@ -130,14 +130,14 @@ export default function DeportesPage() {
     setPosicionError("");
     try {
       if (editingPosicion) {
-        await api.put(`/api/posiciones/${editingPosicion.id}`, {
-          nombre: posicionForm.nombre,
-          abreviatura: posicionForm.abreviatura,
+        await api.put(`/api/Posiciónes/${editingPosicion.id}`, {
+          nombre: PosiciónForm.nombre,
+          abreviatura: PosiciónForm.abreviatura,
         });
       } else {
-        await api.post(`/api/deportes/${selectedDeporte.id}/posiciones`, {
-          nombre: posicionForm.nombre,
-          abreviatura: posicionForm.abreviatura,
+        await api.post(`/api/deportes/${selectedDeporte.id}/Posiciónes`, {
+          nombre: PosiciónForm.nombre,
+          abreviatura: PosiciónForm.abreviatura,
         });
       }
       setPosicionDialogOpen(false);
@@ -145,20 +145,20 @@ export default function DeportesPage() {
       setPosicionForm({ nombre: "", abreviatura: "" });
       fetchPosiciones(selectedDeporte.id);
     } catch (err: any) {
-      setPosicionError(err.response?.data?.message || "Error al guardar posicion");
+      setPosicionError(err.response?.data?.message || "Error al guardar Posición");
     } finally {
       setPosicionSaving(false);
     }
   };
 
   const handleDeletePosicion = async (id: number) => {
-    if (!confirm("¿Eliminar esta posicion?")) return;
+    if (!confirm("¿Eliminar esta Posición?")) return;
     if (!selectedDeporte) return;
     try {
-      await api.delete(`/api/posiciones/${id}`);
+      await api.delete(`/api/Posiciónes/${id}`);
       fetchPosiciones(selectedDeporte.id);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Error al eliminar posicion");
+      setError(err.response?.data?.message || "Error al eliminar Posición");
     }
   };
 
@@ -174,10 +174,10 @@ export default function DeportesPage() {
     setDeporteDialogOpen(true);
   };
 
-  const openPosicionDialog = (posicion?: Posicion) => {
-    if (posicion) {
-      setEditingPosicion(posicion);
-      setPosicionForm({ nombre: posicion.nombre, abreviatura: posicion.abreviatura || "" });
+  const openPosicionDialog = (Posición?: Posicion) => {
+    if (Posición) {
+      setEditingPosicion(Posición);
+      setPosicionForm({ nombre: Posición.nombre, abreviatura: Posición.abreviatura || "" });
     } else {
       setEditingPosicion(null);
       setPosicionForm({ nombre: "", abreviatura: "" });
@@ -205,7 +205,7 @@ export default function DeportesPage() {
           </div>
           <h1 className="text-3xl font-black tracking-tight text-foreground">Deportes & Posiciones</h1>
           <p className="text-muted-foreground text-sm font-medium mt-0.5">
-            Administra las disciplinas deportivas disponibles y define las posiciones de juego oficiales
+            Administra las disciplinas deportivas disponibles y define las Posiciónes de juego oficiales
           </p>
         </div>
         
@@ -369,18 +369,18 @@ export default function DeportesPage() {
             {!selectedDeporte ? (
               <div className="text-center py-12 space-y-2">
                 <p className="text-muted-foreground font-medium">Selecciona una disciplina</p>
-                <p className="text-xs text-muted-foreground font-medium">Elige un deporte del panel izquierdo para ver sus posiciones.</p>
+                <p className="text-xs text-muted-foreground font-medium">Elige un deporte del panel izquierdo para ver sus Posiciónes.</p>
               </div>
-            ) : posiciones.length === 0 ? (
+            ) : Posiciónes.length === 0 ? (
               <div className="text-center py-12 space-y-2">
-                <p className="text-muted-foreground font-medium">No hay posiciones oficiales</p>
+                <p className="text-muted-foreground font-medium">No hay Posiciónes oficiales</p>
                 {canManage && (
-                  <p className="text-xs text-muted-foreground font-medium">Agrega las posiciones para que los jugadores puedan elegirlas.</p>
+                  <p className="text-xs text-muted-foreground font-medium">Agrega las Posiciónes para que los jugadores puedan elegirlas.</p>
                 )}
               </div>
             ) : (
               <div className="grid gap-3">
-                {posiciones.map((pos) => (
+                {Posiciónes.map((pos) => (
                   <div
                     key={pos.id}
                     className="flex items-center justify-between p-4.5 rounded-2xl border border-border/70 bg-card hover:border-primary/25 transition-all shadow-sm"
@@ -427,7 +427,7 @@ export default function DeportesPage() {
       </div>
 
       {/* Position Dialog */}
-      <Dialog open={posicionDialogOpen} onOpenChange={setPosicionDialogOpen}>
+      <Dialog open={PosiciónDialogOpen} onOpenChange={setPosicionDialogOpen}>
         <DialogContent className="rounded-3xl border border-border">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
@@ -439,9 +439,9 @@ export default function DeportesPage() {
             </DialogDescription>
           </DialogHeader>
           
-          {posicionError && (
+          {PosiciónError && (
             <Alert variant="destructive" className="rounded-2xl">
-              <AlertDescription>{posicionError}</AlertDescription>
+              <AlertDescription>{PosiciónError}</AlertDescription>
             </Alert>
           )}
           
@@ -450,9 +450,9 @@ export default function DeportesPage() {
               <Label htmlFor="pos-nombre" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nombre de la Posición</Label>
               <Input
                 id="pos-nombre"
-                value={posicionForm.nombre}
+                value={PosiciónForm.nombre}
                 onChange={(e) =>
-                  setPosicionForm({ ...posicionForm, nombre: e.target.value })
+                  setPosicionForm({ ...PosiciónForm, nombre: e.target.value })
                 }
                 placeholder="Ej: Portero, Centrocampista"
                 className="rounded-xl"
@@ -462,9 +462,9 @@ export default function DeportesPage() {
               <Label htmlFor="pos-abreviatura" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Abreviatura Oficial</Label>
               <Input
                 id="pos-abreviatura"
-                value={posicionForm.abreviatura}
+                value={PosiciónForm.abreviatura}
                 onChange={(e) =>
-                  setPosicionForm({ ...posicionForm, abreviatura: e.target.value })
+                  setPosicionForm({ ...PosiciónForm, abreviatura: e.target.value })
                 }
                 placeholder="Ej: POR, MED"
                 maxLength={10}
@@ -478,10 +478,10 @@ export default function DeportesPage() {
             </Button>
             <Button
               onClick={handleSavePosicion}
-              disabled={posicionSaving || !posicionForm.nombre}
+              disabled={PosiciónSaving || !PosiciónForm.nombre}
               className="rounded-xl font-bold"
             >
-              {posicionSaving ? <Spinner /> : editingPosicion ? "Actualizar" : "Crear"}
+              {PosiciónSaving ? <Spinner /> : editingPosicion ? "Actualizar" : "Crear"}
             </Button>
           </DialogFooter>
         </DialogContent>

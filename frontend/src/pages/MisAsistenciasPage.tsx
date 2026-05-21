@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import api from "@/services/api";
+import { formatDateTime } from "@/lib/formatDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -27,16 +28,16 @@ export default function MisAsistenciasPage() {
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchAsistencias = async () => {
+  const fetchAsistencias = useCallback(async () => {
     try {
       const { data } = await api.get("/api/asistencias/mis-asistencias");
       setAsistencias(data);
     } catch (err) {
-      console.error("Error al cargar assistencias", err);
+      console.error("Error al cargar asistencias", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAsistencias();
@@ -83,7 +84,7 @@ export default function MisAsistenciasPage() {
                   )}
                   <p className="text-muted-foreground">
                     Respondido el{" "}
-                    {new Date(asis.fechaRespuesta).toLocaleDateString("es-ES")}
+                      {formatDateTime(asis.fechaRespuesta)}
                   </p>
                 </CardContent>
               </Card>

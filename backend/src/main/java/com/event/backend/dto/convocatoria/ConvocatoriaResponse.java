@@ -27,4 +27,6 @@ public class ConvocatoriaResponse {
     private Integer cupoMaximo;
     private String categoria;
     private LocalDateTime fechaLimiteInscripcion;
+    private String manejoExcedente;
+    private Long recurrenciaId;
 }

@@ -17,4 +17,5 @@ public class AsistenciaRequest {
 
     private Long posicionId;
     private Long equipoId;
+    private String estado;
 }

@@ -16,6 +16,8 @@ public class UsuarioResponse {
     private Long id;
     private String nombre;
     private String email;
+    private String username;
+    private Integer numeroCamiseta;
     private List<String> roles;
     private List<String> permissions;
     private Boolean activo;

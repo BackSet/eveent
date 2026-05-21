@@ -24,6 +24,12 @@ public class Usuario {
     @Column(nullable = false)
     private String passwordHash;
 
+    @Column(unique = true, length = 100)
+    private String username;
+
+    @Column(name = "numero_camiseta")
+    private Integer numeroCamiseta;
+
     @Column(nullable = false)
     @Builder.Default
     private Boolean activo = true;

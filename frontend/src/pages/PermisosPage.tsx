@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -142,17 +142,23 @@ export default function PermisosPage() {
   };
 
   // Filter and group permissions
-  const filteredPermisos = permisos.filter(permiso =>
-    permiso.clave.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    permiso.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPermisos = useMemo(() =>
+    permisos.filter(permiso =>
+      permiso.clave.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      permiso.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+    [permisos, searchTerm]
   );
 
-  const groupedPermisos = filteredPermisos.reduce<Record<string, Permiso[]>>((acc, permiso) => {
-    const modulo = getModulo(permiso.clave);
-    if (!acc[modulo]) acc[modulo] = [];
-    acc[modulo].push(permiso);
-    return acc;
-  }, {});
+  const groupedPermisos = useMemo(() =>
+    filteredPermisos.reduce<Record<string, Permiso[]>>((acc, permiso) => {
+      const modulo = getModulo(permiso.clave);
+      if (!acc[modulo]) acc[modulo] = [];
+      acc[modulo].push(permiso);
+      return acc;
+    }, {}),
+    [filteredPermisos]
+  );
 
   const moduloOrder = [
     "Convocatorias",
@@ -187,7 +193,7 @@ export default function PermisosPage() {
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => openDialog()} className="shadow-lg hover:shadow-primary/10 transition-all">
+            <Button onClick={() => openDialog()} className="glow-btn">
               <Plus size={16} className="mr-2" /> Nuevo Permiso
             </Button>
           </DialogTrigger>
@@ -250,7 +256,7 @@ export default function PermisosPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-border/60">
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={saving || !formData.clave || !formData.descripcion}>
+              <Button onClick={handleSave} disabled={saving || !formData.clave || !formData.descripcion} className="glow-btn">
                 {saving ? <Spinner className="h-4 w-4" /> : editingPermiso ? "Actualizar" : "Guardar"}
               </Button>
             </DialogFooter>

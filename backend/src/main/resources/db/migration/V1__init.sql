@@ -55,7 +55,10 @@ CREATE TABLE IF NOT EXISTS convocatorias (
     lugar           VARCHAR(200),
     creado_por_id   BIGINT          NOT NULL REFERENCES usuarios(id),
     estado          VARCHAR(20)     NOT NULL DEFAULT 'BORRADOR',
-    fecha_creacion  TIMESTAMP       NOT NULL DEFAULT NOW()
+    fecha_creacion  TIMESTAMP       NOT NULL DEFAULT NOW(),
+    cupo_maximo     INTEGER         NOT NULL DEFAULT 0,
+    categoria       VARCHAR(100),
+    fecha_limite_inscripcion TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS equipos_convocatoria (

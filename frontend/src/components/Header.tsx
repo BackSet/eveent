@@ -1,10 +1,11 @@
+import { memo } from "react";
 import { Moon, Sun, Bell, Sparkles } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
-export function Header() {
+export const Header = memo(function Header() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
 
@@ -62,4 +63,4 @@ export function Header() {
       </div>
     </header>
   );
-}
+});

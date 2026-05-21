@@ -15,7 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo, memo } from "react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -24,19 +24,20 @@ const menuItems = [
   { icon: Users, label: "Mis Asistencias", path: "/mis-asistencias" },
   { icon: User, label: "Mi Perfil", path: "/perfil" },
   { icon: Shield, label: "Usuarios", path: "/usuarios", permission: "gestionar_usuarios" },
+  { icon: Users, label: "Grupos", path: "/grupos", permission: "gestionar_usuarios" },
   { icon: Settings, label: "Roles", path: "/roles", permission: "gestionar_roles" },
   { icon: Key, label: "Permisos", path: "/permisos", permission: "ver_permisos" },
 ];
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const location = useLocation();
   const { hasPermission, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  const filteredItems = menuItems.filter((item) => {
+  const filteredItems = useMemo(() => menuItems.filter((item) => {
     if (!item.permission) return true;
     return hasPermission(item.permission);
-  });
+  }), [hasPermission]);
 
   return (
     <>
@@ -97,7 +98,9 @@ export function Sidebar() {
             </p>
             {filteredItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive = item.path === "/dashboard"
+                ? location.pathname === item.path
+                : location.pathname.startsWith(item.path);
               return (
                 <Link
                   key={item.path}
@@ -138,4 +141,4 @@ export function Sidebar() {
       </aside>
     </>
   );
-}
+});

@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { Mail, Lock, User, ArrowRight, ShieldCheck, Trophy, Sparkles } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -12,10 +14,11 @@ export default function Login() {
   const { login, register, isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
-  if (isAuthenticated) {
-    navigate('/dashboard', { replace: true })
-    return null
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -73,12 +76,12 @@ export default function Login() {
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground/60">
                     <User size={18} />
                   </span>
-                  <input
+                  <Input
                     type="text"
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+                    className="pl-10 rounded-xl border-border bg-background/50"
                     placeholder="Tu nombre"
                   />
                 </div>
@@ -93,14 +96,14 @@ export default function Login() {
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground/60">
                   <Mail size={18} />
                 </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-300"
-                  placeholder="correo@ejemplo.com"
-                />
+                <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="pl-10 rounded-xl border-border bg-background/50"
+                    placeholder="correo@ejemplo.com"
+                  />
               </div>
             </div>
 
@@ -112,14 +115,14 @@ export default function Login() {
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground/60">
                   <Lock size={18} />
                 </span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-300"
-                  placeholder="••••••••"
-                />
+                <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="pl-10 rounded-xl border-border bg-background/50"
+                    placeholder="••••••••"
+                  />
               </div>
             </div>
 
@@ -130,13 +133,13 @@ export default function Login() {
               </div>
             )}
 
-            <button
-              type="submit"
-              className="glow-btn w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-semibold hover:bg-primary/95 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 mt-2 group"
-            >
-              {isRegister ? 'Registrarse' : 'Ingresar'}
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </button>
+<Button
+                type="submit"
+                className="glow-btn w-full rounded-xl py-6 gap-2 mt-2 group"
+              >
+                {isRegister ? 'Registrarse' : 'Ingresar'}
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </Button>
           </form>
         </div>
 

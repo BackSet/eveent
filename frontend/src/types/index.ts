@@ -38,10 +38,19 @@ export interface Convocatoria {
   id: number;
   titulo: string;
   descripcion: string;
-  deporte: Deporte;
+  deporteId?: number;
+  deporteNombre?: string;
+  deporte?: Deporte;
   fechaHora: string;
   lugar: string;
   estado: EstadoConvocatoria;
+  creadoPorId?: number;
+  creadoPorNombre?: string;
+  cupoMaximo?: number;
+  categoria?: string;
+  fechaLimiteInscripcion?: string;
+  manejoExcedente?: string;
+  recurrenciaId?: number;
 }
 
 export interface EquiposConvocatoria {
@@ -75,4 +84,42 @@ export interface AuthState {
   email: string | null;
   nombre: string | null;
   roles: string[];
+}
+
+export interface Grupo {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  creadoPorId: number;
+  creadoPorNombre: string;
+  miembroIds: number[];
+  miembroNombres: string[];
+  fechaCreacion: string;
+}
+
+export interface ConvocatoriaRecurrente {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  deporteId: number;
+  deporteNombre: string;
+  lugar: string;
+  cupoMaximo: number;
+  categoria: string;
+  patron: string;
+  diasSemana: string;
+  horaEvento: string;
+  horaPartido: string;
+  grupoDestinoId: number | null;
+  grupoDestinoNombre: string | null;
+  activo: boolean;
+  fechaCreacion: string;
+}
+
+export interface UsuarioPosicionDto {
+  posicionId: number;
+  posicionNombre: string;
+  deporteId: number;
+  deporteNombre: string;
+  prioridad: number;
 }

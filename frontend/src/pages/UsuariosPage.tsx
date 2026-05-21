@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export default function UsuariosPage() {
 
   const [formData, setFormData] = useState<UsuarioFormData>({ nombre: "", email: "", roles: ["Jugador"] });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [usersRes, rolesRes] = await Promise.all([
         api.get("/api/usuarios"),
@@ -69,7 +69,7 @@ export default function UsuariosPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -132,7 +132,7 @@ export default function UsuariosPage() {
   };
 
   const handleDeleteUser = async (id: number) => {
-    if (!confirm("¿Eliminar este usuario? Esta accion lo desactivara.")) return;
+    if (!confirm("¿Eliminar este usuario? Esta acción lo desactivará.")) return;
     try {
       await api.delete(`/api/usuarios/${id}`);
       showSuccess("Usuario eliminado correctamente");
@@ -180,7 +180,7 @@ export default function UsuariosPage() {
   if (!hasPermission("gestionar_usuarios") && !hasPermission("gestionar_roles")) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>No tienes permisos para acceder a esta pagina</AlertDescription>
+        <AlertDescription>No tienes permisos para acceder a esta página</AlertDescription>
       </Alert>
     );
   }
@@ -189,12 +189,12 @@ export default function UsuariosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestion de Usuarios</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Gestión de Usuarios</h1>
           <p className="text-muted-foreground">
             Administra los usuarios y sus roles en el sistema
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button onClick={openCreateDialog} className="glow-btn">
           <Plus size={16} /> Nuevo Usuario
         </Button>
       </div>
@@ -315,6 +315,7 @@ export default function UsuariosPage() {
             <Button
               onClick={handleSaveRoles}
               disabled={saving || selectedRoles.length === 0}
+              className="glow-btn"
             >
               {saving ? <Spinner /> : "Guardar Cambios"}
             </Button>
@@ -346,7 +347,7 @@ export default function UsuariosPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Correo electronico</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
@@ -383,6 +384,7 @@ export default function UsuariosPage() {
             <Button
               onClick={handleCreateUser}
               disabled={saving || !formData.nombre || !formData.email}
+              className="glow-btn"
             >
               {saving ? <Spinner /> : "Crear Usuario"}
             </Button>

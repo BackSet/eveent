@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import api from "@/services/api";
 
 interface User {
@@ -7,6 +7,8 @@ interface User {
   email: string;
   roles: string[];
   permissions: string[];
+  username?: string;
+  numeroCamiseta?: number;
 }
 
 interface AuthState {
@@ -22,6 +24,7 @@ interface AuthContextType extends AuthState {
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
   isLoading: boolean;
+  updateUser: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,14 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (authState.token) {
-      api.defaults.headers.common["Authorization"] = `Bearer ${authState.token}`;
-    } else {
-      delete api.defaults.headers.common["Authorization"];
-    }
+    api.setToken(authState.token || null);
   }, [authState.token]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const { data } = await api.post("/api/auth/login", { email, password });
@@ -56,9 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const register = async (nombre: string, email: string, password: string) => {
+  const register = useCallback(async (nombre: string, email: string, password: string) => {
     setIsLoading(true);
     try {
       const { data } = await api.post("/api/auth/register", {
@@ -76,34 +75,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setAuthState({ token: null, user: null, isAuthenticated: false });
-  };
+  }, []);
 
-  const hasRole = (role: string) => {
+  const updateUser = useCallback((userData: Partial<User>) => {
+    setAuthState(prev => {
+      if (!prev.user) return prev;
+      const updated = { ...prev.user, ...userData };
+      localStorage.setItem("user", JSON.stringify(updated));
+      return { ...prev, user: updated };
+    });
+  }, []);
+
+  const hasRole = useCallback((role: string) => {
     return authState.user?.roles?.some(r => r.toLowerCase() === role.toLowerCase()) || false;
-  };
+  }, [authState.user]);
 
-  const hasPermission = (permission: string) => {
+  const hasPermission = useCallback((permission: string) => {
     return authState.user?.permissions?.some(p => p.toLowerCase() === permission.toLowerCase()) || false;
-  };
+  }, [authState.user]);
+
+  const contextValue = useMemo(() => ({
+    ...authState,
+    login,
+    register,
+    logout,
+    hasRole,
+    hasPermission,
+    isLoading,
+    updateUser,
+  }), [authState, login, register, logout, hasRole, hasPermission, isLoading, updateUser]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        ...authState,
-        login,
-        register,
-        logout,
-        hasRole,
-        hasPermission,
-        isLoading,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

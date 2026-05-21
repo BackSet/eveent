@@ -9,6 +9,16 @@ import java.time.LocalDateTime;
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 @Builder
+@NamedEntityGraph(
+    name = "Asistencia.withRelations",
+    attributeNodes = {
+        @NamedAttributeNode("convocatoria"),
+        @NamedAttributeNode("usuario"),
+        @NamedAttributeNode("invitadoPor"),
+        @NamedAttributeNode("posicion"),
+        @NamedAttributeNode("equipo")
+    }
+)
 public class Asistencia {
 
     @Id

@@ -9,6 +9,13 @@ import java.time.LocalDateTime;
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 @Builder
+@NamedEntityGraph(
+    name = "Convocatoria.withDeporteAndCreador",
+    attributeNodes = {
+        @NamedAttributeNode("deporte"),
+        @NamedAttributeNode("creadoPor")
+    }
+)
 public class Convocatoria {
 
     @Id
@@ -52,4 +59,12 @@ public class Convocatoria {
     private String categoria;
 
     private LocalDateTime fechaLimiteInscripcion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recurrencia_id")
+    private ConvocatoriaRecurrente recurrencia;
+
+    @Column(name = "manejo_excedente", nullable = false, length = 20)
+    @Builder.Default
+    private String manejoExcedente = "LISTA_ESPERA";
 }

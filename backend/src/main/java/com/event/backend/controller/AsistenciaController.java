@@ -62,4 +62,10 @@ public class AsistenciaController {
     public ResponseEntity<List<AsistenciaResponse>> findMisAsistencias() {
         return ResponseEntity.ok(asistenciaService.findByUsuarioId(null));
     }
+
+    @PostMapping("/api/convocatorias/{convocatoriaId}/asistencias/bulk")
+    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    public ResponseEntity<List<AsistenciaResponse>> bulkInvite(@PathVariable Long convocatoriaId, @RequestBody List<Long> usuarioIds) {
+        return ResponseEntity.ok(asistenciaService.bulkInvite(convocatoriaId, usuarioIds));
+    }
 }

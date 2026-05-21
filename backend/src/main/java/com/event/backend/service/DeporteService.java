@@ -5,6 +5,8 @@ import com.event.backend.dto.deporte.DeporteResponse;
 import com.event.backend.model.Deporte;
 import com.event.backend.repository.DeporteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ public class DeporteService {
     private final DeporteRepository deporteRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable("deportes")
     public List<DeporteResponse> findAll() {
         return deporteRepository.findAll().stream()
                 .map(this::toResponse)
@@ -31,9 +34,9 @@ public class DeporteService {
                 .orElseThrow(() -> new RuntimeException("Deporte no encontrado con id: " + id));
     }
 
+    @CacheEvict(value = "deportes", allEntries = true)
     public DeporteResponse create(DeporteRequest request) {
-        if (deporteRepository.findAll().stream()
-                .anyMatch(d -> d.getNombre().equalsIgnoreCase(request.getNombre()))) {
+        if (deporteRepository.existsByNombreIgnoreCase(request.getNombre())) {
             throw new RuntimeException("Ya existe un deporte con el nombre: " + request.getNombre());
         }
 
@@ -44,12 +47,13 @@ public class DeporteService {
         return toResponse(deporte);
     }
 
+    @CacheEvict(value = "deportes", allEntries = true)
     public DeporteResponse update(Long id, DeporteRequest request) {
         Deporte deporte = deporteRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Deporte no encontrado con id: " + id));
 
-        if (deporteRepository.findAll().stream()
-                .anyMatch(d -> !d.getId().equals(id) && d.getNombre().equalsIgnoreCase(request.getNombre()))) {
+        if (deporteRepository.existsByNombreIgnoreCase(request.getNombre()) &&
+                !deporte.getNombre().equalsIgnoreCase(request.getNombre())) {
             throw new RuntimeException("Ya existe un deporte con el nombre: " + request.getNombre());
         }
 
@@ -58,6 +62,7 @@ public class DeporteService {
         return toResponse(deporte);
     }
 
+    @CacheEvict(value = "deportes", allEntries = true)
     public void delete(Long id) {
         if (!deporteRepository.existsById(id)) {
             throw new RuntimeException("Deporte no encontrado con id: " + id);

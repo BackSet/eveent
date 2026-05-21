@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,8 +29,18 @@ public class RolService {
 
     @Transactional(readOnly = true)
     public List<RolResponse> findAll() {
-        return rolesRepository.findAll().stream()
-                .map(this::toResponse)
+        List<RolesSistema> allRoles = rolesRepository.findAll();
+        List<Long> rolIds = allRoles.stream().map(RolesSistema::getId).toList();
+        List<RolPermiso> allPermisos = rolPermisoRepository.findByIdRolIdIn(rolIds);
+
+        Map<Long, List<String>> permisosByRolId = allPermisos.stream()
+                .collect(Collectors.groupingBy(
+                        rp -> rp.getRol().getId(),
+                        Collectors.mapping(rp -> rp.getPermiso().getClave(), Collectors.toList())
+                ));
+
+        return allRoles.stream()
+                .map(rol -> toResponse(rol, permisosByRolId.getOrDefault(rol.getId(), List.of())))
                 .toList();
     }
 
@@ -37,7 +48,7 @@ public class RolService {
     public RolResponse findById(Long id) {
         RolesSistema rol = rolesRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Rol no encontrado con id: " + id));
-        return toResponse(rol);
+        return toResponseWithFetch(rol);
     }
 
     public RolResponse create(RolRequest request) {
@@ -53,7 +64,7 @@ public class RolService {
             assignPermissions(rol, request.getPermisoIds());
         }
 
-        return toResponse(rolesRepository.save(rol));
+        return toResponseWithFetch(rol);
     }
 
     public RolResponse update(Long id, RolRequest request) {
@@ -75,7 +86,7 @@ public class RolService {
             assignPermissions(rol, request.getPermisoIds());
         }
 
-        return toResponse(rolesRepository.save(rol));
+        return toResponseWithFetch(rol);
     }
 
     public void delete(Long id) {
@@ -102,27 +113,35 @@ public class RolService {
     }
 
     private void assignPermissions(RolesSistema rol, List<Long> permisoIds) {
-        for (Long permisoId : permisoIds) {
-            PermisosSistema permiso = permisosRepository.findById(permisoId)
-                    .orElseThrow(() -> new RuntimeException("Permiso no encontrado con id: " + permisoId));
-
-            rolPermisoRepository.save(RolPermiso.builder()
-                    .id(new RolPermisoId(rol.getId(), permiso.getId()))
-                    .rol(rol)
-                    .permiso(permiso)
-                    .build());
+        List<PermisosSistema> permisos = permisosRepository.findAllById(permisoIds);
+        if (permisos.size() != permisoIds.size()) {
+            throw new RuntimeException("Uno o mas permisos no encontrados");
         }
+
+        List<RolPermiso> mappings = permisos.stream()
+                .map(permiso -> RolPermiso.builder()
+                        .id(new RolPermisoId(rol.getId(), permiso.getId()))
+                        .rol(rol)
+                        .permiso(permiso)
+                        .build())
+                .toList();
+
+        rolPermisoRepository.saveAll(mappings);
     }
 
-    private RolResponse toResponse(RolesSistema rol) {
-        List<String> permisos = rolPermisoRepository.findByIdRolId(rol.getId()).stream()
-                .map(rp -> rp.getPermiso().getClave())
-                .collect(Collectors.toList());
-
+    private RolResponse toResponse(RolesSistema rol, List<String> permisos) {
         return RolResponse.builder()
                 .id(rol.getId())
                 .nombre(rol.getNombre())
                 .permisos(permisos)
                 .build();
+    }
+
+    private RolResponse toResponseWithFetch(RolesSistema rol) {
+        List<String> permisos = rolPermisoRepository.findByIdRolId(rol.getId()).stream()
+                .map(rp -> rp.getPermiso().getClave())
+                .collect(Collectors.toList());
+
+        return toResponse(rol, permisos);
     }
 }

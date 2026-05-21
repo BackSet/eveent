@@ -4,14 +4,20 @@ import com.event.backend.dto.usuario.PasswordChangeRequest;
 import com.event.backend.dto.usuario.UsuarioProfileRequest;
 import com.event.backend.dto.usuario.UsuarioResponse;
 import com.event.backend.dto.usuario.UsuarioRoleRequest;
+import com.event.backend.dto.usuario.UsuarioPosicionDto;
 import com.event.backend.model.RolesSistema;
 import com.event.backend.model.Usuario;
 import com.event.backend.model.UsuarioRol;
 import com.event.backend.model.UsuarioRolId;
+import com.event.backend.model.UsuarioPosicion;
+import com.event.backend.model.UsuarioPosicionId;
+import com.event.backend.model.PosicionesDeporte;
 import com.event.backend.repository.RolesSistemaRepository;
 import com.event.backend.repository.UsuarioRepository;
 import com.event.backend.repository.UsuarioRolRepository;
 import com.event.backend.repository.RolPermisoRepository;
+import com.event.backend.repository.UsuarioPosicionRepository;
+import com.event.backend.repository.PosicionesDeporteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +36,8 @@ public class UsuarioService {
     private final RolesSistemaRepository rolesSistemaRepository;
     private final RolPermisoRepository rolPermisoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UsuarioPosicionRepository usuarioPosicionRepository;
+    private final PosicionesDeporteRepository posicionesDeporteRepository;
 
     @Transactional(readOnly = true)
     public List<UsuarioResponse> findAll() {
@@ -61,6 +69,8 @@ public class UsuarioService {
 
         usuario.setNombre(request.getNombre());
         usuario.setEmail(request.getEmail());
+        usuario.setUsername(request.getUsername());
+        usuario.setNumeroCamiseta(request.getNumeroCamiseta());
         usuario = usuarioRepository.save(usuario);
         return toResponse(usuario);
     }
@@ -92,16 +102,20 @@ public class UsuarioService {
         List<UsuarioRol> existingRoles = usuarioRolRepository.findByIdUsuarioId(usuario.getId());
         usuarioRolRepository.deleteAll(existingRoles);
 
-        for (String rolNombre : request.getRoles()) {
-            RolesSistema rol = rolesSistemaRepository.findByNombre(rolNombre)
-                    .orElseThrow(() -> new RuntimeException("Rol no encontrado: " + rolNombre));
-
-            usuarioRolRepository.save(UsuarioRol.builder()
-                    .id(new UsuarioRolId(usuario.getId(), rol.getId()))
-                    .usuario(usuario)
-                    .rol(rol)
-                    .build());
+        List<RolesSistema> roles = rolesSistemaRepository.findAllByNombreIn(request.getRoles());
+        if (roles.size() != request.getRoles().size()) {
+            throw new RuntimeException("Uno o mas roles no encontrados");
         }
+
+        List<UsuarioRol> newRoles = roles.stream()
+                .map(rol -> UsuarioRol.builder()
+                        .id(new UsuarioRolId(usuario.getId(), rol.getId()))
+                        .usuario(usuario)
+                        .rol(rol)
+                        .build())
+                .toList();
+
+        usuarioRolRepository.saveAll(newRoles);
 
         return toResponse(usuario);
     }
@@ -121,18 +135,30 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.save(Usuario.builder()
                 .nombre(request.getNombre())
                 .email(request.getEmail())
+                .username(request.getUsername())
+                .numeroCamiseta(request.getNumeroCamiseta())
                 .passwordHash(passwordEncoder.encode("Temporal123!"))
                 .activo(true)
                 .build());
 
-        RolesSistema rolJugador = rolesSistemaRepository.findByNombre("Jugador")
-                .orElseThrow(() -> new RuntimeException("Rol Jugador no encontrado"));
+        List<String> rolesToAssign = request.getRoles() != null && !request.getRoles().isEmpty()
+                ? request.getRoles()
+                : List.of("Jugador");
 
-        usuarioRolRepository.save(UsuarioRol.builder()
-                .id(new UsuarioRolId(usuario.getId(), rolJugador.getId()))
-                .usuario(usuario)
-                .rol(rolJugador)
-                .build());
+        List<RolesSistema> roles = rolesSistemaRepository.findAllByNombreIn(rolesToAssign);
+        if (roles.isEmpty()) {
+            throw new RuntimeException("Ningun rol valido encontrado");
+        }
+
+        List<UsuarioRol> newRoles = roles.stream()
+                .map(rol -> UsuarioRol.builder()
+                        .id(new UsuarioRolId(usuario.getId(), rol.getId()))
+                        .usuario(usuario)
+                        .rol(rol)
+                        .build())
+                .toList();
+
+        usuarioRolRepository.saveAll(newRoles);
 
         return toResponse(usuario);
     }
@@ -148,6 +174,8 @@ public class UsuarioService {
 
         usuario.setNombre(request.getNombre());
         usuario.setEmail(request.getEmail());
+        usuario.setUsername(request.getUsername());
+        usuario.setNumeroCamiseta(request.getNumeroCamiseta());
         usuario = usuarioRepository.save(usuario);
 
         return toResponse(usuario);
@@ -174,13 +202,19 @@ public class UsuarioService {
     }
 
     private UsuarioResponse toResponse(Usuario usuario) {
-        List<String> roles = usuarioRolRepository.findByIdUsuarioId(usuario.getId()).stream()
+        List<UsuarioRol> usuarioRoles = usuarioRolRepository.findByIdUsuarioId(usuario.getId());
+
+        List<String> roles = usuarioRoles.stream()
                 .map(ur -> ur.getRol().getNombre())
                 .toList();
 
-        List<String> permissions = usuarioRolRepository.findByIdUsuarioId(usuario.getId()).stream()
-                .flatMap(ur -> rolPermisoRepository.findByIdRolId(ur.getRol().getId()).stream()
-                        .map(rp -> rp.getPermiso().getClave()))
+        List<Long> rolIds = usuarioRoles.stream()
+                .map(ur -> ur.getRol().getId())
+                .distinct()
+                .toList();
+
+        List<String> permissions = rolPermisoRepository.findByIdRolIdIn(rolIds).stream()
+                .map(rp -> rp.getPermiso().getClave())
                 .distinct()
                 .toList();
 
@@ -188,10 +222,53 @@ public class UsuarioService {
                 .id(usuario.getId())
                 .nombre(usuario.getNombre())
                 .email(usuario.getEmail())
+                .username(usuario.getUsername())
+                .numeroCamiseta(usuario.getNumeroCamiseta())
                 .roles(roles)
                 .permissions(permissions)
                 .activo(usuario.getActivo())
                 .fechaCreacion(usuario.getFechaCreacion())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioPosicionDto> getCurrentUserPosiciones() {
+        Usuario usuario = getCurrentUser();
+        List<UsuarioPosicion> list = usuarioPosicionRepository.findByUsuarioId(usuario.getId());
+        return list.stream()
+                .map(up -> UsuarioPosicionDto.builder()
+                        .posicionId(up.getPosicion().getId())
+                        .posicionNombre(up.getPosicion().getNombre())
+                        .deporteId(up.getPosicion().getDeporte().getId())
+                        .deporteNombre(up.getPosicion().getDeporte().getNombre())
+                        .prioridad(up.getPrioridad())
+                        .build())
+                .toList();
+    }
+
+    public List<UsuarioPosicionDto> updateCurrentUserPosiciones(List<UsuarioPosicionDto> positionsDto) {
+        Usuario usuario = getCurrentUser();
+        usuarioPosicionRepository.deleteByUsuarioId(usuario.getId());
+        
+        if (positionsDto == null || positionsDto.isEmpty()) {
+            return List.of();
+        }
+
+        List<UsuarioPosicion> newPositions = positionsDto.stream()
+                .map(dto -> {
+                    PosicionesDeporte posicion = posicionesDeporteRepository.findById(dto.getPosicionId())
+                            .orElseThrow(() -> new RuntimeException("Posicion no encontrada con id: " + dto.getPosicionId()));
+                    return UsuarioPosicion.builder()
+                            .id(new UsuarioPosicionId(usuario.getId(), posicion.getId()))
+                            .usuario(usuario)
+                            .posicion(posicion)
+                            .prioridad(dto.getPrioridad())
+                            .build();
+                })
+                .toList();
+
+        usuarioPosicionRepository.saveAll(newPositions);
+
+        return getCurrentUserPosiciones();
     }
 }

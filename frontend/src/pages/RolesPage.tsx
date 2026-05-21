@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,7 @@ export default function RolesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [rolesRes, permisosRes] = await Promise.all([
         api.get("/api/roles"),
@@ -61,7 +61,7 @@ export default function RolesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -132,7 +132,7 @@ export default function RolesPage() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => openDialog()}>
+            <Button onClick={() => openDialog()} className="glow-btn">
               <Plus size={16} /> Nuevo Rol
             </Button>
           </DialogTrigger>
@@ -186,7 +186,7 @@ export default function RolesPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={saving || !formData.nombre}>
+              <Button onClick={handleSave} disabled={saving || !formData.nombre} className="glow-btn">
                 {saving ? <Spinner /> : editingRol ? "Actualizar" : "Crear"}
               </Button>
             </DialogFooter>
