@@ -10,14 +10,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Calendar, Clock, MapPin, Users, Repeat, UserPlus, Check, X, Search } from "lucide-react";
 import { Deporte, Grupo, Usuario, HorarioDia } from "@/types";
+import { useToast } from "@/hooks/useToast";
 
 const CATEGORIAS = [
   { value: "LIBRE", label: "Libre" },
   { value: "COMPETITIVO", label: "Competitivo" },
   { value: "AMISTOSO", label: "Amistoso" },
   { value: "ENTRENAMIENTO", label: "Entrenamiento" },
+  { value: "TORNEO", label: "Torneo" },
 ];
 
 const DEFAULT_HORARIO: HorarioDia = { horaApertura: "08:00", horaEvento: "20:00", duracionMinutos: 90 };
@@ -26,6 +29,7 @@ export default function ConvocatoriaFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
 
   const isEditing = Boolean(id);
   const isRecurrentRoute = location.pathname.includes("recurrentes");
@@ -127,24 +131,42 @@ export default function ConvocatoriaFormPage() {
     try {
       if (isRecurrent) {
         const payload = { ...recurrenteData, grupoDestinoId: recurrenteData.grupoDestinoId ? Number(recurrenteData.grupoDestinoId) : null };
-        if (isEditing) { await api.put(`/api/configuraciones-recurrentes/${id}`, payload); } else { await api.post("/api/configuraciones-recurrentes", payload); }
+        if (isEditing) {
+          await api.put(`/api/configuraciones-recurrentes/${id}`, payload);
+          toast.success("Configuración recurrente actualizada correctamente");
+        } else {
+          await api.post("/api/configuraciones-recurrentes", payload);
+          toast.success("Configuración recurrente creada con éxito");
+        }
       } else {
         const payload = { ...formData, fechaHora: formData.fechaHora + ":00", fechaLimiteInscripcion: formData.fechaLimiteInscripcion ? formData.fechaLimiteInscripcion + ":00" : null };
         let createdId: number;
-        if (isEditing) { const { data } = await api.put(`/api/convocatorias/${id}`, payload); createdId = data.id; }
-        else { const { data } = await api.post("/api/convocatorias", payload); createdId = data.id; }
+        if (isEditing) {
+          const { data } = await api.put(`/api/convocatorias/${id}`, payload);
+          createdId = data.id;
+          toast.success("Convocatoria actualizada con éxito");
+        } else {
+          const { data } = await api.post("/api/convocatorias", payload);
+          createdId = data.id;
+          toast.success("Convocatoria creada con éxito");
+        }
         if (!isEditing && createdId) {
           let userIdsToInvite: number[] = [];
           if (invitationMode === "GROUP" && selectedGrupoId) {
             const targetGrp = grupos.find(g => g.id === Number(selectedGrupoId));
             if (targetGrp && targetGrp.miembroIds) userIdsToInvite = targetGrp.miembroIds;
           } else if (invitationMode === "MANUAL" && selectedUserIds.length > 0) { userIdsToInvite = selectedUserIds; }
-          if (userIdsToInvite.length > 0) { await api.post(`/api/convocatorias/${createdId}/asistencias/bulk`, userIdsToInvite); }
+          if (userIdsToInvite.length > 0) {
+            await api.post(`/api/convocatorias/${createdId}/asistencias/bulk`, userIdsToInvite);
+            toast.info(`Se han enviado invitaciones a ${userIdsToInvite.length} jugadores`);
+          }
         }
       }
       navigate("/convocatorias");
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al guardar");
+      const errMsg = getApiErrorMessage(err) || "Error al guardar";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setSaving(false);
     }
@@ -287,10 +309,10 @@ export default function ConvocatoriaFormPage() {
 
               <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
                 <div>
-                  <Label className="text-xs font-semibold">Regla Activa</Label>
+                  <Label htmlFor="activo" className="text-xs font-semibold cursor-pointer">Regla Activa</Label>
                   <p className="text-[10px] text-muted-foreground">Auto-genera convocatorias en BORRADOR</p>
                 </div>
-                <input type="checkbox" checked={recurrenteData.activo} onChange={(e) => setRecurrenteData({ ...recurrenteData, activo: e.target.checked })} className="h-4 w-4 accent-primary cursor-pointer rounded" />
+                <Checkbox id="activo" checked={recurrenteData.activo} onCheckedChange={(checked) => setRecurrenteData({ ...recurrenteData, activo: !!checked })} />
               </div>
             </CardContent>
           </Card>

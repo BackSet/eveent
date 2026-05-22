@@ -8,13 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Calendar, MapPin, Users, Clock, Tag, ArrowRight, Repeat, Play, Trash2, Edit, CheckCircle, XCircle, KanbanSquare, Search, FileText } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Clock, Tag, ArrowRight, Repeat, Trash2, Edit, CheckCircle, XCircle, KanbanSquare, Search, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { Convocatoria, ConfiguracionRecurrente } from "@/types";
 
 const ESTADOS = ["TODOS", "BORRADOR", "ABIERTA", "EN_PROGRESO", "FINALIZADA", "CANCELADA"];
 
 export default function ConvocatoriasPage() {
+  const { toast } = useToast();
   const [convocatorias, setConvocatorias] = useState<Convocatoria[]>([]);
   const [recurrentes, setRecurrentes] = useState<ConfiguracionRecurrente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,8 +24,6 @@ export default function ConvocatoriasPage() {
   const [estadoFilter, setEstadoFilter] = useState("TODOS");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"PARTIDOS" | "PLANTILLAS">("PARTIDOS");
-  const [schedulerMessage, setSchedulerMessage] = useState("");
-  const [runningScheduler, setRunningScheduler] = useState(false);
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
 
@@ -45,9 +45,10 @@ export default function ConvocatoriasPage() {
     if (!confirm("¿Eliminar esta convocatoria?")) return;
     try {
       await api.delete(`/api/convocatorias/${id}`);
+      toast.success("Convocatoria eliminada con éxito");
       fetchConvocatorias();
     } catch (err: unknown) {
-      console.error("Error al eliminar convocatoria", err);
+      toast.error(getApiErrorMessage(err) || "Error al eliminar la convocatoria");
     }
   };
 
@@ -55,9 +56,10 @@ export default function ConvocatoriasPage() {
     e.stopPropagation();
     try {
       await api.put(`/api/convocatorias/${id}/abrir`);
+      toast.success("La convocatoria se ha abierto al público");
       fetchConvocatorias();
     } catch (err: unknown) {
-      console.error("Error al abrir convocatoria", err);
+      toast.error(getApiErrorMessage(err) || "Error al abrir la convocatoria");
     }
   };
 
@@ -66,9 +68,10 @@ export default function ConvocatoriasPage() {
     if (!confirm("¿Cancelar esta convocatoria?")) return;
     try {
       await api.put(`/api/convocatorias/${id}/cancelar`);
+      toast.warning("La convocatoria ha sido cancelada");
       fetchConvocatorias();
     } catch (err: unknown) {
-      console.error("Error al cancelar convocatoria", err);
+      toast.error(getApiErrorMessage(err) || "Error al cancelar la convocatoria");
     }
   };
 
@@ -101,27 +104,15 @@ export default function ConvocatoriasPage() {
     if (activeTab === "PARTIDOS") { fetchConvocatorias(); } else { fetchRecurrentes(); }
   }, [activeTab, fetchConvocatorias, fetchRecurrentes]);
 
-  const handleForceScheduler = async () => {
-    setRunningScheduler(true);
-    setSchedulerMessage("");
-    try {
-      await api.post("/api/convocatorias/recurrentes/generar");
-      setSchedulerMessage("Planificador ejecutado con éxito.");
-      setTimeout(() => setSchedulerMessage(""), 5000);
-      if (activeTab === "PARTIDOS") fetchConvocatorias();
-    } catch (err: unknown) {
-      setSchedulerMessage("Error: " + getApiErrorMessage(err));
-    } finally {
-      setRunningScheduler(false);
-    }
-  };
-
   const handleDeleteRecurrencia = async (id: number) => {
     if (!confirm("¿Eliminar esta regla recurrente?")) return;
     try {
       await api.delete(`/api/convocatorias/recurrentes/${id}`);
+      toast.success("Regla recurrente eliminada con éxito");
       fetchRecurrentes();
-    } catch (err) { console.error("Error", err); }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || "Error al eliminar la regla recurrente");
+    }
   };
 
   // Filter convocatorias/recurrentes locally based on search query
@@ -144,25 +135,14 @@ export default function ConvocatoriasPage() {
         <div className="h-28 notion-cover notion-cover-sports" />
         <div className="p-6 relative pt-10">
           <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
-            📅
+            🧭
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Convocatorias</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Explorar Partidos</h1>
             <p className="text-muted-foreground text-xs mt-1">Base de datos de partidos programados y configuraciones recurrentes en el workspace.</p>
           </div>
         </div>
       </div>
-
-      {schedulerMessage && (
-        <div className={`notion-callout ${
-          schedulerMessage.includes("Error") ? "border-destructive bg-destructive/5 text-destructive" : "border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
-        }`}>
-          <div className="notion-callout-icon">
-            {schedulerMessage.includes("Error") ? <XCircle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
-          </div>
-          <div className="text-sm font-medium">{schedulerMessage}</div>
-        </div>
-      )}
 
       {/* Notion Database Toolbar & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
@@ -218,12 +198,6 @@ export default function ConvocatoriasPage() {
             </Select>
           )}
           
-          {isOrganizer && activeTab === "PLANTILLAS" && (
-            <Button onClick={handleForceScheduler} disabled={runningScheduler} variant="outline" className="h-9 px-3 gap-1.5 text-xs font-medium border-border hover:bg-accent">
-              {runningScheduler ? <Spinner size="sm" /> : <Play size={12} />}
-              <span>Ejecutar Planificador</span>
-            </Button>
-          )}
           
           {user && isOrganizer && (
             <Link to={activeTab === "PLANTILLAS" ? "/convocatorias/recurrentes/new" : "/convocatorias/new"}>

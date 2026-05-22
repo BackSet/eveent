@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider } from './hooks/useAuth'
+import { ToastProvider } from './hooks/useToast'
 import ProtectedRoute from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -82,7 +83,9 @@ function AppWithApiSetup() {
 function App() {
   return (
     <AuthProvider>
-      <AppWithApiSetup />
+      <ToastProvider>
+        <AppWithApiSetup />
+      </ToastProvider>
     </AuthProvider>
   )
 }

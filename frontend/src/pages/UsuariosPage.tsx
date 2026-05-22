@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Trash2, Edit, Plus, UserX, UserCheck } from "lucide-react";
+import { useToast } from "@/hooks/useToast";
+import { UserCog, Shield, Trash2, Edit, Plus, UserX, UserCheck } from "lucide-react";
 
 interface Usuario {
   id: number;
@@ -43,11 +44,12 @@ interface UsuarioFormData {
 
 export default function UsuariosPage() {
   const { hasPermission } = useAuth();
+  const { toast } = useToast();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -76,38 +78,30 @@ export default function UsuariosPage() {
     fetchData();
   }, []);
 
-  const showSuccess = (message: string) => {
-    setSuccess(message);
-    setTimeout(() => setSuccess(""), 3000);
-  };
-
   const openEditDialog = (usuario: Usuario) => {
     setSelectedUsuario(usuario);
     setSelectedRoles([...usuario.roles]);
     setEditDialogOpen(true);
-    setError("");
   };
 
   const openCreateDialog = () => {
     setFormData({ nombre: "", email: "", roles: ["Jugador"] });
     setCreateDialogOpen(true);
-    setError("");
   };
 
   const handleSaveRoles = async () => {
     if (!selectedUsuario) return;
     setSaving(true);
-    setError("");
     try {
       await api.put("/api/usuarios/roles", {
         usuarioId: selectedUsuario.id,
         roles: selectedRoles,
       });
-      showSuccess("Roles actualizados correctamente");
+      toast.success("Roles actualizados correctamente");
       setEditDialogOpen(false);
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al actualizar roles");
+      toast.error(getApiErrorMessage(err) || "Error al actualizar roles");
     } finally {
       setSaving(false);
     }
@@ -115,18 +109,17 @@ export default function UsuariosPage() {
 
   const handleCreateUser = async () => {
     setSaving(true);
-    setError("");
     try {
       await api.post("/api/usuarios", {
         nombre: formData.nombre,
         email: formData.email,
         roles: formData.roles,
       });
-      showSuccess("Usuario creado correctamente");
+      toast.success("Usuario creado correctamente");
       setCreateDialogOpen(false);
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al crear usuario");
+      toast.error(getApiErrorMessage(err) || "Error al crear usuario");
     } finally {
       setSaving(false);
     }
@@ -136,20 +129,20 @@ export default function UsuariosPage() {
     if (!confirm("¿Eliminar este usuario? Esta acción lo desactivará.")) return;
     try {
       await api.delete(`/api/usuarios/${id}`);
-      showSuccess("Usuario eliminado correctamente");
+      toast.success("Usuario eliminado correctamente");
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al eliminar usuario");
+      toast.error(getApiErrorMessage(err) || "Error al eliminar usuario");
     }
   };
 
   const handleToggleActivo = async (id: number) => {
     try {
       await api.patch(`/api/usuarios/${id}/toggle-activo`);
-      showSuccess("Estado actualizado correctamente");
+      toast.success("Estado de usuario actualizado correctamente");
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al actualizar estado");
+      toast.error(getApiErrorMessage(err) || "Error al actualizar estado");
     }
   };
 
@@ -191,9 +184,9 @@ export default function UsuariosPage() {
       {/* Cover/Header area */}
       <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
         <div className="flex items-center gap-3">
-          <span className="text-3xl select-none">👥</span>
+          <span className="text-3xl select-none">🧑‍💻</span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Gestión de Usuarios</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Usuarios del Sistema</h1>
             <p className="text-muted-foreground text-xs mt-0.5">
               Base de datos y privilegios de todos los miembros del workspace.
             </p>
@@ -214,15 +207,6 @@ export default function UsuariosPage() {
             <Shield size={16} className="shrink-0" />
           </div>
           <div className="text-xs font-medium">{error}</div>
-        </div>
-      )}
-
-      {success && (
-        <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
-          <div className="notion-callout-icon">
-            <UserCheck size={16} className="shrink-0" />
-          </div>
-          <div className="text-xs font-medium">{success}</div>
         </div>
       )}
 

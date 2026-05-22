@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { Deporte, PosicionesDeporte, UsuarioPosicionDto } from "@/types";
 
 export default function PerfilPage() {
   const { user, updateUser } = useAuth();
+  const { toast } = useToast();
   
   const [formData, setFormData] = useState({
     nombre: user?.nombre || "",
@@ -34,7 +36,6 @@ export default function PerfilPage() {
     numeroCamiseta: user?.numeroCamiseta !== undefined && user?.numeroCamiseta !== null ? user?.numeroCamiseta.toString() : "",
   });
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [deportes, setDeportes] = useState<Deporte[]>([]);
@@ -44,7 +45,6 @@ export default function PerfilPage() {
   const [positionSearch, setPositionSearch] = useState("");
   const [loadingSports, setLoadingSports] = useState(false);
   const [loadingPositions, setLoadingPositions] = useState(false);
-  const [positionsSuccess, setPositionsSuccess] = useState("");
   const [positionsError, setPositionsError] = useState("");
   const [savingPositions, setSavingPositions] = useState(false);
 
@@ -90,8 +90,6 @@ export default function PerfilPage() {
   const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError("");
-    setSuccess("");
     try {
       const payload = {
         nombre: formData.nombre,
@@ -101,9 +99,9 @@ export default function PerfilPage() {
       };
       const { data } = await api.put("/api/usuarios/me", payload);
       updateUser(data);
-      setSuccess("Perfil actualizado correctamente");
+      toast.success("Perfil actualizado correctamente");
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al actualizar perfil");
+      toast.error(getApiErrorMessage(err) || "Error al actualizar perfil");
     } finally {
       setSaving(false);
     }
@@ -217,14 +215,12 @@ export default function PerfilPage() {
 
   const handleSavePositions = async () => {
     setSavingPositions(true);
-    setPositionsSuccess("");
-    setPositionsError("");
     try {
       const { data } = await api.put<UsuarioPosicionDto[]>("/api/usuarios/me/posiciones", userPosiciones);
       setUserPosiciones(data);
-      setPositionsSuccess("Prioridades actualizadas");
+      toast.success("Prioridades de posición guardadas correctamente");
     } catch (err: unknown) {
-      setPositionsError(getApiErrorMessage(err) || "Error al guardar prioridades");
+      toast.error(getApiErrorMessage(err) || "Error al guardar prioridades");
     } finally {
       setSavingPositions(false);
     }
@@ -240,7 +236,7 @@ export default function PerfilPage() {
             👤
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Ajustes de Perfil</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Mi Perfil</h1>
             <p className="text-muted-foreground text-xs mt-1">
               Administra tu cuenta personal, información de jugador y prioridades de posición.
             </p>
@@ -292,22 +288,6 @@ export default function PerfilPage() {
           <div className="md:col-span-2 rounded-lg border border-border bg-card p-5 space-y-4">
             <h3 className="text-sm font-semibold tracking-tight">Información Personal</h3>
             
-            {error && (
-              <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">
-                <div className="notion-callout-icon">
-                  <ShieldAlert size={16} className="shrink-0" />
-                </div>
-                <div className="text-xs font-medium">{error}</div>
-              </div>
-            )}
-            {success && (
-              <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
-                <div className="notion-callout-icon">
-                  <UserCheck size={16} className="shrink-0" />
-                </div>
-                <div className="text-xs font-medium">{success}</div>
-              </div>
-            )}
 
             <form onSubmit={handleSubmitProfile} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -409,22 +389,6 @@ export default function PerfilPage() {
             )}
           </div>
 
-          {positionsError && (
-            <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">
-              <div className="notion-callout-icon">
-                <ShieldAlert size={15} />
-              </div>
-              <div className="text-xs font-medium">{positionsError}</div>
-            </div>
-          )}
-          {positionsSuccess && (
-            <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
-              <div className="notion-callout-icon">
-                <UserCheck size={15} />
-              </div>
-              <div className="text-xs font-medium">{positionsSuccess}</div>
-            </div>
-          )}
 
           {loadingSports ? (
             <div className="flex items-center justify-center py-8"><Spinner /></div>

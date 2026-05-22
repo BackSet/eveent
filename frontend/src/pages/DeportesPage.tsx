@@ -19,6 +19,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Trash2, Edit, Trophy, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Deporte } from "@/types";
 
 interface Posicion {
@@ -35,6 +37,7 @@ interface PosicionFormData {
 
 export default function DeportesPage() {
   const { hasPermission } = useAuth();
+  const { toast } = useToast();
   const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [selectedDeporte, setSelectedDeporte] = useState<Deporte | null>(null);
   const [posiciones, setPosiciones] = useState<Posicion[]>([]);
@@ -94,15 +97,19 @@ export default function DeportesPage() {
     try {
       if (editingDeporte) {
         await api.put(`/api/deportes/${editingDeporte.id}`, deporteForm);
+        toast.success("Deporte actualizado con éxito");
       } else {
         await api.post("/api/deportes", deporteForm);
+        toast.success("Deporte creado con éxito");
       }
       setDeporteDialogOpen(false);
       setEditingDeporte(null);
       setDeporteForm({ nombre: "", esPorEquipos: true, minJugadoresPorBando: 1, maxJugadoresPorBando: 11 });
       fetchDeportes();
     } catch (err: unknown) {
-      setDeporteError(getApiErrorMessage(err) || "Error al guardar deporte");
+      const errMsg = getApiErrorMessage(err) || "Error al guardar deporte";
+      setDeporteError(errMsg);
+      toast.error(errMsg);
     } finally {
       setDeporteSaving(false);
     }
@@ -112,12 +119,15 @@ export default function DeportesPage() {
     if (!confirm("¿Eliminar este deporte?")) return;
     try {
       await api.delete(`/api/deportes/${id}`);
+      toast.success("Deporte eliminado con éxito");
       if (selectedDeporte?.id === id) {
         setSelectedDeporte(null);
       }
       fetchDeportes();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al eliminar deporte");
+      const errMsg = getApiErrorMessage(err) || "Error al eliminar deporte";
+      setError(errMsg);
+      toast.error(errMsg);
     }
   };
 
@@ -131,18 +141,22 @@ export default function DeportesPage() {
           nombre: posicionForm.nombre,
           abreviatura: posicionForm.abreviatura,
         });
+        toast.success("Posición de juego actualizada");
       } else {
         await api.post(`/api/deportes/${selectedDeporte.id}/posiciones`, {
           nombre: posicionForm.nombre,
           abreviatura: posicionForm.abreviatura,
         });
+        toast.success("Posición de juego agregada");
       }
       setPosicionDialogOpen(false);
       setEditingPosicion(null);
       setPosicionForm({ nombre: "", abreviatura: "" });
       fetchPosiciones(selectedDeporte.id);
     } catch (err: unknown) {
-      setPosicionError(getApiErrorMessage(err) || "Error al guardar posicion");
+      const errMsg = getApiErrorMessage(err) || "Error al guardar posicion";
+      setPosicionError(errMsg);
+      toast.error(errMsg);
     } finally {
       setPosicionSaving(false);
     }
@@ -153,9 +167,12 @@ export default function DeportesPage() {
     if (!selectedDeporte) return;
     try {
       await api.delete(`/api/posiciones/${id}`);
+      toast.success("Posición eliminada con éxito");
       fetchPosiciones(selectedDeporte.id);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al eliminar posicion");
+      const errMsg = getApiErrorMessage(err) || "Error al eliminar posicion";
+      setError(errMsg);
+      toast.error(errMsg);
     }
   };
 
@@ -202,7 +219,7 @@ export default function DeportesPage() {
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Deportes & Posiciones</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Disciplinas y Posiciones</h1>
               <p className="text-muted-foreground text-xs mt-1">Configura las disciplinas deportivas y posiciones oficiales en el workspace.</p>
             </div>
             {canManage && (
@@ -241,14 +258,13 @@ export default function DeportesPage() {
                     
                     <div className="flex items-center justify-between p-3 bg-muted/40 rounded border border-border">
                       <div className="space-y-0.5">
-                        <Label className="text-xs font-semibold">Juego por Equipos</Label>
+                        <Label htmlFor="esPorEquipos" className="text-xs font-semibold cursor-pointer">Juego por Equipos</Label>
                         <p className="text-[10px] text-muted-foreground">Matchmaking en grupos divididos</p>
                       </div>
-                      <input 
-                        type="checkbox" 
+                      <Checkbox 
+                        id="esPorEquipos" 
                         checked={deporteForm.esPorEquipos} 
-                        onChange={(e) => setDeporteForm({ ...deporteForm, esPorEquipos: e.target.checked })} 
-                        className="h-4 w-4 accent-primary cursor-pointer border-border rounded" 
+                        onCheckedChange={(checked) => setDeporteForm({ ...deporteForm, esPorEquipos: !!checked })} 
                       />
                     </div>
 

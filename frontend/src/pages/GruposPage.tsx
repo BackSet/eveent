@@ -17,16 +17,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { Users, Trash2, Edit, Plus, UserPlus, Check, X } from "lucide-react";
 import { Grupo, Usuario } from "@/types";
 
 export default function GruposPage() {
   const { hasPermission } = useAuth();
+  const { toast } = useToast();
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedGrupo, setSelectedGrupo] = useState<Grupo | null>(null);
@@ -56,11 +58,6 @@ export default function GruposPage() {
     fetchData();
   }, [fetchData]);
 
-  const showSuccess = (message: string) => {
-    setSuccess(message);
-    setTimeout(() => setSuccess(""), 3000);
-  };
-
   const openCreateDialog = () => {
     setSelectedGrupo(null);
     setNombre("");
@@ -68,7 +65,6 @@ export default function GruposPage() {
     setSelectedUserIds([]);
     setSearchUserQuery("");
     setDialogOpen(true);
-    setError("");
   };
 
   const openEditDialog = (grupo: Grupo) => {
@@ -78,16 +74,14 @@ export default function GruposPage() {
     setSelectedUserIds(grupo.miembroIds || []);
     setSearchUserQuery("");
     setDialogOpen(true);
-    setError("");
   };
 
   const handleSaveGrupo = async () => {
     if (!nombre.trim()) {
-      setError("El nombre es obligatorio");
+      toast.error("El nombre es obligatorio");
       return;
     }
     setSaving(true);
-    setError("");
     try {
       const payload = {
         nombre,
@@ -97,15 +91,15 @@ export default function GruposPage() {
 
       if (selectedGrupo) {
         await api.put(`/api/grupos/${selectedGrupo.id}`, payload);
-        showSuccess("Grupo actualizado correctamente");
+        toast.success("Grupo actualizado correctamente");
       } else {
         await api.post("/api/grupos", payload);
-        showSuccess("Grupo creado correctamente");
+        toast.success("Grupo creado correctamente");
       }
       setDialogOpen(false);
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al guardar el grupo");
+      toast.error(getApiErrorMessage(err) || "Error al guardar el grupo");
     } finally {
       setSaving(false);
     }
@@ -115,10 +109,10 @@ export default function GruposPage() {
     if (!confirm("¿Estás seguro de que deseas eliminar este grupo?")) return;
     try {
       await api.delete(`/api/grupos/${id}`);
-      showSuccess("Grupo eliminado correctamente");
+      toast.success("Grupo eliminado correctamente");
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al eliminar el grupo");
+      toast.error(getApiErrorMessage(err) || "Error al eliminar el grupo");
     }
   };
 
@@ -159,7 +153,7 @@ export default function GruposPage() {
         <div className="flex items-center gap-3">
           <span className="text-3xl select-none">👥</span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Gestión de Grupos</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Grupos de Jugadores</h1>
             <p className="text-muted-foreground text-xs mt-0.5">
               Crea audiencias personalizadas (como ligas o equipos) para convocar jugadores en lote rápidamente.
             </p>
@@ -180,15 +174,6 @@ export default function GruposPage() {
             <X className="h-5 w-5" />
           </div>
           <div className="text-xs font-medium">{error}</div>
-        </div>
-      )}
-
-      {success && (
-        <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
-          <div className="notion-callout-icon">
-            <Check className="h-5 w-5" />
-          </div>
-          <div className="text-xs font-medium">{success}</div>
         </div>
       )}
 
