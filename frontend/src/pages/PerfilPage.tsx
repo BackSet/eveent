@@ -231,19 +231,22 @@ export default function PerfilPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background -mx-6 -mt-6 notion-animate-fade">
-      {/* Cover Image */}
-      <div className="notion-cover notion-cover-sports h-32 md:h-40 relative">
-        <div className="notion-page-icon-overlay select-none">👤</div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-6 sm:px-12 pb-24 pt-16 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ajustes de Perfil</h1>
-          <p className="text-muted-foreground text-xs mt-1">
-            Administra tu cuenta personal, información de jugador y prioridades de posición.
-          </p>
+    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
+      {/* Cover / Header section */}
+      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+        <div className="h-28 notion-cover notion-cover-sports" />
+        <div className="p-6 relative pt-10">
+          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
+            👤
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Ajustes de Perfil</h1>
+            <p className="text-muted-foreground text-xs mt-1">
+              Administra tu cuenta personal, información de jugador y prioridades de posición.
+            </p>
+          </div>
         </div>
+      </div>
 
         <div className="grid gap-6 md:grid-cols-3">
           {/* Tarjeta de Workspace de Usuario */}
@@ -617,6 +620,5 @@ export default function PerfilPage() {
           )}
         </div>
       </div>
-    </div>
   );
 }

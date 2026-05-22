@@ -228,53 +228,51 @@ export default function ConvocatoriaDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background -mx-6 -mt-6 notion-animate-fade">
-      {/* Cover Image Banner */}
-      <div className={`notion-cover relative ${
-        convocatoria.deporteNombre?.toLowerCase().includes("futbol") || convocatoria.deporteNombre?.toLowerCase().includes("fútbol")
-          ? "notion-cover-soccer"
-          : "notion-cover-sports"
-      } h-40 w-full`}>
-        {/* Dynamic Sport Emoji Overlap */}
-        <div className="notion-page-icon-overlay">
-          {getSportEmoji(convocatoria.deporteNombre || "")}
+    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
+      {/* Navigation / Actions Bar */}
+      <div className="flex items-center justify-between pt-2">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/convocatorias")}
+          className="h-8 gap-1.5 font-semibold text-xs text-muted-foreground hover:text-foreground group px-2 rounded-md hover:bg-muted/50"
+        >
+          <ArrowLeft size={13} className="group-hover:-translate-x-0.5 transition-transform" />
+          Volver a Convocatorias
+        </Button>
+
+        {/* Quick status badge */}
+        <Badge 
+          variant={ESTADO_COLORS[convocatoria.estado] || "default"} 
+          className="text-[10px] uppercase px-2.5 py-0.5 font-extrabold tracking-wider"
+        >
+          {convocatoria.estado}
+        </Badge>
+      </div>
+
+      {/* Cover / Header section */}
+      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+        <div className={`h-28 notion-cover ${
+          convocatoria.deporteNombre?.toLowerCase().includes("futbol") || convocatoria.deporteNombre?.toLowerCase().includes("fútbol")
+            ? "notion-cover-soccer"
+            : "notion-cover-sports"
+        }`} />
+        <div className="p-6 relative pt-10">
+          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
+            {getSportEmoji(convocatoria.deporteNombre || "")}
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{convocatoria.titulo}</h1>
+          </div>
         </div>
       </div>
 
-      {/* Content Container */}
-      <div className="max-w-4xl mx-auto px-6 sm:px-12 pb-24 pt-16">
-        {/* Navigation / Actions Bar */}
-        <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/convocatorias")}
-            className="h-8 gap-1.5 font-semibold text-xs text-muted-foreground hover:text-foreground group px-2 rounded-md hover:bg-muted/50"
-          >
-            <ArrowLeft size={13} className="group-hover:-translate-x-0.5 transition-transform" />
-            Volver a Convocatorias
-          </Button>
-
-          {/* Quick status badge */}
-          <Badge 
-            variant={ESTADO_COLORS[convocatoria.estado] || "default"} 
-            className="text-[10px] uppercase px-2.5 py-0.5 font-extrabold tracking-wider"
-          >
-            {convocatoria.estado}
-          </Badge>
+      {/* Error Alert inside Notion style callout */}
+      {error && (
+        <div className="notion-callout border-destructive/20 bg-destructive/5 dark:bg-destructive/10 items-center">
+          <div className="notion-callout-icon">⚠️</div>
+          <div className="text-sm text-destructive">{error}</div>
         </div>
-
-        {/* Error Alert inside Notion style callout */}
-        {error && (
-          <div className="notion-callout border-destructive/20 bg-destructive/5 dark:bg-destructive/10 mb-6 items-center">
-            <div className="notion-callout-icon">⚠️</div>
-            <div className="text-sm text-destructive">{error}</div>
-          </div>
-        )}
-
-        {/* Page Title */}
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-6 leading-tight">
-          {convocatoria.titulo}
-        </h1>
+      )}
 
         {/* Notion Properties Grid */}
         <div className="notion-property-grid border-b border-border pb-6 mb-6">
@@ -936,6 +934,5 @@ export default function ConvocatoriaDetailPage() {
           )}
         </div>
       </div>
-    </div>
   );
 }

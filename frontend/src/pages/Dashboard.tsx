@@ -183,21 +183,18 @@ export default function Dashboard() {
   const activeConvs = convocatorias.filter(c => c.estado === "ABIERTA" || c.estado === "EN_PROGRESO");
 
   return (
-    <div className="min-h-screen bg-background -mx-6 -mt-6 notion-animate-fade">
-      {/* Notion Cover Image Banner */}
-      <div className="notion-cover notion-cover-sports relative">
-        <div className="notion-page-icon-overlay">🏆</div>
-      </div>
-
-      {/* Main Page Workspace Content */}
-      <div className="max-w-5xl mx-auto px-6 sm:px-12 pt-14 pb-16 space-y-10">
-        
-        {/* Workspace Title & Header Block */}
-        <div className="space-y-4">
+    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
+      {/* Cover / Header section */}
+      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+        <div className="h-28 notion-cover notion-cover-sports" />
+        <div className="p-6 relative pt-10">
+          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
+            🏆
+          </div>
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest leading-none">Mi Espacio Personal</p>
-              <h1 className="text-3.5xl font-extrabold tracking-tight text-foreground">{getGreeting()}, {user?.nombre}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{getGreeting()}, {user?.nombre}</h1>
             </div>
 
             <div className="flex items-center gap-2">
@@ -216,18 +213,19 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
-
-          {/* Notion Callout Banner */}
-          <div className="notion-callout bg-secondary/35">
-            <span className="notion-callout-icon">💡</span>
-            <div>
-              <p className="font-semibold text-foreground">Acceso Directo al Centro Deportivo</p>
-              <p className="text-muted-foreground mt-0.5 leading-relaxed text-[13.5px]">
-                Este es tu panel deportivo Notion-style. Aquí puedes visualizar estadísticas clave en tiempo real, confirmar tu asistencia con un solo clic utilizando la base de datos inteligente de partidos, y ver la alineación balanceada automáticamente según tu posición.
-              </p>
-            </div>
-          </div>
         </div>
+      </div>
+
+      {/* Notion Callout Banner */}
+      <div className="notion-callout bg-secondary/35">
+        <span className="notion-callout-icon">💡</span>
+        <div>
+          <p className="font-semibold text-foreground">Acceso Directo al Centro Deportivo</p>
+          <p className="text-muted-foreground mt-0.5 leading-relaxed text-[13.5px]">
+            Este es tu panel deportivo Notion-style. Aquí puedes visualizar estadísticas clave en tiempo real, confirmar tu asistencia con un solo clic utilizando la base de datos inteligente de partidos, y ver la alineación balanceada automáticamente según tu posición.
+          </p>
+        </div>
+      </div>
 
         {/* Flat Stat Properties Panel */}
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 border-t border-b border-[#ededeb] dark:border-[#2e2e2e] py-4 text-sm font-medium">
@@ -641,6 +639,5 @@ export default function Dashboard() {
 
         </div>
       </div>
-    </div>
   );
 }
