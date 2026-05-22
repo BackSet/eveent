@@ -11,32 +11,33 @@ import {
   X,
   Shield,
   Key,
-  Settings,
   Search,
   ChevronDown,
-  Sparkles,
-  Plus,
-  BookOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, memo } from "react";
 
 const generalItems = [
-  { icon: LayoutDashboard, label: "Workspace Dashboard", path: "/dashboard", emoji: "🏠" },
+  { icon: LayoutDashboard, label: "Inicio", path: "/dashboard", emoji: "🏠" },
   { icon: User, label: "Mi Perfil", path: "/perfil", emoji: "👤" },
-  { icon: Users, label: "Mis Asistencias", path: "/mis-asistencias", emoji: "✅" },
+  { icon: Users, label: "Mis Partidos", path: "/mis-asistencias", emoji: "✅" },
 ];
 
 const convocatoriaItems = [
-  { icon: Calendar, label: "Partidos y Eventos", path: "/convocatorias", emoji: "📅" },
+  { icon: Calendar, label: "Explorar Partidos", path: "/convocatorias", emoji: "📅" },
 ];
 
+// Configuración para el Organizador del Evento
+const configItems = [
+  { icon: Trophy, label: "Disciplinas y Posiciones", path: "/deportes", permission: "gestionar_deportes", emoji: "⚽" },
+  { icon: Users, label: "Grupos de Jugadores", path: "/grupos", permission: "gestionar_usuarios", emoji: "📂" },
+];
+
+// Administración para el Administrador del Sistema
 const adminItems = [
-  { icon: Trophy, label: "Deportes", path: "/deportes", permission: "gestionar_deportes", emoji: "⚽" },
-  { icon: Shield, label: "Usuarios", path: "/usuarios", permission: "gestionar_usuarios", emoji: "👥" },
-  { icon: Users, label: "Grupos", path: "/grupos", permission: "gestionar_usuarios", emoji: "📂" },
-  { icon: Settings, label: "Roles", path: "/roles", permission: "gestionar_roles", emoji: "🛡️" },
-  { icon: Key, label: "Permisos", path: "/permisos", permission: "ver_permisos", emoji: "🔑" },
+  { icon: User, label: "Usuarios del Sistema", path: "/usuarios", permission: "gestionar_usuarios", emoji: "👥" },
+  { icon: Shield, label: "Roles y Privilegios", path: "/roles", permission: "gestionar_roles", emoji: "🛡️" },
+  { icon: Key, label: "Permisos del Sistema", path: "/permisos", permission: "ver_permisos", emoji: "🔑" },
 ];
 
 export const Sidebar = memo(function Sidebar() {
@@ -44,7 +45,11 @@ export const Sidebar = memo(function Sidebar() {
   const navigate = useNavigate();
   const { hasPermission, user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+
+  const filteredConfigItems = useMemo(() => configItems.filter((item) => {
+    if (!item.permission) return true;
+    return hasPermission(item.permission);
+  }), [hasPermission]);
 
   const filteredAdminItems = useMemo(() => adminItems.filter((item) => {
     if (!item.permission) return true;
@@ -85,7 +90,7 @@ export const Sidebar = memo(function Sidebar() {
                 E
               </div>
               <div className="overflow-hidden text-left">
-                <p className="text-xs font-semibold text-muted-foreground/80 leading-none">Workspace</p>
+                <p className="text-xs font-semibold text-muted-foreground/80 leading-none">Espacio de Trabajo</p>
                 <p className="text-sm font-bold truncate text-foreground leading-tight mt-0.5">Event Premium</p>
               </div>
             </div>
@@ -145,10 +150,10 @@ export const Sidebar = memo(function Sidebar() {
             })}
           </div>
 
-          {/* Convocatorias Section */}
+          {/* Partidos Section */}
           <div className="space-y-0.5">
             <p className="px-2.5 py-1 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-              Eventos
+              Encuentros
             </p>
             {convocatoriaItems.map((item) => {
               const isActive = location.pathname.startsWith(item.path);
@@ -173,11 +178,41 @@ export const Sidebar = memo(function Sidebar() {
             })}
           </div>
 
-          {/* Administration Section */}
+          {/* Configuración de Evento (Organizador) */}
+          {filteredConfigItems.length > 0 && (
+            <div className="space-y-0.5">
+              <p className="px-2.5 py-1 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
+                Configuración de Eventos
+              </p>
+              {filteredConfigItems.map((item) => {
+                const isActive = location.pathname.startsWith(item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors",
+                      isActive
+                        ? "bg-[#efebee] dark:bg-[#2c2c2c] text-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-[#efebee]/60 dark:hover:bg-[#2c2c2c]/60 hover:text-foreground"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-sm leading-none shrink-0">{item.emoji}</span>
+                      <span>{item.label}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Administración de Sistema (Administrador) */}
           {filteredAdminItems.length > 0 && (
             <div className="space-y-0.5">
               <p className="px-2.5 py-1 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-                Administración
+                Administración General
               </p>
               {filteredAdminItems.map((item) => {
                 const isActive = location.pathname.startsWith(item.path);
