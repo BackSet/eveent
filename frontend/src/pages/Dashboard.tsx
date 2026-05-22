@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/services/api";
 import { formatDateTime } from "@/lib/formatDate";
@@ -21,7 +22,14 @@ import {
   XCircle,
   Plus,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Settings,
+  Briefcase,
+  Layers,
+  Map,
+  Hash,
+  TableProperties,
+  KanbanSquare
 } from "lucide-react";
 import type { Convocatoria, Asistencia, Deporte, UsuarioPosicionDto } from "@/types";
 
@@ -40,6 +48,7 @@ export default function Dashboard() {
   const [loadingDetails, setLoadingDetails] = useState<Record<number, boolean>>({});
   const [rsvpSubmitting, setRsvpSubmitting] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
+  const [dbView, setDbView] = useState<"TABLE" | "BOARD">("TABLE");
 
   const isOrganizer = hasPermission("crear_convocatoria");
 
@@ -49,6 +58,17 @@ export default function Dashboard() {
     if (hour < 12) return "¡Buenos días!";
     if (hour < 18) return "¡Buenas tardes!";
     return "¡Buenas noches!";
+  };
+
+  // Helper to determine sport emojis in true Notion style
+  const getSportEmoji = (deporteNombre: string) => {
+    const name = deporteNombre.toLowerCase();
+    if (name.includes("futbol") || name.includes("fútbol") || name.includes("soccer")) return "⚽";
+    if (name.includes("basquet") || name.includes("básquet") || name.includes("basketball") || name.includes("baloncesto")) return "🏀";
+    if (name.includes("tenis") || name.includes("tennis")) return "🎾";
+    if (name.includes("voley") || name.includes("voleibol") || name.includes("volleyball")) return "🏐";
+    if (name.includes("running") || name.includes("correr")) return "🏃";
+    return "🏆";
   };
 
   const fetchDashboardData = useCallback(async () => {
@@ -120,7 +140,6 @@ export default function Dashboard() {
       const miAsis = currentAsistencias.find(a => a.usuarioId === user?.id);
 
       if (miAsis) {
-        // If state is already the same, do nothing or delete RSVP (for toggling, let's keep it simple: update it)
         await api.put(`/api/asistencias/${miAsis.id}`, { estado: targetEstado });
       } else {
         await api.post(`/api/convocatorias/${convocatoriaId}/asistencias`, {
@@ -153,7 +172,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Spinner className="h-10 w-10 text-primary animate-spin" />
+        <Spinner className="h-8 w-8 text-muted-foreground animate-spin" />
         <p className="text-sm text-muted-foreground animate-pulse">Cargando tu área deportiva...</p>
       </div>
     );
@@ -161,355 +180,465 @@ export default function Dashboard() {
 
   const openConvocatorias = convocatorias.filter(c => c.estado === "ABIERTA");
   const answeredMisAsistencias = asistencias.filter(a => a.estado === "ASISTIRE");
+  const activeConvs = convocatorias.filter(c => c.estado === "ABIERTA" || c.estado === "EN_PROGRESO");
 
   return (
-    <div className="space-y-8 animate-fadeIn pb-12">
-      {/* Premium Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary via-purple-600 to-indigo-700 p-6 md:p-8 text-white shadow-xl glow-primary">
-        <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl animate-pulse-slow" />
-        <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-purple-500/20 rounded-full blur-2xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+    <div className="notion-animate-fade relative">
+      {/* Notion Cover Image Banner */}
+      <div className="notion-cover notion-cover-sports relative">
+        <div className="notion-page-icon-overlay">🏆</div>
+      </div>
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold uppercase tracking-wider text-purple-100">
-              <Sparkles size={12} className="text-yellow-300" />
-              <span>Centro de Control</span>
+      {/* Main Page Workspace Content */}
+      <div className="px-6 md:px-12 pt-14 pb-16 space-y-10">
+        
+        {/* Workspace Title & Header Block */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest leading-none">Mi Espacio Personal</p>
+              <h1 className="text-3.5xl font-extrabold tracking-tight text-foreground">{getGreeting()}, {user?.nombre}</h1>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-              {getGreeting()}, {user?.nombre}
-            </h1>
-            <p className="text-white/80 text-sm max-w-xl font-medium leading-relaxed">
-              Tu portal deportivo premium. Confirma asistencia, visualiza las alineaciones balanceadas automáticamente y gestiona tus deportes favoritos.
-            </p>
-          </div>
 
-          <div className="flex gap-2 self-start md:self-center">
-            {isOrganizer && (
-              <Link to="/convocatorias/new">
-                <Button className="bg-white text-primary hover:bg-white/90 rounded-xl font-semibold gap-1.5 shadow-lg border-0 transition-premium hover:scale-[1.02]">
-                  <Plus size={16} />
-                  Crear Partido
+            <div className="flex items-center gap-2">
+              {isOrganizer && (
+                <Link to="/convocatorias/new">
+                  <Button variant="outline" className="border-border hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] h-8.5 rounded-md text-[13px] font-bold">
+                    <Plus size={14} className="mr-1" />
+                    Crear Convocatoria
+                  </Button>
+                </Link>
+              )}
+              <Link to="/perfil">
+                <Button variant="ghost" className="hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] h-8.5 rounded-md text-[13px] font-semibold text-muted-foreground hover:text-foreground">
+                  Configurar Ficha
                 </Button>
               </Link>
-            )}
-            <Link to="/perfil">
-              <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 rounded-xl font-semibold transition-premium">
-                Ajustar Perfil
-              </Button>
-            </Link>
+            </div>
+          </div>
+
+          {/* Notion Callout Banner */}
+          <div className="notion-callout bg-secondary/35">
+            <span className="notion-callout-icon">💡</span>
+            <div>
+              <p className="font-semibold text-foreground">Acceso Directo al Centro Deportivo</p>
+              <p className="text-muted-foreground mt-0.5 leading-relaxed text-[13.5px]">
+                Este es tu panel deportivo Notion-style. Aquí puedes visualizar estadísticas clave en tiempo real, confirmar tu asistencia con un solo clic utilizando la base de datos inteligente de partidos, y ver la alineación balanceada automáticamente según tu posición.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Metrics Row */}
-      <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-border/50 shadow-md hover:shadow-lg transition-premium relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convocatorias Abiertas</p>
-              <h3 className="text-3xl font-black tracking-tight text-foreground">{openConvocatorias.length}</h3>
-              <p className="text-[11px] text-muted-foreground font-medium">Partidos disponibles para registrarse</p>
+        {/* Flat Stat Properties Panel */}
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 border-t border-b border-[#ededeb] dark:border-[#2e2e2e] py-4 text-sm font-medium">
+          <div className="flex items-center gap-3 px-2">
+            <div className="h-8 w-8 rounded bg-[#e3f2fd] dark:bg-[#0d47a1]/25 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+              <Calendar size={16} />
             </div>
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-premium">
-              <Calendar className="h-6 w-6" />
+            <div>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold leading-none">Abiertas</p>
+              <p className="text-base font-extrabold mt-0.5 text-foreground">{openConvocatorias.length} convocatorias</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50 shadow-md hover:shadow-lg transition-premium relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Partidos Confirmados</p>
-              <h3 className="text-3xl font-black tracking-tight text-foreground">{answeredMisAsistencias.length}</h3>
-              <p className="text-[11px] text-muted-foreground font-medium">Eventos donde has dicho "Asistiré"</p>
-            </div>
-            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-premium">
-              <Users className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50 shadow-md hover:shadow-lg transition-premium relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Deportes Activos</p>
-              <h3 className="text-3xl font-black tracking-tight text-foreground">{deportes.length}</h3>
-              <p className="text-[11px] text-muted-foreground font-medium">Modalidades configuradas en el sistema</p>
-            </div>
-            <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-premium">
-              <Trophy className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Grid Layout */}
-      <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
-        {/* Left Column: Upcoming Convocatorias (2/3 width) */}
-        <div className="lg:col-span-2 space-y-5">
-          <div className="flex items-center justify-between border-b pb-3">
-            <div className="space-y-0.5">
-              <h2 className="text-xl font-bold tracking-tight text-foreground">Próximas Convocatorias</h2>
-              <p className="text-xs text-muted-foreground font-medium">Regístrate y asegura tu cupo en los próximos eventos</p>
-            </div>
-            <Link to="/convocatorias" className="inline-flex items-center text-xs font-bold text-primary hover:underline gap-0.5 transition-premium group">
-              Ver todas <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-            </Link>
           </div>
 
-          {error && (
-            <div className="p-4 rounded-xl border border-destructive/15 bg-destructive/5 text-destructive text-sm font-medium flex items-center gap-2">
-              <AlertCircle size={16} />
-              {error}
+          <div className="flex items-center gap-3 px-2 border-t sm:border-t-0 sm:border-l border-[#ededeb] dark:border-[#2e2e2e] pt-3 sm:pt-0 sm:pl-4">
+            <div className="h-8 w-8 rounded bg-[#e8f5e9] dark:bg-[#1b5e20]/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+              <Users size={16} />
             </div>
-          )}
+            <div>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold leading-none">Confirmado</p>
+              <p className="text-base font-extrabold mt-0.5 text-foreground">{answeredMisAsistencias.length} partidos</p>
+            </div>
+          </div>
 
-          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2">
-            {convocatorias.filter(c => c.estado === "ABIERTA" || c.estado === "EN_PROGRESO").slice(0, 4).map((conv) => {
-              const rsvp = getUserRsvpStatus(conv.id);
-              const list = convocatoriaAsistencias[conv.id] || [];
-              const confirmedCount = list.filter(a => a.estado === "ASISTIRE").length;
-              const maxCupo = conv.cupoMaximo || 0;
-              const percent = maxCupo > 0 ? Math.min(100, Math.round((confirmedCount / maxCupo) * 100)) : 0;
-              const detailsLoading = loadingDetails[conv.id];
+          <div className="flex items-center gap-3 px-2 border-t sm:border-t-0 sm:border-l border-[#ededeb] dark:border-[#2e2e2e] pt-3 sm:pt-0 sm:pl-4">
+            <div className="h-8 w-8 rounded bg-[#fff8e1] dark:bg-[#f57f17]/20 flex items-center justify-center text-amber-600 dark:text-amber-500 shrink-0">
+              <Trophy size={16} />
+            </div>
+            <div>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold leading-none">Disciplinas</p>
+              <p className="text-base font-extrabold mt-0.5 text-foreground">{deportes.length} deportes activos</p>
+            </div>
+          </div>
+        </div>
 
-              return (
-                <Card 
-                  key={conv.id}
-                  className="hover:border-primary/40 hover:shadow-xl transition-all duration-300 relative overflow-hidden group flex flex-col justify-between border-border/60"
+        {/* Split Grid Layout */}
+        <div className="grid gap-8 grid-cols-1 lg:grid-cols-3 items-start">
+          
+          {/* LEFT: Convocatorias Notion Database (2/3 width) */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-foreground tracking-tight">Base de Datos de Convocatorias</h2>
+              
+              {/* Notion-style database tabs */}
+              <div className="notion-db-header mb-0 pb-0 border-0">
+                <div 
+                  onClick={() => setDbView("TABLE")}
+                  className={cn("notion-db-header-item text-xs", dbView === "TABLE" && "active")}
                 >
-                  <div className="p-5 space-y-4">
-                    {/* Card Header Info */}
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{conv.deporteNombre}</span>
-                        <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1 leading-snug">
-                          {conv.titulo}
-                        </h4>
-                      </div>
-                      <Badge variant={ESTADO_COLORS[conv.estado] || "default"} className="text-[8px] px-1.5 py-0 uppercase font-black shrink-0">
-                        {conv.estado}
-                      </Badge>
-                    </div>
-
-                    {/* Metadata */}
-                    <div className="space-y-1.5 text-xs text-muted-foreground border-t border-b py-3 border-border/40">
-                      <div className="flex items-center gap-1.5 font-medium">
-                        <Calendar size={12} className="text-primary shrink-0" />
-                        <span>{formatDateTime(conv.fechaHora ?? null)}</span>
-                      </div>
-                      {conv.lugar && (
-                        <div className="flex items-center gap-1.5 font-medium">
-                          <MapPin size={12} className="text-primary shrink-0" />
-                          <span className="truncate">{conv.lugar}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Slots/Aforo Progress Bar */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-[10px] font-bold">
-                        <span className="text-muted-foreground">Aforo Confirmado:</span>
-                        {detailsLoading ? (
-                          <Spinner className="h-3 w-3 text-muted-foreground animate-spin" />
-                        ) : (
-                          <span className={percent >= 90 ? "text-amber-600 font-extrabold" : "text-primary"}>
-                            {confirmedCount} / {maxCupo > 0 ? maxCupo : "∞"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            percent >= 90 ? "bg-amber-500" : "bg-gradient-to-r from-primary to-indigo-500"
-                          }`}
-                          style={{ width: `${maxCupo > 0 ? percent : 20}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Interactive Quick RSVP Actions or Status */}
-                  <div className="bg-muted/30 border-t border-border/40 px-5 py-3.5 flex items-center justify-between gap-2 flex-wrap">
-                    {conv.estado === "ABIERTA" ? (
-                      <>
-                        <span className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider shrink-0">Tu respuesta:</span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleQuickRsvp(conv.id, "ASISTIRE")}
-                            disabled={rsvpSubmitting[`${conv.id}-ASISTIRE`] || rsvpSubmitting[`${conv.id}-NO_ASISTIRE`]}
-                            className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-premium gap-1 ${
-                              rsvp === "ASISTIRE"
-                                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20"
-                                : "text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/5"
-                            }`}
-                          >
-                            {rsvpSubmitting[`${conv.id}-ASISTIRE`] ? (
-                              <Spinner className="h-3 w-3 text-emerald-600 animate-spin" />
-                            ) : (
-                              <CheckCircle size={12} className={rsvp === "ASISTIRE" ? "scale-110" : ""} />
-                            )}
-                            Asistiré
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleQuickRsvp(conv.id, "NO_ASISTIRE")}
-                            disabled={rsvpSubmitting[`${conv.id}-ASISTIRE`] || rsvpSubmitting[`${conv.id}-NO_ASISTIRE`]}
-                            className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-premium gap-1 ${
-                              rsvp === "NO_ASISTIRE"
-                                ? "bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20"
-                                : "text-muted-foreground hover:text-destructive hover:bg-destructive/5"
-                            }`}
-                          >
-                            {rsvpSubmitting[`${conv.id}-NO_ASISTIRE`] ? (
-                              <Spinner className="h-3 w-3 text-destructive animate-spin" />
-                            ) : (
-                              <XCircle size={12} className={rsvp === "NO_ASISTIRE" ? "scale-110" : ""} />
-                            )}
-                            No asistiré
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <button 
-                        onClick={() => navigate(`/convocatorias/${conv.id}`)}
-                        className="w-full flex items-center justify-between text-xs font-bold text-primary group-hover:underline"
-                      >
-                        <span>Ver desarrollo de equipos</span>
-                        <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
-                      </button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-
-            {convocatorias.filter(c => c.estado === "ABIERTA" || c.estado === "EN_PROGRESO").length === 0 && (
-              <div className="col-span-full py-16 text-center border border-dashed rounded-2xl border-border/80 bg-muted/10">
-                <Calendar size={32} className="mx-auto text-muted-foreground mb-3 animate-pulse" />
-                <h4 className="text-sm font-bold text-foreground">No hay convocatorias activas</h4>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1 leading-relaxed">
-                  Actualmente no existen partidos abiertos para inscripción. Vuelve más tarde o crea uno nuevo si eres organizador.
-                </p>
-                {isOrganizer && (
-                  <Link to="/convocatorias/new" className="inline-block mt-4">
-                    <Button size="sm" className="font-semibold text-xs rounded-xl">Crear Convocatoria</Button>
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Player Profile Sidebar (1/3 width) */}
-        <div className="space-y-6">
-          <div className="border-b pb-3">
-            <h2 className="text-xl font-bold tracking-tight text-foreground">Mi Perfil Deportivo</h2>
-            <p className="text-xs text-muted-foreground font-medium">Tu ficha e información de juego</p>
-          </div>
-
-          <Card className="border-border/50 shadow-md relative overflow-hidden bg-card">
-            {/* Visual Shirt Card Banner */}
-            <div className="bg-gradient-to-br from-primary/10 to-indigo-600/5 p-6 flex flex-col items-center border-b relative">
-              <div className="absolute top-3 right-3 text-primary/10">
-                <Shirt size={100} strokeWidth={1} />
-              </div>
-
-              {/* Graphic Shirt Representer */}
-              <div className="relative h-28 w-28 bg-gradient-to-tr from-primary to-indigo-600 rounded-full flex flex-col items-center justify-center text-white shadow-xl glow-primary z-10 select-none group border-4 border-background">
-                <Shirt className="absolute h-14 w-14 text-white/10" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Dorsal</span>
-                <span className="text-4xl font-black tracking-tighter leading-none mt-1">
-                  {user?.numeroCamiseta ?? "—"}
-                </span>
-              </div>
-
-              <h4 className="text-base font-bold text-foreground mt-4">{user?.nombre}</h4>
-              <p className="text-xs text-muted-foreground font-medium">{user?.email}</p>
-            </div>
-
-            <CardContent className="p-5 space-y-5">
-              {/* Preferred Positions */}
-              <div className="space-y-2">
-                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Trophy size={13} className="text-primary shrink-0" />
-                  <span>Posiciones Preferidas</span>
-                </h5>
-
-                {posicionesPreferidas.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {posicionesPreferidas.sort((a, b) => a.prioridad - b.prioridad).map((pos) => (
-                      <Badge 
-                        key={`${pos.deporteId}-${pos.posicionId}`} 
-                        variant="outline" 
-                        className="text-[10px] font-semibold bg-background uppercase border-border/80 px-2 py-0.5 flex items-center gap-1"
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                        <span>{pos.posicionNombre}</span>
-                        <span className="text-[8px] text-muted-foreground ml-0.5">({pos.deporteNombre})</span>
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-muted/30 border rounded-xl text-center">
-                    <p className="text-xs text-muted-foreground font-medium">No has definido tus posiciones de juego</p>
-                    <Link to="/perfil" className="text-[10px] text-primary hover:underline font-bold mt-1 inline-block">
-                      Configurar ahora
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              {/* Roles Badge List */}
-              <div className="space-y-2 border-t pt-4">
-                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Roles de Sistema</h5>
-                <div className="flex flex-wrap gap-1">
-                  {(user?.roles || []).map((role) => (
-                    <Badge key={role} variant="secondary" className="text-[9px] px-2 py-0 uppercase font-bold bg-muted/60">
-                      {role}
-                    </Badge>
-                  ))}
+                  <TableProperties size={13} />
+                  <span>Vista Tabla</span>
+                </div>
+                <div 
+                  onClick={() => setDbView("BOARD")}
+                  className={cn("notion-db-header-item text-xs", dbView === "BOARD" && "active")}
+                >
+                  <KanbanSquare size={13} />
+                  <span>Vista Tablero</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Quick Shortcuts */}
-          <Card className="border-border/50 shadow-md">
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-xs font-black uppercase text-muted-foreground tracking-wider">Atajos Rápidos</CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 divide-y divide-border/40">
-              <Link 
-                to="/mis-asistencias" 
-                className="flex items-center justify-between p-3 text-xs font-bold text-foreground hover:bg-muted/40 hover:text-primary transition-premium rounded-lg group"
-              >
-                <span className="flex items-center gap-2">
-                  <Users size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                  <span>Historial de Respuestas</span>
-                </span>
-                <ChevronRight size={14} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-              </Link>
+            {error && (
+              <div className="p-3.5 rounded bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold flex items-center gap-2">
+                <AlertCircle size={14} />
+                {error}
+              </div>
+            )}
 
-              <Link 
-                to="/perfil" 
-                className="flex items-center justify-between p-3 text-xs font-bold text-foreground hover:bg-muted/40 hover:text-primary transition-premium rounded-lg group"
-              >
-                <span className="flex items-center gap-2">
-                  <Shirt size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                  <span>Mi Configuración de Juego</span>
-                </span>
-                <ChevronRight size={14} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-              </Link>
-            </CardContent>
-          </Card>
+            {/* TABULAR VIEW (Default Notion Database style) */}
+            {dbView === "TABLE" ? (
+              <div className="border border-[#ededeb] dark:border-[#2e2e2e] rounded-lg overflow-hidden bg-card text-[13px]">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-secondary/40 border-b border-[#ededeb] dark:border-[#2e2e2e] text-muted-foreground font-semibold">
+                        <th className="p-3 pl-4 font-semibold w-[40%]">Nombre</th>
+                        <th className="p-3 font-semibold w-[15%]">Deporte</th>
+                        <th className="p-3 font-semibold w-[20%]">Fecha y Hora</th>
+                        <th className="p-3 font-semibold w-[15%]">Aforo</th>
+                        <th className="p-3 pr-4 font-semibold w-[10%] text-right">Confirmar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#ededeb] dark:divide-[#2e2e2e]">
+                      {activeConvs.slice(0, 8).map((conv) => {
+                        const rsvp = getUserRsvpStatus(conv.id);
+                        const list = convocatoriaAsistencias[conv.id] || [];
+                        const confirmedCount = list.filter(a => a.estado === "ASISTIRE").length;
+                        const maxCupo = conv.cupoMaximo || 0;
+                        const percent = maxCupo > 0 ? Math.min(100, Math.round((confirmedCount / maxCupo) * 100)) : 0;
+                        const isFull = maxCupo > 0 && confirmedCount >= maxCupo;
+
+                        return (
+                          <tr 
+                            key={conv.id} 
+                            onClick={() => navigate(`/convocatorias/${conv.id}`)}
+                            className="hover:bg-[#f7f7f5]/50 dark:hover:bg-[#1e1e1e]/50 cursor-pointer transition-colors group"
+                          >
+                            {/* Title with Emoji */}
+                            <td className="p-3 pl-4 font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-2">
+                              <span className="text-base shrink-0">{getSportEmoji(conv.deporteNombre || "")}</span>
+                              <span className="truncate">{conv.titulo}</span>
+                              {conv.estado === "EN_PROGRESO" && (
+                                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[9px] uppercase font-black px-1.5 py-0">En Juego</Badge>
+                              )}
+                            </td>
+
+                            {/* Sport name */}
+                            <td className="p-3 text-muted-foreground font-medium">
+                              {conv.deporteNombre}
+                            </td>
+
+                            {/* Date */}
+                            <td className="p-3 font-medium text-muted-foreground">
+                              {formatDateTime(conv.fechaHora ?? null)}
+                            </td>
+
+                            {/* Capacity */}
+                            <td className="p-3 font-bold text-foreground">
+                              <span className={isFull ? "text-amber-600 font-extrabold" : ""}>
+                                {confirmedCount} / {maxCupo > 0 ? maxCupo : "∞"}
+                              </span>
+                            </td>
+
+                            {/* Fast RSVP Triggers */}
+                            <td className="p-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              {conv.estado === "ABIERTA" ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleQuickRsvp(conv.id, "ASISTIRE")}
+                                    disabled={rsvpSubmitting[`${conv.id}-ASISTIRE`] || rsvpSubmitting[`${conv.id}-NO_ASISTIRE`]}
+                                    className={cn(
+                                      "h-7 w-7 rounded-md",
+                                      rsvp === "ASISTIRE"
+                                        ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                        : "text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/5"
+                                    )}
+                                    title="Asistiré"
+                                  >
+                                    {rsvpSubmitting[`${conv.id}-ASISTIRE`] ? (
+                                      <Spinner className="h-3 w-3 text-emerald-600 animate-spin" />
+                                    ) : (
+                                      <CheckCircle size={14} />
+                                    )}
+                                  </Button>
+
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleQuickRsvp(conv.id, "NO_ASISTIRE")}
+                                    disabled={rsvpSubmitting[`${conv.id}-ASISTIRE`] || rsvpSubmitting[`${conv.id}-NO_ASISTIRE`]}
+                                    className={cn(
+                                      "h-7 w-7 rounded-md",
+                                      rsvp === "NO_ASISTIRE"
+                                        ? "bg-destructive/10 text-destructive border border-destructive/20"
+                                        : "text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+                                    )}
+                                    title="No asistiré"
+                                  >
+                                    {rsvpSubmitting[`${conv.id}-NO_ASISTIRE`] ? (
+                                      <Spinner className="h-3 w-3 text-destructive animate-spin" />
+                                    ) : (
+                                      <XCircle size={14} />
+                                    )}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase text-muted-foreground/80 tracking-wider">Cerrado</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {activeConvs.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-muted-foreground font-medium">
+                            No existen convocatorias activas actualmente.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              /* KANBAN BOARD VIEW (Notion database board layout) */
+              <div className="notion-board text-[13px]">
+                {/* Column ABIERTA */}
+                <div className="notion-board-column">
+                  <div className="notion-board-column-header">
+                    <span className="flex items-center gap-1.5 font-bold text-foreground">
+                      <span className="h-2 w-2 rounded-full bg-blue-500" />
+                      Inscripciones Abiertas
+                    </span>
+                    <span className="text-[11px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
+                      {activeConvs.filter(c => c.estado === "ABIERTA").length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 mt-2">
+                    {activeConvs.filter(c => c.estado === "ABIERTA").map(conv => {
+                      const list = convocatoriaAsistencias[conv.id] || [];
+                      const count = list.filter(a => a.estado === "ASISTIRE").length;
+                      return (
+                        <div 
+                          key={conv.id} 
+                          onClick={() => navigate(`/convocatorias/${conv.id}`)}
+                          className="notion-board-card"
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-base">{getSportEmoji(conv.deporteNombre || "")}</span>
+                            <h4 className="font-bold text-foreground leading-snug line-clamp-1">{conv.titulo}</h4>
+                          </div>
+                          <div className="space-y-1 text-xs text-muted-foreground font-medium pt-1.5 border-t border-border/40">
+                            <div className="flex items-center gap-1">
+                              <Clock size={11} />
+                              <span>{formatDateTime(conv.fechaHora ?? null)}</span>
+                            </div>
+                            {conv.lugar && (
+                              <div className="flex items-center gap-1">
+                                <MapPin size={11} />
+                                <span className="truncate">{conv.lugar}</span>
+                              </div>
+                            )}
+                            <div className="pt-1 flex items-center justify-between text-[11px] font-bold text-foreground">
+                              <span>Aforo:</span>
+                              <span>{count} / {conv.cupoMaximo || "∞"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {activeConvs.filter(c => c.estado === "ABIERTA").length === 0 && (
+                      <p className="text-center text-xs text-muted-foreground/60 py-8 font-medium">Ninguno en esta columna</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Column EN JUEGO / FINALIZADO */}
+                <div className="notion-board-column">
+                  <div className="notion-board-column-header">
+                    <span className="flex items-center gap-1.5 font-bold text-foreground">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Partidos En Juego
+                    </span>
+                    <span className="text-[11px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
+                      {activeConvs.filter(c => c.estado === "EN_PROGRESO").length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 mt-2">
+                    {activeConvs.filter(c => c.estado === "EN_PROGRESO").map(conv => (
+                      <div 
+                        key={conv.id} 
+                        onClick={() => navigate(`/convocatorias/${conv.id}`)}
+                        className="notion-board-card"
+                      >
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-base">{getSportEmoji(conv.deporteNombre || "")}</span>
+                          <h4 className="font-bold text-foreground leading-snug line-clamp-1">{conv.titulo}</h4>
+                        </div>
+                        <div className="space-y-1 text-xs text-muted-foreground font-medium pt-1.5 border-t border-border/40">
+                          <div className="flex items-center gap-1">
+                            <Clock size={11} />
+                            <span>{formatDateTime(conv.fechaHora ?? null)}</span>
+                          </div>
+                          {conv.lugar && (
+                            <div className="flex items-center gap-1">
+                              <MapPin size={11} />
+                              <span className="truncate">{conv.lugar}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {activeConvs.filter(c => c.estado === "EN_PROGRESO").length === 0 && (
+                      <p className="text-center text-xs text-muted-foreground/60 py-8 font-medium">Ninguno en esta columna</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: Notion Player Ficha & Properties (1/3 width) */}
+          <div className="space-y-6">
+            <h2 className="text-lg font-bold text-foreground tracking-tight border-b pb-2 border-[#ededeb] dark:border-[#2e2e2e]">Ficha de Jugador</h2>
+            
+            <Card className="border border-[#ededeb] dark:border-[#2e2e2e] bg-card/60 backdrop-blur-md rounded-lg shadow-none">
+              <div className="p-5 space-y-6">
+                
+                {/* Username Header */}
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded bg-primary flex items-center justify-center font-bold text-sm text-primary-foreground">
+                    {user?.nombre?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-foreground text-sm leading-tight">{user?.nombre}</h4>
+                    <p className="text-xs text-muted-foreground font-medium">{user?.email}</p>
+                  </div>
+                </div>
+
+                {/* Notion Property grid */}
+                <div className="notion-property-grid border-t pt-4 border-dashed border-[#ededeb] dark:border-[#2e2e2e]">
+                  
+                  {/* Jersey Property */}
+                  <span className="notion-property-label">
+                    <Hash size={13} />
+                    <span>Dorsal</span>
+                  </span>
+                  <span className="notion-property-value">
+                    {user?.numeroCamiseta !== undefined && user?.numeroCamiseta !== null ? (
+                      <Badge variant="outline" className="font-extrabold text-xs px-2 py-0">
+                        N° {user?.numeroCamiseta}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground/50">— Sin dorsal —</span>
+                    )}
+                  </span>
+
+                  {/* Roles Property */}
+                  <span className="notion-property-label">
+                    <Layers size={13} />
+                    <span>Suscripciones</span>
+                  </span>
+                  <span className="notion-property-value">
+                    <div className="flex flex-wrap gap-1">
+                      {(user?.roles || []).map((role) => (
+                        <Badge key={role} className="bg-secondary text-foreground text-[10px] font-bold px-1.5 py-0">
+                          {role}
+                        </Badge>
+                      ))}
+                    </div>
+                  </span>
+
+                  {/* Registered Property */}
+                  <span className="notion-property-label">
+                    <Briefcase size={13} />
+                    <span>Estado Ficha</span>
+                  </span>
+                  <span className="notion-property-value text-emerald-600 dark:text-emerald-400 font-bold">
+                    ✓ Activo
+                  </span>
+                </div>
+
+                {/* Preferred Positions */}
+                <div className="space-y-2 border-t pt-4 border-dashed border-[#ededeb] dark:border-[#2e2e2e]">
+                  <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                    <Trophy size={11} className="text-primary" />
+                    <span>Posiciones de Juego Preferidas</span>
+                  </h5>
+
+                  {posicionesPreferidas.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 pt-1.5">
+                      {posicionesPreferidas.sort((a, b) => a.prioridad - b.prioridad).map((pos) => (
+                        <Badge 
+                          key={`${pos.deporteId}-${pos.posicionId}`} 
+                          variant="outline" 
+                          className="text-[10px] font-semibold bg-background uppercase border-border/80 px-1.5 py-0.5 flex items-center gap-1"
+                        >
+                          <span className="h-1 w-1 rounded-full bg-primary" />
+                          <span>{pos.posicionNombre}</span>
+                          <span className="text-[8px] text-muted-foreground ml-0.5">({pos.deporteNombre})</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3.5 bg-secondary/30 rounded border text-center text-xs">
+                      <p className="text-muted-foreground font-medium">No has definido tus posiciones de juego</p>
+                      <Link to="/perfil" className="text-[10px] text-primary hover:underline font-bold mt-1 inline-block">
+                        Configurar ahora
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {/* Quick shortcuts in Notion styled Callout block */}
+            <div className="border border-[#ededeb] dark:border-[#2e2e2e] bg-[#f7f7f5]/40 rounded-lg p-4 space-y-3">
+              <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Navegación del Workspace</h5>
+              <div className="space-y-1 text-xs">
+                <Link 
+                  to="/mis-asistencias" 
+                  className="flex items-center justify-between p-2 hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] transition-colors rounded-md text-foreground group"
+                >
+                  <span className="flex items-center gap-2">
+                    <Users size={12} className="text-muted-foreground" />
+                    <span className="font-semibold">Historial de Respuestas</span>
+                  </span>
+                  <ChevronRight size={12} className="text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+
+                <Link 
+                  to="/perfil" 
+                  className="flex items-center justify-between p-2 hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] transition-colors rounded-md text-foreground group"
+                >
+                  <span className="flex items-center gap-2">
+                    <Shirt size={12} className="text-muted-foreground" />
+                    <span className="font-semibold">Ajustes Deportivos</span>
+                  </span>
+                  <ChevronRight size={12} className="text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

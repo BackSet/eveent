@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Calendar, MapPin, Users, Clock, Tag, ArrowRight, Repeat, Play, Trash2, Edit, CheckCircle, XCircle, KanbanSquare } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Clock, Tag, ArrowRight, Repeat, Play, Trash2, Edit, CheckCircle, XCircle, KanbanSquare, Search, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Convocatoria, ConfiguracionRecurrente } from "@/types";
 
@@ -20,6 +20,7 @@ export default function ConvocatoriasPage() {
   const [loading, setLoading] = useState(true);
   const [loadingRecurrentes, setLoadingRecurrentes] = useState(false);
   const [estadoFilter, setEstadoFilter] = useState("TODOS");
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"PARTIDOS" | "PLANTILLAS">("PARTIDOS");
   const [schedulerMessage, setSchedulerMessage] = useState("");
   const [runningScheduler, setRunningScheduler] = useState(false);
@@ -27,6 +28,17 @@ export default function ConvocatoriasPage() {
   const navigate = useNavigate();
 
   const isOrganizer = hasPermission("crear_convocatoria");
+
+  const getSportEmoji = (deporteNombre?: string) => {
+    if (!deporteNombre) return "🏆";
+    const name = deporteNombre.toLowerCase();
+    if (name.includes("futbol") || name.includes("fútbol") || name.includes("soccer")) return "⚽";
+    if (name.includes("basquet") || name.includes("básquet") || name.includes("basketball") || name.includes("baloncesto")) return "🏀";
+    if (name.includes("tenis") || name.includes("tennis")) return "🎾";
+    if (name.includes("voley") || name.includes("voleibol") || name.includes("volleyball")) return "🏐";
+    if (name.includes("running") || name.includes("correr")) return "🏃";
+    return "🏆";
+  };
 
   const handleDeleteConvocatoria = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
@@ -112,184 +124,332 @@ export default function ConvocatoriasPage() {
     } catch (err) { console.error("Error", err); }
   };
 
+  // Filter convocatorias/recurrentes locally based on search query
+  const filteredConvocatorias = convocatorias.filter(conv =>
+    conv.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (conv.lugar || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (conv.deporteNombre || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredRecurrentes = recurrentes.filter(rec =>
+    rec.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (rec.lugar || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (rec.deporteNombre || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Convocatorias</h1>
-          <p className="text-muted-foreground text-sm">Organiza partidos y programa ciclos automáticos</p>
+    <div className="space-y-6 notion-animate-fade pb-12">
+      {/* Cover / Header section */}
+      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+        <div className="h-28 notion-cover notion-cover-sports" />
+        <div className="p-6 relative pt-10">
+          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
+            📅
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Convocatorias</h1>
+            <p className="text-muted-foreground text-xs mt-1">Base de datos de partidos programados y configuraciones recurrentes en el workspace.</p>
+          </div>
         </div>
-        
+      </div>
+
+      {schedulerMessage && (
+        <div className={`notion-callout ${
+          schedulerMessage.includes("Error") ? "border-destructive bg-destructive/5 text-destructive" : "border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+        }`}>
+          <div className="notion-callout-icon">
+            {schedulerMessage.includes("Error") ? <XCircle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+          </div>
+          <div className="text-sm font-medium">{schedulerMessage}</div>
+        </div>
+      )}
+
+      {/* Notion Database Toolbar & Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+        {/* Database tabs */}
+        <div className="flex notion-db-header border-none m-0 p-0">
+          <button
+            onClick={() => { setActiveTab("PARTIDOS"); setSearchQuery(""); }}
+            className={`notion-db-header-item px-3 py-1.5 text-xs font-semibold ${activeTab === "PARTIDOS" ? "active" : ""}`}
+          >
+            <Calendar size={13} className="opacity-70" />
+            <span>Todos los Partidos</span>
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded-full font-medium ml-1">
+              {convocatorias.length}
+            </span>
+          </button>
+          
+          {isOrganizer && (
+            <button
+              onClick={() => { setActiveTab("PLANTILLAS"); setSearchQuery(""); }}
+              className={`notion-db-header-item px-3 py-1.5 text-xs font-semibold ${activeTab === "PLANTILLAS" ? "active" : ""}`}
+            >
+              <Repeat size={13} className="opacity-70" />
+              <span>Reglas Recurrentes</span>
+              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded-full font-medium ml-1">
+                {recurrentes.length}
+              </span>
+            </button>
+          )}
+        </div>
+
+        {/* Database filters / search & actions */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Search box */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-3 py-1.5 h-9 w-[180px] sm:w-[220px] rounded-md border border-border bg-background text-xs font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
           {activeTab === "PARTIDOS" && (
             <Select value={estadoFilter} onValueChange={setEstadoFilter}>
-              <SelectTrigger className="w-[150px] text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[125px] h-9 text-xs font-medium border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ESTADOS.filter((est) => isOrganizer || est !== "BORRADOR").map((est) => (
-                  <SelectItem key={est} value={est}>{est === "TODOS" ? "Todos" : ESTADO_LABELS[est] ?? est}</SelectItem>
+                  <SelectItem key={est} value={est} className="text-xs">{est === "TODOS" ? "Todos" : ESTADO_LABELS[est] ?? est}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           )}
+          
           {isOrganizer && activeTab === "PLANTILLAS" && (
-            <Button onClick={handleForceScheduler} disabled={runningScheduler} variant="outline" className="gap-1.5 text-xs font-medium">
-              {runningScheduler ? <Spinner size="sm" /> : <Play size={13} />}
-              Ejecutar Planificador
+            <Button onClick={handleForceScheduler} disabled={runningScheduler} variant="outline" className="h-9 px-3 gap-1.5 text-xs font-medium border-border hover:bg-accent">
+              {runningScheduler ? <Spinner size="sm" /> : <Play size={12} />}
+              <span>Ejecutar Planificador</span>
             </Button>
           )}
+          
           {user && isOrganizer && (
             <Link to={activeTab === "PLANTILLAS" ? "/convocatorias/recurrentes/new" : "/convocatorias/new"}>
-              <Button className="gap-1.5 font-semibold text-sm">
-                <Plus size={15} />
-                {activeTab === "PLANTILLAS" ? "Nueva Plantilla" : "Nueva Convocatoria"}
+              <Button className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
+                <Plus size={14} />
+                <span>{activeTab === "PLANTILLAS" ? "Plantilla" : "Convocatoria"}</span>
               </Button>
             </Link>
           )}
         </div>
       </div>
 
-      {schedulerMessage && (
-        <div className={`p-3 rounded-lg border text-sm font-medium flex items-center gap-2 ${
-          schedulerMessage.includes("Error") ? "bg-destructive/5 border-destructive/15 text-destructive" : "bg-green-500/5 border-green-500/15 text-green-600"
-        }`}>
-          {schedulerMessage.includes("Error") ? <XCircle size={15} /> : <CheckCircle size={15} />}
-          {schedulerMessage}
-        </div>
-      )}
-
-      {isOrganizer && (
-        <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
-          <button onClick={() => setActiveTab("PARTIDOS")} className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === "PARTIDOS" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            <Calendar size={13} className="inline mr-1.5" />Partidos
-          </button>
-          <button onClick={() => setActiveTab("PLANTILLAS")} className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === "PLANTILLAS" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            <Repeat size={13} className="inline mr-1.5" />Recurrentes
-          </button>
-        </div>
-      )}
-
+      {/* Main Database Content Grid/List */}
       {activeTab === "PARTIDOS" ? (
         loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {convocatorias.map((conv) => (
-              <div key={conv.id} onClick={() => navigate(`/convocatorias/${conv.id}`)} className="cursor-pointer group">
-                <Card className="h-full flex flex-col justify-between hover:border-primary/30 transition-colors group">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
-                        {conv.deporteNombre}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {conv.configuracionRecurrenteId && (
-                          <Badge variant="outline" className="text-[8px] px-1 py-0 uppercase">
-                            <Repeat size={8} className="mr-0.5" />Rec.
-                          </Badge>
-                        )}
-                        <Badge variant={CONVOCATORIA_ESTADO_COLORS[conv.estado] || "default"} className="text-[9px] px-1.5 py-0 uppercase">
-                          {conv.estado}
-                        </Badge>
+          <div className="border border-border rounded-lg bg-card overflow-hidden">
+            {/* Database header row */}
+            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+              <div className="col-span-5 flex items-center gap-2">Título / Partido</div>
+              <div className="col-span-2">Deporte / Categoría</div>
+              <div className="col-span-3">Fecha y Lugar</div>
+              <div className="col-span-2 text-right">Estado / Acciones</div>
+            </div>
+
+            {/* Database Rows */}
+            <div className="divide-y divide-border/80">
+              {filteredConvocatorias.map((conv) => (
+                <div
+                  key={conv.id}
+                  onClick={() => navigate(`/convocatorias/${conv.id}`)}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 items-center px-4 py-3.5 hover:bg-muted/40 transition-colors cursor-pointer group"
+                >
+                  {/* Title & Emojis */}
+                  <div className="col-span-1 md:col-span-5 flex items-start gap-3">
+                    <span className="text-2xl shrink-0 select-none mt-0.5" role="img" aria-label="sport-emoji">
+                      {getSportEmoji(conv.deporteNombre)}
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className="text-sm font-semibold text-foreground group-hover:text-primary group-hover:underline decoration-1 underline-offset-2 transition-colors">
+                        {conv.titulo}
                       </div>
+                      {conv.descripcion && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">{conv.descripcion}</p>
+                      )}
                     </div>
-                    <CardTitle className="text-sm font-semibold group-hover:text-primary transition-colors line-clamp-1">
-                      {conv.titulo}
-                    </CardTitle>
-                    <div className="flex gap-2 items-center text-[10px] text-muted-foreground font-medium">
-                      {conv.categoria && <span className="flex items-center gap-0.5"><Tag size={10} />{conv.categoria}</span>}
-                      {conv.cupoMaximo != null && conv.cupoMaximo > 0 && <span className="flex items-center gap-0.5"><Users size={10} />{conv.cupoMaximo}</span>}
-                    </div>
-                  </CardHeader>
+                  </div>
 
-                  <CardContent className="space-y-2 pt-0">
-                    {conv.descripcion && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">{conv.descripcion}</p>
+                  {/* Sport & Category Tags */}
+                  <div className="col-span-1 md:col-span-2 flex flex-wrap gap-1.5">
+                    <span className="text-[10px] font-medium text-foreground bg-secondary px-2 py-0.5 rounded border border-border uppercase">
+                      {conv.deporteNombre}
+                    </span>
+                    {conv.categoria && (
+                      <span className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border">
+                        {conv.categoria}
+                      </span>
                     )}
-                    <div className="space-y-1 text-xs text-muted-foreground border-t pt-2">
-                      <div className="flex items-center gap-1.5"><Calendar size={12} />{formatDateTime(conv.fechaHora ?? null)}</div>
-                      {conv.lugar && <div className="flex items-center gap-1.5"><MapPin size={12} /><span className="truncate">{conv.lugar}</span></div>}
-                      {conv.fechaLimiteInscripcion && <div className="flex items-center gap-1.5 text-destructive"><Clock size={12} />Límite: {formatDateTime(conv.fechaLimiteInscripcion)}</div>}
-                    </div>
-                  </CardContent>
+                  </div>
 
-                  <div className="px-6 pb-3 pt-1 flex items-center justify-between border-t text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors">
-                    <span className="truncate">{conv.creadoPorNombre}</span>
-                    <div className="flex items-center gap-2">
+                  {/* Location & Date details */}
+                  <div className="col-span-1 md:col-span-3 space-y-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={12} className="opacity-70 shrink-0" />
+                      <span>{formatDateTime(conv.fechaHora ?? null)}</span>
+                    </div>
+                    {conv.lugar && (
+                      <div className="flex items-center gap-1.5">
+                        <MapPin size={12} className="opacity-70 shrink-0" />
+                        <span className="truncate max-w-[200px]">{conv.lugar}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Badges & Actions */}
+                  <div className="col-span-1 md:col-span-2 flex items-center justify-between md:justify-end gap-2 md:text-right">
+                    <div className="flex items-center gap-1.5">
+                      {conv.configuracionRecurrenteId && (
+                        <Badge variant="outline" className="text-[8px] bg-sky-50 dark:bg-sky-950/20 text-sky-600 border-sky-200 dark:border-sky-800/40 px-1 py-0 uppercase">
+                          <Repeat size={8} className="mr-0.5" />Rec.
+                        </Badge>
+                      )}
+                      <Badge variant={CONVOCATORIA_ESTADO_COLORS[conv.estado] || "default"} className="text-[9px] px-1.5 py-0.5 uppercase tracking-wide">
+                        {ESTADO_LABELS[conv.estado] || conv.estado}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-1">
                       {isOrganizer && conv.estado === "BORRADOR" && (
-                        <button onClick={(e) => handleAbrir(e, conv.id)} className="text-green-600 hover:underline" title="Abrir convocatoria">
-                          <CheckCircle size={12} />
+                        <button
+                          onClick={(e) => handleAbrir(e, conv.id)}
+                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-green-500/10 text-green-600 hover:text-green-700 transition-colors"
+                          title="Abrir convocatoria"
+                        >
+                          <CheckCircle size={13} />
                         </button>
                       )}
                       {isOrganizer && conv.estado !== "CANCELADA" && conv.estado !== "FINALIZADA" && (
-                        <button onClick={(e) => handleCancelar(e, conv.id)} className="text-destructive hover:underline" title="Cancelar convocatoria">
-                          <XCircle size={12} />
+                        <button
+                          onClick={(e) => handleCancelar(e, conv.id)}
+                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-colors"
+                          title="Cancelar convocatoria"
+                        >
+                          <XCircle size={13} />
                         </button>
                       )}
                       {isOrganizer && conv.estado === "BORRADOR" && (
-                        <button onClick={(e) => handleDeleteConvocatoria(e, conv.id)} className="text-destructive hover:underline" title="Eliminar">
-                          <Trash2 size={12} />
+                        <button
+                          onClick={(e) => handleDeleteConvocatoria(e, conv.id)}
+                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={13} />
                         </button>
                       )}
-                      <span className="inline-flex items-center gap-0.5">
-                        Ver <ArrowRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
-                      </span>
+                      <div className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground group-hover:text-primary transition-colors">
+                        <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                      </div>
                     </div>
                   </div>
-                </Card>
-              </div>
-            ))}
-            
-            {convocatorias.length === 0 && (
-              <div className="col-span-full text-center py-16 border border-dashed rounded-lg">
-                <KanbanSquare size={24} className="mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Sin convocatorias</p>
-              </div>
-            )}
+                </div>
+              ))}
+
+              {filteredConvocatorias.length === 0 && (
+                <div className="text-center py-16 select-none bg-muted/5">
+                  <KanbanSquare size={26} className="mx-auto text-muted-foreground/60 mb-2.5" />
+                  <p className="text-xs text-muted-foreground font-medium">Ninguna convocatoria coincide con la búsqueda</p>
+                </div>
+              )}
+            </div>
           </div>
         )
       ) : (
         loadingRecurrentes ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recurrentes.map((rec) => (
-              <Card key={rec.id} className="hover:border-primary/30 transition-colors">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">{rec.deporteNombre}</span>
-                    <Badge variant={rec.activo ? "success" : "secondary"} className="text-[9px] px-1.5 py-0 uppercase">
+          <div className="border border-border rounded-lg bg-card overflow-hidden">
+            {/* Database header row */}
+            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+              <div className="col-span-5 flex items-center gap-2">Regla Recurrente</div>
+              <div className="col-span-2">Deporte</div>
+              <div className="col-span-3">Frecuencia / Lugar</div>
+              <div className="col-span-2 text-right">Estado / Acciones</div>
+            </div>
+
+            {/* Database Rows */}
+            <div className="divide-y divide-border/80">
+              {filteredRecurrentes.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 items-center px-4 py-3.5 hover:bg-muted/40 transition-colors"
+                >
+                  {/* Title & Emojis */}
+                  <div className="col-span-1 md:col-span-5 flex items-start gap-3">
+                    <span className="text-2xl shrink-0 select-none mt-0.5" role="img" aria-label="sport-emoji">
+                      {getSportEmoji(rec.deporteNombre)}
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className="text-sm font-semibold text-foreground">
+                        {rec.titulo}
+                      </div>
+                      <div className="flex flex-wrap gap-1 text-[10px]">
+                        {rec.grupoDestinoNombre && (
+                          <span className="text-muted-foreground bg-muted/50 border border-border px-1.5 py-0.2 rounded font-semibold uppercase">
+                            {rec.grupoDestinoNombre}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sport Tag */}
+                  <div className="col-span-1 md:col-span-2">
+                    <span className="text-[10px] font-medium text-foreground bg-secondary px-2 py-0.5 rounded border border-border uppercase">
+                      {rec.deporteNombre}
+                    </span>
+                  </div>
+
+                  {/* Frequency & Location details */}
+                  <div className="col-span-1 md:col-span-3 space-y-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Repeat size={12} className="opacity-70 shrink-0" />
+                      <span className="font-semibold">{rec.rruleExpression}</span>
+                    </div>
+                    {rec.lugar && (
+                      <div className="flex items-center gap-1.5">
+                        <MapPin size={12} className="opacity-70 shrink-0" />
+                        <span className="truncate max-w-[200px]">{rec.lugar}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Badges & Actions */}
+                  <div className="col-span-1 md:col-span-2 flex items-center justify-between md:justify-end gap-2 md:text-right">
+                    <Badge variant={rec.activo ? "success" : "secondary"} className="text-[9px] px-1.5 py-0.5 uppercase tracking-wide font-bold">
                       {rec.activo ? "Activo" : "Pausado"}
                     </Badge>
+
+                    <div className="flex items-center gap-1.5">
+                      <Link to={`/convocatorias/recurrentes/${rec.id}/edit`}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-muted" title="Editar">
+                          <Edit size={13} className="text-muted-foreground hover:text-foreground" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteRecurrencia(rec.id)}
+                        className="h-7 w-7 rounded hover:bg-destructive/10 text-destructive"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
                   </div>
-                  <CardTitle className="text-sm font-semibold line-clamp-1">{rec.titulo}</CardTitle>
-                  <div className="flex gap-1.5">
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 uppercase"><Repeat size={9} className="mr-0.5" />{rec.rruleExpression}</Badge>
-                    {rec.grupoDestinoNombre && <Badge variant="outline" className="text-[9px] px-1.5 py-0 uppercase">{rec.grupoDestinoNombre}</Badge>}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-1.5 text-xs text-muted-foreground border-t pt-3">
-                  <div><span className="font-medium">Regla:</span> {rec.rruleExpression}</div>
-                  {rec.horariosPorDia && Object.keys(rec.horariosPorDia).length > 0 && (
-                    <div><span className="font-medium">Horarios:</span> {Object.entries(rec.horariosPorDia).map(([day, h]) => `${day}: ${h.horaEvento ?? "—"} (${h.duracionMinutos ?? "—"} min)`).join(", ")}</div>
-                  )}
-                  {rec.lugar && <div><span className="font-medium">Lugar:</span> {rec.lugar}</div>}
-                </CardContent>
-                <div className="px-6 pb-3 pt-1 flex items-center justify-end border-t gap-1.5">
-                  <Link to={`/convocatorias/recurrentes/${rec.id}/edit`}>
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-medium gap-1"><Edit size={11} />Editar</Button>
-                  </Link>
-                  <Button variant="ghost" size="sm" onClick={() => handleDeleteRecurrencia(rec.id)} className="h-7 px-2 text-xs font-medium text-destructive hover:text-destructive gap-1">
-                    <Trash2 size={11} />Eliminar
-                  </Button>
                 </div>
-              </Card>
-            ))}
-            {recurrentes.length === 0 && (
-              <div className="col-span-full text-center py-16 border border-dashed rounded-lg">
-                <Repeat size={24} className="mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Sin programaciones recurrentes</p>
-              </div>
-            )}
+              ))}
+
+              {filteredRecurrentes.length === 0 && (
+                <div className="text-center py-16 select-none bg-muted/5">
+                  <Repeat size={26} className="mx-auto text-muted-foreground/60 mb-2.5" />
+                  <p className="text-xs text-muted-foreground font-medium">Ninguna regla recurrente coincide con la búsqueda</p>
+                </div>
+              )}
+            </div>
           </div>
         )
       )}

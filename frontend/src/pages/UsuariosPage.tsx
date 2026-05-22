@@ -187,187 +187,254 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestión de Usuarios</h1>
-          <p className="text-muted-foreground">
-            Administra los usuarios y sus roles en el sistema
-          </p>
+    <div className="space-y-6 max-w-5xl animate-fadeIn pb-12">
+      {/* Cover/Header area */}
+      <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl select-none">👥</span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Gestión de Usuarios</h1>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              Base de datos y privilegios de todos los miembros del workspace.
+            </p>
+          </div>
         </div>
-        <Button onClick={openCreateDialog} className="">
-          <Plus size={16} /> Nuevo Usuario
+        <Button 
+          onClick={openCreateDialog} 
+          className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus size={14} /> 
+          <span>Nuevo Usuario</span>
         </Button>
       </div>
 
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">
+          <div className="notion-callout-icon">
+            <Shield size={16} className="shrink-0" />
+          </div>
+          <div className="text-xs font-medium">{error}</div>
+        </div>
       )}
 
       {success && (
-        <Alert>
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
+        <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
+          <div className="notion-callout-icon">
+            <UserCheck size={16} className="shrink-0" />
+          </div>
+          <div className="text-xs font-medium">{success}</div>
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Usuarios Registrados ({usuarios.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {usuarios.map((usuario) => (
-              <div
-                key={usuario.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{usuario.nombre}</span>
-                    <Badge variant={usuario.activo ? "success" : "secondary"}>
-                      {usuario.activo ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{usuario.email}</p>
-                  <div className="flex gap-1">
-                    {usuario.roles.map((rol) => (
-                      <Badge key={rol} variant="info">
-                        {rol}
-                      </Badge>
-                    ))}
-                  </div>
+      {/* Notion List View Database */}
+      <div className="border border-border rounded-lg bg-card overflow-hidden">
+        {/* Database header row */}
+        <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+          <div className="col-span-4">Nombre / Email</div>
+          <div className="col-span-2">Estado</div>
+          <div className="col-span-4">Roles asignados</div>
+          <div className="col-span-2 text-right">Acciones</div>
+        </div>
+
+        {/* Database records */}
+        <div className="divide-y divide-border">
+          {usuarios.map((usuario) => (
+            <div
+              key={usuario.id}
+              className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 px-4 py-3 items-center hover:bg-secondary/20 transition-colors"
+            >
+              {/* User details */}
+              <div className="col-span-1 md:col-span-4 flex items-center gap-3">
+                <div className="h-8 w-8 rounded bg-secondary flex items-center justify-center font-bold text-xs text-foreground border border-border uppercase">
+                  {usuario.nombre.charAt(0)}
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleToggleActivo(usuario.id)}
-                    title={usuario.activo ? "Desactivar" : "Activar"}
-                  >
-                    {usuario.activo ? (
-                      <UserX size={16} className="text-warning" />
-                    ) : (
-                      <UserCheck size={16} className="text-success" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditDialog(usuario)}
-                  >
-                    <Shield size={14} className="mr-1" /> Editar Roles
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteUser(usuario.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-foreground truncate">{usuario.nombre}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono truncate">{usuario.email}</div>
                 </div>
               </div>
-            ))}
-            {usuarios.length === 0 && (
-              <p className="text-center text-muted-foreground py-4">
-                No hay usuarios registrados
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
+              {/* Status Badge */}
+              <div className="col-span-1 md:col-span-2">
+                <Badge 
+                  variant="outline" 
+                  className={`text-[9px] uppercase px-1.5 py-0.2 rounded font-bold shadow-none ${
+                    usuario.activo 
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                      : "bg-secondary border-border text-muted-foreground"
+                  }`}
+                >
+                  {usuario.activo ? "Activo" : "Inactivo"}
+                </Badge>
+              </div>
+
+              {/* Roles */}
+              <div className="col-span-1 md:col-span-4 flex flex-wrap gap-1">
+                {usuario.roles.map((rol) => (
+                  <Badge 
+                    key={rol} 
+                    variant="outline" 
+                    className="text-[9px] uppercase px-1.5 py-0.2 font-semibold tracking-wider bg-secondary/50 border-border text-foreground rounded shadow-none"
+                  >
+                    {rol}
+                  </Badge>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="col-span-1 md:col-span-2 flex items-center justify-end gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleToggleActivo(usuario.id)}
+                  className="h-7 w-7 rounded hover:bg-secondary text-muted-foreground"
+                  title={usuario.activo ? "Desactivar" : "Activar"}
+                >
+                  {usuario.activo ? (
+                    <UserX size={13} className="text-amber-600 dark:text-amber-400" />
+                  ) : (
+                    <UserCheck size={13} className="text-emerald-600 dark:text-emerald-400" />
+                  )}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openEditDialog(usuario)}
+                  className="h-7 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
+                >
+                  <Shield size={11} /> 
+                  <span>Roles</span>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDeleteUser(usuario.id)}
+                  className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  title="Eliminar"
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          {usuarios.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-xs text-muted-foreground">No hay usuarios registrados en el workspace.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Edit Roles Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Roles de Usuario</DialogTitle>
-            <DialogDescription>
-              Asigna los roles correspondientes a {selectedUsuario?.nombre}
+        <DialogContent className="bg-popover border border-border shadow-none rounded-lg max-w-sm p-5 space-y-4">
+          <DialogHeader className="border-b border-border pb-3">
+            <DialogTitle className="text-sm font-semibold tracking-tight">Editar Roles de Usuario</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Asigna los roles y permisos de acceso para {selectedUsuario?.nombre}
             </DialogDescription>
           </DialogHeader>
+
           {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 rounded">
+              <div className="notion-callout-icon">
+                <Shield size={14} className="shrink-0" />
+              </div>
+              <div className="text-[11px] font-medium leading-normal">{error}</div>
+            </div>
           )}
-          <div className="space-y-4 py-4">
+
+          <div className="space-y-2.5 py-2 max-h-[220px] overflow-y-auto pr-1">
             {roles.map((rol) => (
-              <div key={rol.id} className="flex items-center space-x-2">
+              <div key={rol.id} className="flex items-center space-x-2.5 px-1 py-1 rounded hover:bg-secondary/40 transition-colors">
                 <Checkbox
                   id={`rol-${rol.id}`}
                   checked={selectedRoles.includes(rol.nombre)}
                   onCheckedChange={() => toggleRole(rol.nombre)}
+                  className="rounded border-border"
                 />
-                <Label htmlFor={`rol-${rol.id}`} className="cursor-pointer">
+                <Label htmlFor={`rol-${rol.id}`} className="text-xs font-semibold text-foreground cursor-pointer flex-1">
                   {rol.nombre}
                 </Label>
               </div>
             ))}
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="border-t border-border pt-3 gap-2">
             <Button
               variant="outline"
               onClick={() => setEditDialogOpen(false)}
+              className="h-8 text-xs font-semibold px-3 border-border hover:bg-secondary shadow-none"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleSaveRoles}
               disabled={saving || selectedRoles.length === 0}
-              className=""
+              className="h-8 text-xs font-semibold px-3 shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {saving ? <Spinner /> : "Guardar Cambios"}
+              {saving ? <Spinner size="sm" /> : "Guardar Cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear Nuevo Usuario</DialogTitle>
-            <DialogDescription>
-              Ingresa los datos del nuevo usuario
+        <DialogContent className="bg-popover border border-border shadow-none rounded-lg max-w-sm p-5 space-y-4">
+          <DialogHeader className="border-b border-border pb-3">
+            <DialogTitle className="text-sm font-semibold tracking-tight">Crear Nuevo Usuario</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Ingresa los detalles básicos para invitar a un miembro al workspace.
             </DialogDescription>
           </DialogHeader>
+
           {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 rounded">
+              <div className="notion-callout-icon">
+                <Shield size={14} className="shrink-0" />
+              </div>
+              <div className="text-[11px] font-medium leading-normal">{error}</div>
+            </div>
           )}
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="nombre">Nombre</Label>
+
+          <div className="space-y-3.5 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="nombre" className="text-xs font-semibold text-muted-foreground">Nombre</Label>
               <Input
                 id="nombre"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 placeholder="Nombre completo"
+                className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-semibold text-muted-foreground">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="email@ejemplo.com"
+                className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
               />
             </div>
             <div className="space-y-2">
-              <Label>Roles iniciales</Label>
-              <div className="space-y-2">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Roles iniciales</Label>
+              <div className="space-y-1.5 max-h-[140px] overflow-y-auto border border-border p-2 rounded bg-secondary/10">
                 {roles.map((rol) => (
-                  <div key={rol.id} className="flex items-center space-x-2">
+                  <div key={rol.id} className="flex items-center space-x-2.5 px-1 py-1 rounded hover:bg-secondary/40 transition-colors">
                     <Checkbox
                       id={`new-rol-${rol.id}`}
                       checked={formData.roles.includes(rol.nombre)}
                       onCheckedChange={() => toggleFormRole(rol.nombre)}
+                      className="rounded border-border"
                     />
-                    <Label htmlFor={`new-rol-${rol.id}`} className="cursor-pointer">
+                    <Label htmlFor={`new-rol-${rol.id}`} className="text-xs font-semibold text-foreground cursor-pointer flex-1">
                       {rol.nombre}
                     </Label>
                   </div>
@@ -375,19 +442,21 @@ export default function UsuariosPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="border-t border-border pt-3 gap-2">
             <Button
               variant="outline"
               onClick={() => setCreateDialogOpen(false)}
+              className="h-8 text-xs font-semibold px-3 border-border hover:bg-secondary shadow-none"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleCreateUser}
               disabled={saving || !formData.nombre || !formData.email}
-              className=""
+              className="h-8 text-xs font-semibold px-3 shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {saving ? <Spinner /> : "Crear Usuario"}
+              {saving ? <Spinner size="sm" /> : "Crear Usuario"}
             </Button>
           </DialogFooter>
         </DialogContent>

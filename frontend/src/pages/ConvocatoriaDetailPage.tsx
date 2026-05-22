@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "@/services/api";
 import { formatDateTime } from "@/lib/formatDate";
 import { ESTADO_COLORS, TEAM_COLORS, getTeamColorHex, getApiErrorMessage } from "@/lib/constants";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -35,10 +34,7 @@ import {
   XCircle,
   Trophy,
   Activity,
-  UserCheck,
-  UserX,
   AlertTriangle,
-  Sparkles,
   Shirt,
   Compass
 } from "lucide-react";
@@ -200,6 +196,19 @@ export default function ConvocatoriaDetailPage() {
     };
   }, [asistencias, bandos, matchmakerRun]);
 
+  const isOrganizador = hasPermission("crear_convocatoria") || hasPermission("dividir_bandos") || hasPermission("gestionar_convocatorias");
+  const slotsRemaining = (convocatoria?.cupoMaximo || 0) - playerLists.confirmadosTotales.length;
+
+  // Determine sport emoji helper
+  const getSportEmoji = (deporte: string) => {
+    const name = deporte.toLowerCase();
+    if (name.includes("futbol") || name.includes("fútbol") || name.includes("soccer")) return "⚽";
+    if (name.includes("basquet") || name.includes("básquet") || name.includes("basketball") || name.includes("baloncesto")) return "🏀";
+    if (name.includes("tenis") || name.includes("tennis")) return "🎾";
+    if (name.includes("voley") || name.includes("voleibol") || name.includes("volleyball")) return "🏐";
+    return "🏆";
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -211,491 +220,515 @@ export default function ConvocatoriaDetailPage() {
 
   if (!convocatoria) {
     return (
-      <Alert variant="destructive" className="max-w-xl mx-auto rounded-2xl">
+      <Alert variant="destructive" className="max-w-xl mx-auto rounded">
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>{error || "Convocatoria no encontrada."}</AlertDescription>
       </Alert>
     );
   }
 
-  const isOrganizador = hasPermission("crear_convocatoria") || hasPermission("dividir_bandos") || hasPermission("gestionar_convocatorias");
-  const slotsRemaining = (convocatoria.cupoMaximo || 0) - playerLists.confirmadosTotales.length;
-
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Back button */}
-      <Button
-        variant="ghost"
-        onClick={() => navigate("/convocatorias")}
-        className="gap-1.5 font-semibold text-xs text-muted-foreground hover:text-foreground group transition-premium"
-      >
-        <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
-        Volver a Convocatorias
-      </Button>
+    <div className="min-h-screen bg-background -mx-6 -mt-6 notion-animate-fade">
+      {/* Cover Image Banner */}
+      <div className={`notion-cover relative ${
+        convocatoria.deporteNombre?.toLowerCase().includes("futbol") || convocatoria.deporteNombre?.toLowerCase().includes("fútbol")
+          ? "notion-cover-soccer"
+          : "notion-cover-sports"
+      } h-40 w-full`}>
+        {/* Dynamic Sport Emoji Overlap */}
+        <div className="notion-page-icon-overlay">
+          {getSportEmoji(convocatoria.deporteNombre || "")}
+        </div>
+      </div>
 
-      {error && (
-        <Alert variant="destructive" className="rounded-xl border border-destructive/15">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      {/* Content Container */}
+      <div className="max-w-4xl mx-auto px-6 sm:px-12 pb-24 pt-16">
+        {/* Navigation / Actions Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/convocatorias")}
+            className="h-8 gap-1.5 font-semibold text-xs text-muted-foreground hover:text-foreground group px-2 rounded-md hover:bg-muted/50"
+          >
+            <ArrowLeft size={13} className="group-hover:-translate-x-0.5 transition-transform" />
+            Volver a Convocatorias
+          </Button>
 
-      {/* Main Grid Layout (2/3 & 1/3) */}
-      <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
-        {/* Left Column: Detail card & Interactive Tabs (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Main Info Card */}
-          <Card className="border-border/50 shadow-md relative overflow-hidden bg-card">
-            {/* Visual top border with gradient decoration */}
-            <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-primary via-purple-500 to-indigo-500" />
-            
-            <CardHeader className="pb-4 pt-6">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-0.5 rounded-full">
-                      {convocatoria.deporteNombre}
-                    </span>
-                    {convocatoria.categoria && (
-                      <Badge variant="outline" className="text-[9px] uppercase font-bold py-0">
-                        <Tag size={9} className="mr-0.5 shrink-0" />
-                        {convocatoria.categoria}
-                      </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-2xl font-black tracking-tight leading-tight">
-                    {convocatoria.titulo}
-                  </CardTitle>
-                </div>
+          {/* Quick status badge */}
+          <Badge 
+            variant={ESTADO_COLORS[convocatoria.estado] || "default"} 
+            className="text-[10px] uppercase px-2.5 py-0.5 font-extrabold tracking-wider"
+          >
+            {convocatoria.estado}
+          </Badge>
+        </div>
 
-                <Badge 
-                  variant={ESTADO_COLORS[convocatoria.estado] || "default"} 
-                  className="text-xs uppercase px-3 py-1 font-black self-start tracking-wider shadow-sm"
-                >
-                  {convocatoria.estado}
-                </Badge>
+        {/* Error Alert inside Notion style callout */}
+        {error && (
+          <div className="notion-callout border-destructive/20 bg-destructive/5 dark:bg-destructive/10 mb-6 items-center">
+            <div className="notion-callout-icon">⚠️</div>
+            <div className="text-sm text-destructive">{error}</div>
+          </div>
+        )}
+
+        {/* Page Title */}
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-6 leading-tight">
+          {convocatoria.titulo}
+        </h1>
+
+        {/* Notion Properties Grid */}
+        <div className="notion-property-grid border-b border-border pb-6 mb-6">
+          <div className="notion-property-label">
+            <Activity size={13} /> Deporte
+          </div>
+          <div className="notion-property-value flex items-center gap-2">
+            <span className="font-semibold text-sm">{convocatoria.deporteNombre}</span>
+            {convocatoria.categoria && (
+              <Badge variant="outline" className="text-[9px] uppercase font-extrabold py-0">
+                <Tag size={9} className="mr-0.5" />
+                {convocatoria.categoria}
+              </Badge>
+            )}
+          </div>
+
+          <div className="notion-property-label">
+            <Calendar size={13} /> Fecha y Hora
+          </div>
+          <div className="notion-property-value text-sm font-semibold">
+            {formatDateTime(convocatoria.fechaHora ?? null)}
+          </div>
+
+          {convocatoria.lugar && (
+            <>
+              <div className="notion-property-label">
+                <MapPin size={13} /> Lugar
               </div>
-            </CardHeader>
+              <div className="notion-property-value text-sm font-semibold truncate" title={convocatoria.lugar}>
+                {convocatoria.lugar}
+              </div>
+            </>
+          )}
 
-            <CardContent className="space-y-6">
-              {convocatoria.descripcion ? (
-                <div className="space-y-1 bg-muted/20 p-4 rounded-2xl border border-border/40">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Información Adicional</span>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {convocatoria.descripcion}
+          {convocatoria.fechaLimiteInscripcion && (
+            <>
+              <div className="notion-property-label text-destructive">
+                <Clock size={13} /> Límite Registro
+              </div>
+              <div className="notion-property-value text-sm font-bold text-destructive">
+                {formatDateTime(convocatoria.fechaLimiteInscripcion)}
+              </div>
+            </>
+          )}
+
+          {convocatoria.cupoMaximo != null && convocatoria.cupoMaximo > 0 && (
+            <>
+              <div className="notion-property-label">
+                <Users size={13} /> Cupos libres
+              </div>
+              <div className="notion-property-value text-sm font-semibold flex items-center gap-2">
+                <span>{playerLists.confirmadosTotales.length} / {convocatoria.cupoMaximo}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                  slotsRemaining <= 3 && slotsRemaining > 0 
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 animate-pulse" 
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {slotsRemaining > 0 ? `${slotsRemaining} cupos` : "Lleno"}
+                </span>
+              </div>
+            </>
+          )}
+
+          <div className="notion-property-label">
+            <User size={13} /> Organizador
+          </div>
+          <div className="notion-property-value text-sm font-semibold">
+            {convocatoria.creadoPorNombre}
+          </div>
+        </div>
+
+        {/* Additional Info Callout */}
+        {convocatoria.descripcion && (
+          <div className="notion-callout mb-6">
+            <div className="notion-callout-icon">💡</div>
+            <div className="flex-1 space-y-1">
+              <div className="font-semibold text-xs text-muted-foreground uppercase tracking-widest">Información Adicional</div>
+              <div className="text-sm text-foreground leading-relaxed">{convocatoria.descripcion}</div>
+            </div>
+          </div>
+        )}
+
+        {/* RSVP Responsive Action Panel */}
+        <div className="notion-callout border-primary/20 bg-primary/[0.03] dark:bg-primary/[0.06] mb-8 items-center justify-between flex-col md:flex-row gap-4">
+          <div className="flex items-center gap-3">
+            <div className="notion-callout-icon">📝</div>
+            <div className="space-y-0.5">
+              <div className="font-bold text-sm">Registro de Asistencia</div>
+              <p className="text-xs text-muted-foreground">
+                {convocatoria.estado === "ABIERTA" 
+                  ? "¿Vas a participar en esta convocatoria? Confirma tu asistencia."
+                  : "Las inscripciones para este partido se encuentran cerradas."}
+              </p>
+            </div>
+          </div>
+
+          {convocatoria.estado === "ABIERTA" ? (
+            <div className="flex gap-2 w-full md:w-auto">
+              <Button 
+                disabled={responderLoading}
+                onClick={() => handleRespondedAsistencia("ASISTIRE")}
+                className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
+                  miAsistencia?.estado === "ASISTIRE" 
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" 
+                    : "bg-background text-foreground hover:bg-muted border-border"
+                }`}
+              >
+                {responderLoading && miAsistencia?.estado !== "ASISTIRE" ? (
+                  <Spinner size="sm" className="mr-1.5" />
+                ) : (
+                  <CheckCircle2 size={13} className="mr-1.5" />
+                )}
+                Asistiré
+              </Button>
+
+              <Button 
+                disabled={responderLoading}
+                onClick={() => handleRespondedAsistencia("NO_ASISTIRE")}
+                className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
+                  miAsistencia?.estado === "NO_ASISTIRE" 
+                    ? "bg-destructive hover:bg-destructive/90 text-white border-destructive" 
+                    : "bg-background text-foreground hover:bg-muted border-border"
+                }`}
+              >
+                {responderLoading && miAsistencia?.estado !== "NO_ASISTIRE" ? (
+                  <Spinner size="sm" className="mr-1.5" />
+                ) : (
+                  <XCircle size={13} className="mr-1.5" />
+                )}
+                No asistiré
+              </Button>
+            </div>
+          ) : (
+            <Badge variant="secondary" className="px-2.5 py-0.5 font-bold text-xs">
+              Inscripciones Cerradas
+            </Badge>
+          )}
+        </div>
+
+        {/* Main Content Area (Alineaciones, Roster, etc) */}
+        <div className="space-y-8">
+          <Tabs defaultValue="asistencias" className="w-full">
+            <div className="notion-db-header">
+              <TabsList className="bg-transparent border-0 gap-3 py-1 flex h-10 w-fit">
+                <TabsTrigger 
+                  value="asistencias" 
+                  className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-2 cursor-pointer pb-2"
+                >
+                  <Shirt size={14} className="inline mr-1" />
+                  Alineación / Roster
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="bandos" 
+                  className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-2 cursor-pointer pb-2"
+                >
+                  <Trophy size={14} className="inline mr-1" />
+                  Bandos ({bandos.length})
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Tab Panel: Rosters */}
+            <TabsContent value="asistencias" className="space-y-6 focus:outline-none">
+              {/* Intelligent Matchmaking Balance Callout */}
+              {isOrganizador && (
+                <div className="notion-callout bg-primary/[0.03] border-primary/20 flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex gap-3">
+                    <div className="notion-callout-icon">⚡</div>
+                    <div>
+                      <div className="font-bold text-sm">Herramientas de Balanceo Táctico</div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Autobalancea los jugadores confirmados en bandos equitativos según su nivel y posición.
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleMatchmaking} 
+                    disabled={matchmakingLoading || playerLists.confirmadosTotales.length < 2}
+                    className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
+                  >
+                    {matchmakingLoading ? (
+                      <>
+                        <Spinner size="sm" className="mr-1.5" />
+                        Calculando...
+                      </>
+                    ) : (
+                      <>
+                        <Activity size={14} className="mr-1.5" />
+                        Autobalancear Equipos
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {/* Roster Layout */}
+              {asistencias.length === 0 ? (
+                <div className="text-center py-12 border border-dashed rounded-lg bg-muted/10">
+                  <Users size={32} className="mx-auto text-muted-foreground/50 mb-2" />
+                  <p className="text-sm font-semibold text-muted-foreground">No se registran asistencias aún</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                    Los jugadores invitados o registrados aparecerán aquí una vez respondan.
                   </p>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic">Sin descripción proporcionada.</p>
-              )}
-
-              {/* RSVP Response Panel */}
-              <div className="border-t pt-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-br from-primary/5 via-indigo-600/5 to-transparent border border-primary/10 glow-primary">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-black text-foreground flex items-center gap-1.5">
-                      <Sparkles size={14} className="text-yellow-500 animate-pulse" />
-                      <span>Registra tu Asistencia</span>
-                    </h4>
-                    <p className="text-xs text-muted-foreground font-medium">
-                      {convocatoria.estado === "ABIERTA" 
-                        ? "¿Vas a participar en esta convocatoria? Confirma para reservar cupo."
-                        : "Las inscripciones para este partido se encuentran actualmente cerradas."
-                      }
-                    </p>
-                  </div>
-
-                  {convocatoria.estado === "ABIERTA" ? (
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <Button 
-                        disabled={responderLoading}
-                        onClick={() => handleRespondedAsistencia("ASISTIRE")}
-                        className={`flex-1 sm:flex-initial gap-1.5 rounded-xl font-bold text-xs py-5 px-4 transition-premium shadow-md hover:scale-[1.02] border border-emerald-500/20 ${
-                          miAsistencia?.estado === "ASISTIRE" 
-                            ? "bg-emerald-600 text-white hover:bg-emerald-700 glow-success" 
-                            : "bg-background text-foreground border-border/80 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
-                        }`}
-                      >
-                        {responderLoading && miAsistencia?.estado !== "ASISTIRE" ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <CheckCircle2 size={14} />
-                        )}
-                        Asistiré
-                      </Button>
-
-                      <Button 
-                        disabled={responderLoading}
-                        onClick={() => handleRespondedAsistencia("NO_ASISTIRE")}
-                        className={`flex-1 sm:flex-initial gap-1.5 rounded-xl font-bold text-xs py-5 px-4 transition-premium border border-destructive/10 ${
-                          miAsistencia?.estado === "NO_ASISTIRE" 
-                            ? "bg-destructive text-white hover:bg-destructive/90" 
-                            : "bg-background text-foreground border-border/80 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/20"
-                        }`}
-                      >
-                        {responderLoading && miAsistencia?.estado !== "NO_ASISTIRE" ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <XCircle size={14} />
-                        )}
-                        No asistiré
-                      </Button>
-                    </div>
-                  ) : (
-                    <Badge variant="secondary" className="px-3 py-1 font-bold text-xs">
-                      Inscripciones Cerradas
-                    </Badge>
-                  )}
-                </div>
-
-                {miAsistencia && (
-                  <div className="flex items-center justify-between p-3 mt-3 rounded-xl bg-muted/40 border border-border/60 text-xs">
-                    <span className="font-semibold text-muted-foreground">Tu estado registrado:</span>
-                    <div className="flex items-center gap-1.5 font-bold">
-                      {miAsistencia.estado === "ASISTIRE" && <CheckCircle2 size={13} className="text-emerald-500" />}
-                      {miAsistencia.estado === "NO_ASISTIRE" && <XCircle size={13} className="text-destructive" />}
-                      <Badge variant={ESTADO_COLORS[miAsistencia.estado]} className="text-[9px] uppercase font-black px-2 py-0">
-                        {miAsistencia.estado}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Interactive Panels Tabs */}
-          <Tabs defaultValue="asistencias" className="w-full">
-            <TabsList className="bg-muted/40 p-1.5 rounded-xl border border-border/40 max-w-sm mb-6 flex gap-1 shadow-sm">
-              <TabsTrigger 
-                value="asistencias" 
-                className="rounded-lg font-bold text-xs py-2 px-3 flex-1 transition-premium data-[state=active]:bg-card data-[state=active]:shadow-sm"
-              >
-                Alineación / Asistencias ({asistencias.length})
-              </TabsTrigger>
-              <TabsTrigger 
-                value="bandos" 
-                className="rounded-lg font-bold text-xs py-2 px-3 flex-1 transition-premium data-[state=active]:bg-card data-[state=active]:shadow-sm"
-              >
-                Bandos ({bandos.length})
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Panel 1: Roster & Balanced Teams */}
-            <TabsContent value="asistencias" className="space-y-6 focus:outline-none">
-              {/* Intelligent Balance Admin Tool */}
-              {isOrganizador && (
-                <Card className="border-primary/20 bg-primary/[0.02] overflow-hidden shadow-sm relative">
-                  <div className="absolute top-0 left-0 bottom-0 w-[4px] bg-primary" />
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                        <Activity size={14} />
-                      </div>
-                      <CardTitle className="text-sm font-bold text-foreground">Herramientas de Balanceo</CardTitle>
-                    </div>
-                    <CardDescription className="text-xs">
-                      Autobalancea los jugadores confirmados usando el algoritmo de prioridad de posición de juego.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pt-0">
-                    <div className="text-xs text-muted-foreground">
-                      Confirmados actuales: <span className="font-extrabold text-foreground">{playerLists.confirmadosTotales.length}</span>
-                    </div>
-
-                    <Button 
-                      onClick={handleMatchmaking} 
-                      disabled={matchmakingLoading || playerLists.confirmadosTotales.length < 2} 
-                      className="rounded-xl font-bold gap-1.5 shrink-0 text-xs py-4 px-4 transition-premium shadow-md hover:scale-[1.02]"
-                    >
-                      {matchmakingLoading ? (
-                        <>
-                          <Spinner size="sm" className="text-white animate-spin" />
-                          <span>Calculando alineaciones...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Activity size={14} />
-                          <span>Autobalancear Equipos</span>
-                        </>
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Roster lists logic */}
-              {asistencias.length === 0 ? (
-                <Card className="border-border/60">
-                  <CardContent className="pt-10 pb-10 text-center">
-                    <Users size={32} className="mx-auto text-muted-foreground/60 mb-2 animate-pulse" />
-                    <p className="text-sm text-muted-foreground font-semibold">No se registran asistencias aún</p>
-                    <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
-                      Los jugadores invitados o registrados aparecerán aquí una vez respondan.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
                 <>
-                  {/* Balanced Teams Tactics Board */}
+                  {/* Balanced Teams Kanban Board */}
                   {matchmakerRun && bandos.length >= 2 ? (
                     <div className="space-y-6">
-                      <div className="border-b pb-2">
-                        <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-1.5">
-                          <Shirt size={14} className="text-primary" />
-                          <span>Equipos Balanceados</span>
-                        </h3>
-                        <p className="text-[11px] text-muted-foreground">Alineación equilibrada generada para el partido.</p>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="notion-board">
                         {playerLists.teamPlayersMap.map(({ team, players }) => {
                           const teamColorHex = getTeamColorHex(team.color || "");
                           return (
-                            <Card 
-                              key={team.id} 
-                              className="overflow-hidden hover:shadow-lg transition-premium border-border/50" 
-                              style={{ borderTop: `4px solid ${teamColorHex}` }}
-                            >
-                              <CardHeader className="pb-3 pt-4 bg-muted/10 border-b border-border/30">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2.5">
-                                    <div 
-                                      className="h-7 w-7 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-sm" 
-                                      style={{ backgroundColor: teamColorHex }}
-                                    >
-                                      {players.length}
-                                    </div>
-                                    <CardTitle className="text-sm font-black text-foreground">{team.nombre}</CardTitle>
-                                  </div>
-                                  <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: teamColorHex }} />
+                            <div key={team.id} className="notion-board-column">
+                              {/* Board Column Header */}
+                              <div className="notion-board-column-header border-b border-border pb-2 mb-2">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <span 
+                                    className="w-3 h-3 rounded-full border shrink-0" 
+                                    style={{ backgroundColor: teamColorHex }} 
+                                  />
+                                  <span className="font-bold text-sm truncate text-foreground">{team.nombre}</span>
+                                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.2 rounded font-normal">
+                                    {players.length}
+                                  </span>
                                 </div>
-                              </CardHeader>
+                                {isOrganizador && (
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-6 w-6 text-muted-foreground hover:bg-muted"
+                                      onClick={() => openBandoDialog(team)}
+                                    >
+                                      <Edit size={11} />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                      onClick={() => handleDeleteBando(team.id)}
+                                    >
+                                      <Trash2 size={11} />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
 
-                              <CardContent className="p-3 space-y-1.5 bg-card/60">
+                              {/* Player cards inside column */}
+                              <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
                                 {players.length === 0 ? (
                                   <p className="text-xs text-muted-foreground text-center py-6 italic font-medium">Sin jugadores asignados</p>
                                 ) : (
                                   players.map((asis) => (
-                                    <div 
-                                      key={asis.id} 
-                                      className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border/40 bg-background/50 hover:bg-muted/30 transition-premium hover:-translate-y-0.5 shadow-sm group"
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <span 
-                                          className="h-6 w-6 rounded-lg text-xs font-extrabold flex items-center justify-center shadow-inner" 
-                                          style={{ backgroundColor: `${teamColorHex}15`, color: teamColorHex }}
-                                        >
-                                          {asis.numeroCamiseta ?? "#"}
-                                        </span>
-                                        <div className="overflow-hidden">
-                                          <p className="text-xs font-bold truncate text-foreground group-hover:text-primary transition-colors">
-                                            {asis.usuarioNombre}
-                                          </p>
-                                          {asis.posicionPreferidaNombre && (
-                                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-0.5 block">
-                                              {asis.posicionPreferidaNombre}
-                                            </span>
-                                          )}
+                                    <div key={asis.id} className="notion-board-card">
+                                      <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-muted rounded border shrink-0 text-muted-foreground">
+                                            {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "—"}
+                                          </span>
+                                          <span className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre}</span>
                                         </div>
                                       </div>
+                                      {asis.posicionPreferidaNombre && (
+                                        <div className="mt-2 flex">
+                                          <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                            {asis.posicionPreferidaNombre}
+                                          </span>
+                                        </div>
+                                      )}
                                     </div>
                                   ))
                                 )}
-                              </CardContent>
-                            </Card>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
 
-                      {/* Comodines (Wildcards) */}
-                      {playerLists.comodines.length > 0 && (
-                        <Card className="overflow-hidden border-amber-500/20 bg-amber-500/[0.01]">
-                          <CardHeader className="pb-2 pt-3 border-b border-amber-500/10">
-                            <div className="flex items-center gap-2">
-                              <Compass size={14} className="text-amber-500" />
-                              <CardTitle className="text-xs font-black uppercase text-amber-600 tracking-wider">Comodines</CardTitle>
-                              <Badge variant="outline" className="text-[9px] bg-amber-500/5 text-amber-600 border-amber-500/20">{playerLists.comodines.length}</Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 p-4">
-                            {playerLists.comodines.map((asis) => (
-                              <div key={asis.id} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-amber-500/10 bg-background/50 shadow-sm">
-                                <span className="h-6 w-6 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center text-[10px] font-extrabold">C</span>
-                                <div className="overflow-hidden">
-                                  <p className="text-xs font-bold text-foreground truncate">{asis.usuarioNombre}</p>
-                                  {asis.posicionPreferidaNombre && <p className="text-[8px] text-muted-foreground uppercase font-black tracking-widest">{asis.posicionPreferidaNombre}</p>}
-                                </div>
-                              </div>
-                            ))}
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Waitlist (Lista de Espera) */}
-                      {playerLists.waitlist.length > 0 && (
-                        <Card className="overflow-hidden border-blue-500/20 bg-blue-500/[0.01]">
-                          <CardHeader className="pb-2 pt-3 border-b border-blue-500/10">
-                            <div className="flex items-center gap-2">
-                              <Clock size={14} className="text-blue-500" />
-                              <CardTitle className="text-xs font-black uppercase text-blue-600 tracking-wider">Lista de Espera</CardTitle>
-                              <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20">{playerLists.waitlist.length}</Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="p-3">
-                            <div className="divide-y divide-border/40">
-                              {playerLists.waitlist.map((asis, idx) => (
-                                <div key={asis.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                                  <div className="flex items-center gap-3">
-                                    <span className="h-5 w-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-extrabold">{idx + 1}</span>
-                                    <span className="text-xs font-bold text-foreground">{asis.usuarioNombre}</span>
+                      {/* Comodines & Waitlist side-by-side */}
+                      {(playerLists.comodines.length > 0 || playerLists.waitlist.length > 0) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                          {playerLists.comodines.length > 0 && (
+                            <div className="border border-amber-500/20 rounded bg-amber-500/[0.02] p-4">
+                              <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                <Compass size={13} />
+                                Comodines ({playerLists.comodines.length})
+                              </h4>
+                              <div className="space-y-2">
+                                {playerLists.comodines.map((asis) => (
+                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
+                                    <span className="font-semibold">{asis.usuarioNombre}</span>
+                                    {asis.posicionPreferidaNombre && (
+                                      <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
+                                    )}
                                   </div>
-                                  <Badge variant="outline" className="text-[9px] text-blue-500 font-extrabold uppercase">En Espera</Badge>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </CardContent>
-                        </Card>
+                          )}
+
+                          {playerLists.waitlist.length > 0 && (
+                            <div className="border border-blue-500/20 rounded bg-blue-500/[0.02] p-4">
+                              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                <Clock size={13} />
+                                Lista de Espera ({playerLists.waitlist.length})
+                              </h4>
+                              <div className="space-y-2">
+                                {playerLists.waitlist.map((asis, idx) => (
+                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-muted-foreground font-bold">{idx + 1}.</span>
+                                      <span className="font-semibold">{asis.usuarioNombre}</span>
+                                    </div>
+                                    <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Not attending & pending list */}
                       {(playerLists.pendientes.length > 0 || playerLists.noAsistiran.length > 0) && (
-                        <Card className="border-border/40 bg-muted/10">
-                          <CardContent className="p-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                              {playerLists.pendientes.length > 0 && (
-                                <div className="space-y-1.5">
-                                  <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1">
-                                    <Clock size={10} />
-                                    <span>Pendientes ({playerLists.pendientes.length})</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 border-t border-border pt-6">
+                          {playerLists.pendientes.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1">
+                                <Clock size={11} />
+                                <span>Sin Confirmar ({playerLists.pendientes.length})</span>
+                              </span>
+                              <div className="flex flex-wrap gap-2">
+                                {playerLists.pendientes.map(p => (
+                                  <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border">
+                                    {p.usuarioNombre}
                                   </span>
-                                  <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                                    {playerLists.pendientes.map(p => (
-                                      <p key={p.id} className="text-xs text-muted-foreground font-semibold bg-background/50 px-2.5 py-1 rounded-lg border border-border/20 truncate">
-                                        • {p.usuarioNombre}
-                                      </p>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {playerLists.noAsistiran.length > 0 && (
-                                <div className="space-y-1.5">
-                                  <span className="text-[9px] font-black text-destructive uppercase tracking-widest flex items-center gap-1">
-                                    <XCircle size={10} />
-                                    <span>No asistirán ({playerLists.noAsistiran.length})</span>
-                                  </span>
-                                  <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                                    {playerLists.noAsistiran.map(p => (
-                                      <p key={p.id} className="text-xs text-muted-foreground font-semibold bg-background/50 px-2.5 py-1 rounded-lg border border-border/20 truncate">
-                                        • {p.usuarioNombre}
-                                      </p>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                                ))}
+                              </div>
                             </div>
-                          </CardContent>
-                        </Card>
+                          )}
+
+                          {playerLists.noAsistiran.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="text-[10px] font-black text-destructive uppercase tracking-widest flex items-center gap-1">
+                                <XCircle size={11} />
+                                <span>No Asistirán ({playerLists.noAsistiran.length})</span>
+                              </span>
+                              <div className="flex flex-wrap gap-2">
+                                {playerLists.noAsistiran.map(p => (
+                                  <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border line-through">
+                                    {p.usuarioNombre}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   ) : (
-                    /* Flat assistants roster segmented in tabs */
-                    <Card className="border-border/50">
-                      <CardContent className="p-0">
-                        <Tabs defaultValue="confirmados" className="w-full">
-                          <div className="px-4 border-b bg-muted/10">
-                            <TabsList className="bg-transparent border-0 gap-3 py-1 flex h-10 w-fit">
-                              <TabsTrigger value="confirmados" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-1">
-                                Confirmados ({playerLists.confirmadosTotales.length})
-                              </TabsTrigger>
-                              <TabsTrigger value="espera" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-1">
-                                Espera ({playerLists.waitlist.length})
-                              </TabsTrigger>
-                              <TabsTrigger value="otros" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-1">
-                                Sin Confirmar ({playerLists.pendientes.length})
-                              </TabsTrigger>
-                            </TabsList>
+                    /* Flat roster segmented in sub-tabs */
+                    <Tabs defaultValue="confirmados" className="w-full">
+                      <div className="border-b mb-3">
+                        <TabsList className="bg-transparent border-0 gap-4 py-1 flex h-10 w-fit">
+                          <TabsTrigger value="confirmados" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-1 pb-2 cursor-pointer">
+                            Confirmados ({playerLists.confirmadosTotales.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="espera" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-1 pb-2 cursor-pointer">
+                            Espera ({playerLists.waitlist.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="otros" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-1 pb-2 cursor-pointer">
+                            Sin Confirmar ({playerLists.pendientes.length})
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+
+                      <TabsContent value="confirmados" className="space-y-2 focus:outline-none pt-2">
+                        {playerLists.confirmadosTotales.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">Nadie ha confirmado asistencia todavía.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {playerLists.confirmadosTotales.map((asis) => (
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                  <div className="h-7 w-7 rounded bg-primary/10 flex items-center justify-center font-black text-primary text-xs shrink-0 select-none">
+                                    {asis.usuarioNombre ? asis.usuarioNombre.charAt(0).toUpperCase() : "?"}
+                                  </div>
+                                  <div className="overflow-hidden">
+                                    <p className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre || asis.nombreExterno}</p>
+                                    {asis.posicionPreferidaNombre && (
+                                      <p className="text-[9px] text-primary uppercase font-black tracking-widest mt-0.5">
+                                        {asis.posicionPreferidaNombre}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <Badge variant="success" className="text-[8px] font-black uppercase shrink-0">Confirmado</Badge>
+                              </div>
+                            ))}
                           </div>
+                        )}
+                      </TabsContent>
 
-                          <TabsContent value="confirmados" className="p-4 space-y-2 focus:outline-none">
-                            {playerLists.confirmadosTotales.length === 0 ? (
-                              <p className="text-xs text-muted-foreground italic py-6 text-center">Nadie ha confirmado asistencia todavía.</p>
-                            ) : (
-                              playerLists.confirmadosTotales.map((asis) => (
-                                <div key={asis.id} className="flex items-center justify-between p-2.5 rounded-xl border border-border/40 bg-card hover:bg-muted/20 transition-premium">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center font-black text-primary text-xs shrink-0 select-none">
-                                      {asis.usuarioNombre ? asis.usuarioNombre.charAt(0).toUpperCase() : "?"}
-                                    </div>
-                                    <div>
-                                      <p className="text-xs font-bold text-foreground">{asis.usuarioNombre || asis.nombreExterno}</p>
-                                      {asis.posicionPreferidaNombre && (
-                                        <p className="text-[9px] text-primary uppercase font-black tracking-widest mt-0.5">
-                                          {asis.posicionPreferidaNombre}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <Badge variant="success" className="text-[8px] font-black uppercase">Confirmado</Badge>
+                      <TabsContent value="espera" className="space-y-2 focus:outline-none pt-2">
+                        {playerLists.waitlist.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">Lista de espera vacía.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {playerLists.waitlist.map((asis, idx) => (
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                                <div className="flex items-center gap-3">
+                                  <span className="h-5 w-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-extrabold">{idx + 1}</span>
+                                  <span className="text-xs font-semibold text-foreground">{asis.usuarioNombre}</span>
                                 </div>
-                              ))
-                            )}
-                          </TabsContent>
+                                <Badge variant="info" className="text-[8px] font-black uppercase">En Espera</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </TabsContent>
 
-                          <TabsContent value="espera" className="p-4 space-y-2 focus:outline-none">
-                            {playerLists.waitlist.length === 0 ? (
-                              <p className="text-xs text-muted-foreground italic py-6 text-center">Lista de espera vacía.</p>
-                            ) : (
-                              playerLists.waitlist.map((asis, idx) => (
-                                <div key={asis.id} className="flex items-center justify-between p-2.5 rounded-xl border border-border/40 bg-card hover:bg-muted/20 transition-premium">
-                                  <div className="flex items-center gap-3">
-                                    <span className="h-5 w-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-extrabold">{idx + 1}</span>
-                                    <span className="text-xs font-bold text-foreground">{asis.usuarioNombre}</span>
-                                  </div>
-                                  <Badge variant="info" className="text-[8px] font-black uppercase">En Espera</Badge>
-                                </div>
-                              ))
-                            )}
-                          </TabsContent>
-
-                          <TabsContent value="otros" className="p-4 space-y-2 focus:outline-none">
-                            {playerLists.pendientes.length === 0 && playerLists.noAsistiran.length === 0 ? (
-                              <p className="text-xs text-muted-foreground italic py-6 text-center">Todos los invitados han respondido.</p>
-                            ) : (
-                              <>
-                                {playerLists.pendientes.map((asis) => (
-                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded-xl border border-border/40 bg-card hover:bg-muted/20 transition-premium">
-                                    <span className="text-xs font-bold text-foreground">{asis.usuarioNombre}</span>
-                                    <Badge variant="warning" className="text-[8px] font-black uppercase">Pendiente</Badge>
-                                  </div>
-                                ))}
-                                {playerLists.noAsistiran.map((asis) => (
-                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded-xl border border-border/40 bg-card hover:bg-muted/20 transition-premium">
-                                    <span className="text-xs font-bold text-muted-foreground">{asis.usuarioNombre}</span>
-                                    <Badge variant="destructive" className="text-[8px] font-black uppercase">No Asistirá</Badge>
-                                  </div>
-                                ))}
-                              </>
-                            )}
-                          </TabsContent>
-                        </Tabs>
-                      </CardContent>
-                    </Card>
+                      <TabsContent value="otros" className="space-y-2 focus:outline-none pt-2">
+                        {playerLists.pendientes.length === 0 && playerLists.noAsistiran.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">Todos los invitados han respondido.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {playerLists.pendientes.map((asis) => (
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                                <span className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre}</span>
+                                <Badge variant="warning" className="text-[8px] font-black uppercase shrink-0">Pendiente</Badge>
+                              </div>
+                            ))}
+                            {playerLists.noAsistiran.map((asis) => (
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                                <span className="text-xs font-semibold text-muted-foreground line-through truncate">{asis.usuarioNombre}</span>
+                                <Badge variant="destructive" className="text-[8px] font-black uppercase shrink-0">No Asistirá</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
                   )}
                 </>
               )}
             </TabsContent>
 
-            {/* Panel 2: Bandos Configurations */}
+            {/* Tab Panel: Bandos Settings */}
             <TabsContent value="bandos" className="space-y-4 focus:outline-none">
-              <div className="flex justify-between items-center">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-1.5">
-                    <Trophy size={14} className="text-primary" />
-                    <span>Bandos y Colores</span>
-                  </h3>
-                  <p className="text-xs text-muted-foreground">Grupos de juego configurados para dividir los jugadores.</p>
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <div>
+                  <h3 className="font-semibold text-sm text-foreground">Grupos y Equipos</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Grupos asignados a esta convocatoria.</p>
                 </div>
                 
                 {isOrganizador && (
@@ -705,22 +738,22 @@ export default function ConvocatoriaDetailPage() {
                         onClick={() => openBandoDialog()} 
                         size="sm" 
                         variant="outline" 
-                        className="gap-1 font-bold text-xs rounded-xl"
+                        className="h-8 gap-1 font-bold text-xs rounded border border-border hover:bg-muted"
                       >
-                        <Plus size={13} />Nuevo Bando
+                        <Plus size={13} /> Nuevo Bando
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="rounded-2xl border bg-card">
+                    <DialogContent className="rounded-lg border bg-card p-6 max-w-md">
                       <DialogHeader>
                         <DialogTitle className="font-extrabold text-base tracking-tight">
                           {editingBando ? "Editar Bando" : "Nuevo Bando"}
                         </DialogTitle>
-                        <DialogDescription className="text-xs">
-                          Define el nombre y color táctico que identificará a este equipo en la pizarra.
+                        <DialogDescription className="text-xs text-muted-foreground">
+                          Define el nombre y color táctico que identificará a este equipo.
                         </DialogDescription>
                       </DialogHeader>
                       {bandoError && (
-                        <Alert variant="destructive" className="rounded-xl border border-destructive/15">
+                        <Alert variant="destructive" className="rounded border border-destructive/15 my-2">
                           <AlertTriangle className="h-4 w-4" />
                           <AlertDescription>{bandoError}</AlertDescription>
                         </Alert>
@@ -733,7 +766,7 @@ export default function ConvocatoriaDetailPage() {
                             value={bandoForm.nombre} 
                             onChange={(e) => setbandoForm({ ...bandoForm, nombre: e.target.value })} 
                             placeholder="Ej: Bando Rojo, Los Leones" 
-                            className="rounded-xl bg-background/50 border-border/80"
+                            className="rounded bg-background border border-border px-3 py-1.5 text-sm"
                           />
                         </div>
                         <div className="space-y-1.5">
@@ -744,9 +777,9 @@ export default function ConvocatoriaDetailPage() {
                                 key={c} 
                                 type="button" 
                                 onClick={() => setbandoForm({ ...bandoForm, color: c })}
-                                className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer shadow-md hover:scale-110 ${
+                                className={`w-7 h-7 rounded-full border-2 transition-all cursor-pointer ${
                                   bandoForm.color === c 
-                                    ? "border-foreground scale-115 ring-2 ring-primary/20" 
+                                    ? "border-foreground scale-110 ring-2 ring-primary/20" 
                                     : "border-transparent"
                                 }`}
                                 style={{ backgroundColor: c }} 
@@ -755,18 +788,18 @@ export default function ConvocatoriaDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <DialogFooter className="gap-2 sm:gap-0 border-t pt-4">
+                      <DialogFooter className="gap-2 border-t pt-4">
                         <Button 
                           variant="outline" 
                           onClick={() => setbandoDialogOpen(false)} 
-                          className="font-bold text-xs rounded-xl"
+                          className="font-bold text-xs rounded border hover:bg-muted"
                         >
                           Cancelar
                         </Button>
                         <Button 
                           onClick={handleSaveBando} 
                           disabled={bandoSaving || !bandoForm.nombre} 
-                          className="font-bold text-xs rounded-xl"
+                          className="font-bold text-xs rounded bg-primary text-primary-foreground hover:bg-primary/95"
                         >
                           {bandoSaving ? <Spinner className="text-white" /> : editingBando ? "Actualizar" : "Crear Bando"}
                         </Button>
@@ -776,215 +809,131 @@ export default function ConvocatoriaDetailPage() {
                 )}
               </div>
 
-              <Card className="border-border/50">
-                <CardContent className="p-5">
-                  {bandos.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Trophy size={28} className="mx-auto text-muted-foreground/60 mb-2" />
-                      <p className="text-xs text-muted-foreground font-semibold">No hay bandos configurados</p>
-                      {isOrganizador && <p className="text-[10px] text-muted-foreground mt-0.5">Crea bandos para poder distribuir a los jugadores en la alineación.</p>}
-                    </div>
-                  ) : (
-                    <div className="grid gap-3.5 sm:grid-cols-2">
-                      {bandos.map((eq) => (
-                        <div 
-                          key={eq.id} 
-                          className="flex items-center justify-between p-3 rounded-xl border border-border/40 hover:border-primary/20 bg-background/50 hover:bg-muted/10 transition-premium relative overflow-hidden group shadow-sm"
-                        >
-                          {eq.color && (
-                            <div className="absolute top-0 bottom-0 left-0 w-[4px]" style={{ backgroundColor: eq.color }} />
-                          )}
-                          <div className="flex items-center gap-3 pl-2.5 overflow-hidden">
-                            <div className="w-3.5 h-3.5 rounded-full shrink-0 border border-border shadow-inner" style={{ backgroundColor: eq.color || '#ccc' }} />
-                            <p className="text-xs font-bold text-foreground truncate">{eq.nombre}</p>
-                          </div>
-                          {isOrganizador && (
-                            <div className="flex gap-1 items-center shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5" 
-                                onClick={() => openBandoDialog(eq)}
-                              >
-                                <Edit size={13} />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5" 
-                                onClick={() => handleDeleteBando(eq.id)}
-                              >
-                                <Trash2 size={13} />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Right Column: Sticky Sidebar with Details Card & Organizer Panel (1/3 width) */}
-        <div className="space-y-6">
-          {/* Metadata Sidebar Card */}
-          <Card className="border-border/50 shadow-md sticky top-6">
-            <CardHeader className="pb-3 border-b border-border/40">
-              <CardTitle className="text-xs font-black uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-                <span>Información del Evento</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 space-y-5">
-              {/* Info Items grid */}
-              <div className="space-y-4">
-                {/* Date-time */}
-                <div className="flex gap-3">
-                  <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                    <Calendar size={15} />
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Fecha y Hora</p>
-                    <p className="text-xs font-black text-foreground">{formatDateTime(convocatoria.fechaHora ?? null)}</p>
-                  </div>
+              {bandos.length === 0 ? (
+                <div className="text-center py-10 border border-dashed rounded bg-muted/5">
+                  <Trophy size={28} className="mx-auto text-muted-foreground/50 mb-2" />
+                  <p className="text-xs text-muted-foreground font-semibold">No hay bandos configurados</p>
+                  {isOrganizador && <p className="text-[10px] text-muted-foreground mt-0.5">Crea bandos para poder distribuir a los jugadores en la alineación.</p>}
                 </div>
-
-                {/* Location */}
-                {convocatoria.lugar && (
-                  <div className="flex gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                      <MapPin size={15} />
-                    </div>
-                    <div className="space-y-0.5 overflow-hidden">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Lugar</p>
-                      <p className="text-xs font-black text-foreground truncate" title={convocatoria.lugar}>{convocatoria.lugar}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Limit RSVP Time */}
-                {convocatoria.fechaLimiteInscripcion && (
-                  <div className="flex gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-destructive/10 flex items-center justify-center text-destructive shrink-0">
-                      <Clock size={15} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-bold text-destructive uppercase tracking-widest">Límite Confirmación</p>
-                      <p className="text-xs font-black text-foreground">{formatDateTime(convocatoria.fechaLimiteInscripcion)}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Slots remaining details */}
-                {convocatoria.cupoMaximo != null && convocatoria.cupoMaximo > 0 && (
-                  <div className="flex gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                      <Users size={15} />
-                    </div>
-                    <div className="space-y-0.5 w-full">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cupos del Partido</p>
-                      <div className="flex items-center justify-between text-xs font-black text-foreground">
-                        <span>Máximo {convocatoria.cupoMaximo}</span>
-                        <span className={slotsRemaining <= 3 && slotsRemaining > 0 ? "text-amber-600 font-black animate-pulse" : "text-muted-foreground"}>
-                          {slotsRemaining > 0 ? `${slotsRemaining} libres` : "Sin cupos"}
-                        </span>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {bandos.map((eq) => (
+                    <div 
+                      key={eq.id} 
+                      className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium relative overflow-hidden group shadow-sm"
+                    >
+                      {eq.color && (
+                        <div className="absolute top-0 bottom-0 left-0 w-[4px]" style={{ backgroundColor: eq.color }} />
+                      )}
+                      <div className="flex items-center gap-3 pl-2 overflow-hidden">
+                        <div className="w-3.5 h-3.5 rounded-full shrink-0 border border-border" style={{ backgroundColor: eq.color || '#ccc' }} />
+                        <p className="text-xs font-semibold text-foreground truncate">{eq.nombre}</p>
                       </div>
+                      {isOrganizador && (
+                        <div className="flex gap-1 items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 rounded text-muted-foreground hover:text-primary hover:bg-muted" 
+                            onClick={() => openBandoDialog(eq)}
+                          >
+                            <Edit size={12} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
+                            onClick={() => handleDeleteBando(eq.id)}
+                          >
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {/* Creator/Organizer */}
-                <div className="flex gap-3">
-                  <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                    <User size={15} />
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Organizado por</p>
-                    <p className="text-xs font-black text-foreground">{convocatoria.creadoPorNombre}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action buttons for Organizer */}
-              {isOrganizador && (
-                <div className="border-t border-border/40 pt-4 space-y-2">
-                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Panel de Administración</span>
-                  
-                  <div className="grid grid-cols-1 gap-2">
-                    {convocatoria.estado === "BORRADOR" && (
-                      <Button 
-                        onClick={async () => {
-                          try {
-                            await api.put(`/api/convocatorias/${id}/abrir`);
-                            fetchData();
-                          } catch (err: unknown) {
-                            setError(getApiErrorMessage(err));
-                          }
-                        }}
-                        className="w-full gap-1.5 font-bold text-xs py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-md transition-premium"
-                      >
-                        <CheckCircle2 size={13} />
-                        Abrir Convocatoria
-                      </Button>
-                    )}
-
-                    {convocatoria.estado !== "CANCELADA" && convocatoria.estado !== "FINALIZADA" && (
-                      <Button 
-                        variant="destructive"
-                        onClick={async () => {
-                          if (confirm("¿Estás seguro de cancelar esta convocatoria?")) {
-                            try {
-                              await api.put(`/api/convocatorias/${id}/cancelar`);
-                              fetchData();
-                            } catch (err: unknown) {
-                              setError(getApiErrorMessage(err));
-                            }
-                          }
-                        }}
-                        className="w-full gap-1.5 font-bold text-xs py-2 rounded-xl border border-destructive/10"
-                      >
-                        <XCircle size={13} />
-                        Cancelar Partido
-                      </Button>
-                    )}
-
-                    {(convocatoria.estado === "BORRADOR" || convocatoria.estado === "ABIERTA") && (
-                      <Button 
-                        variant="outline"
-                        onClick={() => navigate(`/convocatorias/${id}/edit`)}
-                        className="w-full gap-1.5 font-bold text-xs py-2 rounded-xl border-border/80 hover:bg-muted"
-                      >
-                        <Edit size={13} />
-                        Editar Detalles
-                      </Button>
-                    )}
-
-                    {convocatoria.estado === "BORRADOR" && (
-                      <Button 
-                        variant="destructive"
-                        onClick={async () => {
-                          if (confirm("¿Estás seguro de eliminar completamente esta convocatoria?")) {
-                            try {
-                              await api.delete(`/api/convocatorias/${id}`);
-                              navigate("/convocatorias");
-                            } catch (err: unknown) {
-                              setError(getApiErrorMessage(err));
-                            }
-                          }
-                        }}
-                        className="w-full gap-1.5 font-bold text-xs py-2 rounded-xl border border-destructive/10"
-                      >
-                        <Trash2 size={13} />
-                        Eliminar Convocatoria
-                      </Button>
-                    )}
-                  </div>
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Admin Operations Callout (Shown below) */}
+          {isOrganizador && (
+            <div className="notion-callout border-destructive/20 bg-destructive/[0.02] dark:bg-destructive/[0.04] mt-8 flex-col">
+              <div className="flex gap-2 items-center">
+                <span className="notion-callout-icon">⚙️</span>
+                <div className="font-bold text-xs text-muted-foreground uppercase tracking-widest">Panel de Administración</div>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {convocatoria.estado === "BORRADOR" && (
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        await api.put(`/api/convocatorias/${id}/abrir`);
+                        fetchData();
+                      } catch (err: unknown) {
+                        setError(getApiErrorMessage(err));
+                      }
+                    }}
+                    className="h-8 px-3 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-premium cursor-pointer border border-emerald-600"
+                  >
+                    <CheckCircle2 size={13} className="mr-1.5" />
+                    Abrir Convocatoria
+                  </Button>
+                )}
+
+                {convocatoria.estado !== "CANCELADA" && convocatoria.estado !== "FINALIZADA" && (
+                  <Button 
+                    variant="destructive"
+                    onClick={async () => {
+                      if (confirm("¿Estás seguro de cancelar esta convocatoria?")) {
+                        try {
+                          await api.put(`/api/convocatorias/${id}/cancelar`);
+                          fetchData();
+                        } catch (err: unknown) {
+                          setError(getApiErrorMessage(err));
+                        }
+                      }
+                    }}
+                    className="h-8 px-3 font-semibold text-xs rounded border border-destructive/20 hover:bg-destructive/10 bg-background text-destructive cursor-pointer"
+                  >
+                    <XCircle size={13} className="mr-1.5" />
+                    Cancelar Partido
+                  </Button>
+                )}
+
+                {(convocatoria.estado === "BORRADOR" || convocatoria.estado === "ABIERTA") && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate(`/convocatorias/${id}/edit`)}
+                    className="h-8 px-3 font-semibold text-xs rounded border border-border hover:bg-muted text-foreground bg-background cursor-pointer"
+                  >
+                    <Edit size={13} className="mr-1.5" />
+                    Editar Detalles
+                  </Button>
+                )}
+
+                {convocatoria.estado === "BORRADOR" && (
+                  <Button 
+                    variant="destructive"
+                    onClick={async () => {
+                      if (confirm("¿Estás seguro de eliminar completamente esta convocatoria?")) {
+                        try {
+                          await api.delete(`/api/convocatorias/${id}`);
+                          navigate("/convocatorias");
+                        } catch (err: unknown) {
+                          setError(getApiErrorMessage(err));
+                        }
+                      }
+                    }}
+                    className="h-8 px-3 font-semibold text-xs rounded border border-destructive/20 hover:bg-destructive/10 bg-background text-destructive cursor-pointer"
+                  >
+                    <Trash2 size={13} className="mr-1.5" />
+                    Eliminar Convocatoria
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

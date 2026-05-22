@@ -153,154 +153,170 @@ export default function GruposPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestión de Grupos</h1>
-          <p className="text-muted-foreground">
-            Crea audiencias personalizadas (como ligas o equipos) para tus convocatorias recurrentes o individuales
-          </p>
+    <div className="space-y-6 max-w-5xl animate-fadeIn pb-12">
+      {/* Cover/Header area */}
+      <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl select-none">👥</span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Gestión de Grupos</h1>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              Crea audiencias personalizadas (como ligas o equipos) para convocar jugadores en lote rápidamente.
+            </p>
+          </div>
         </div>
-        <Button onClick={openCreateDialog} className="">
-          <Plus size={16} className="mr-2" /> Nuevo Grupo
+        <Button 
+          onClick={openCreateDialog} 
+          className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus size={14} /> 
+          <span>Nuevo Grupo</span>
         </Button>
       </div>
 
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">
+          <div className="notion-callout-icon">
+            <X className="h-5 w-5" />
+          </div>
+          <div className="text-xs font-medium">{error}</div>
+        </div>
       )}
 
       {success && (
-        <Alert className="border-green-500/30 bg-green-500/10 text-green-400">
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
+        <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
+          <div className="notion-callout-icon">
+            <Check className="h-5 w-5" />
+          </div>
+          <div className="text-xs font-medium">{success}</div>
+        </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {grupos.length === 0 ? (
-          <Card className="col-span-full py-12 flex flex-col items-center justify-center text-center">
-            <Users className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold">No hay grupos registrados</h3>
-            <p className="text-muted-foreground max-w-sm mt-1">
-              Crea un grupo de jugadores para poder convocarlos en lote rápidamente.
-            </p>
-            <Button onClick={openCreateDialog} className="mt-4" variant="outline">
+          <div className="col-span-full py-16 border border-dashed border-border rounded-lg bg-card text-center flex flex-col items-center justify-center space-y-3">
+            <span className="text-4xl select-none">👥</span>
+            <div>
+              <h3 className="text-sm font-semibold">No hay grupos registrados</h3>
+              <p className="text-xs text-muted-foreground max-w-xs mt-1">
+                Crea un grupo de jugadores para poder convocarlos rápidamente en tus partidos.
+              </p>
+            </div>
+            <Button onClick={openCreateDialog} className="h-8 px-4 text-xs font-semibold" variant="outline">
               Crear tu primer grupo
             </Button>
-          </Card>
+          </div>
         ) : (
           grupos.map((grupo) => (
-            <Card key={grupo.id} className="relative overflow-hidden group hover:border-primary/20 transition-colors border">
-              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-xl font-bold">{grupo.nombre}</CardTitle>
-                    <CardDescription className="line-clamp-2 mt-1 min-h-[2.5rem]">
-                      {grupo.descripcion || "Sin descripción"}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Miembros:</span>
-                  <Badge variant="secondary" className="font-bold">
+            <div key={grupo.id} className="relative rounded-lg border border-border bg-card p-5 space-y-4 hover:border-foreground/20 transition-colors shadow-none">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground">{grupo.nombre}</h3>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase bg-secondary px-1.5 py-0.5 rounded border border-border">
                     {grupo.miembroIds?.length || 0} jugadores
-                  </Badge>
+                  </span>
                 </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">
+                  {grupo.descripcion || "Sin descripción"}
+                </p>
+              </div>
 
-                {/* Micro-preview of members */}
-                <div className="flex flex-wrap gap-1.5 pt-2 border-t">
-                  {grupo.miembroNombres?.slice(0, 5).map((nombre, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs bg-muted/20">
+              {/* Preview of members */}
+              <div className="pt-3 border-t border-border space-y-2">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Miembros</span>
+                <div className="flex flex-wrap gap-1">
+                  {grupo.miembroNombres?.slice(0, 4).map((nombre, idx) => (
+                    <Badge key={idx} variant="outline" className="text-[9px] px-1.5 py-0 bg-secondary/50 border-border text-foreground font-semibold rounded shadow-none">
                       {nombre}
                     </Badge>
                   ))}
-                  {(grupo.miembroIds?.length || 0) > 5 && (
-                    <Badge variant="outline" className="text-xs text-primary font-bold">
-                      +{(grupo.miembroIds?.length || 0) - 5} más
+                  {(grupo.miembroIds?.length || 0) > 4 && (
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold border-border bg-foreground/5 text-foreground rounded shadow-none">
+                      +{(grupo.miembroIds?.length || 0) - 4} más
                     </Badge>
                   )}
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t mt-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openEditDialog(grupo)}
-                    title="Editar grupo"
-                    className="hover:text-primary"
-                  >
-                    <Edit size={16} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteGrupo(grupo.id)}
-                    title="Eliminar grupo"
-                    className="hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              <div className="flex justify-end gap-1.5 pt-2 border-t border-border">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openEditDialog(grupo)}
+                  className="h-7 w-7 rounded text-muted-foreground hover:text-foreground"
+                  title="Editar grupo"
+                >
+                  <Edit size={13} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDeleteGrupo(grupo.id)}
+                  className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  title="Eliminar grupo"
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </div>
+            </div>
           ))
         )}
       </div>
 
       {/* Creation / Edition Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl bg-card border">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              {selectedGrupo ? "Editar Grupo" : "Crear Nuevo Grupo"}
+        <DialogContent className="bg-popover border border-border shadow-none rounded-lg max-w-md p-5 space-y-4">
+          <DialogHeader className="border-b border-border pb-3">
+            <DialogTitle className="text-sm font-semibold tracking-tight">
+              {selectedGrupo ? "⚙️ Editar Grupo" : "✨ Crear Nuevo Grupo"}
             </DialogTitle>
-            <DialogDescription>
-              Configura los detalles del grupo y selecciona los miembros que formarán parte de esta audiencia.
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Configura los detalles del grupo y selecciona los miembros que formarán parte.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 my-4">
-            <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nombre">Nombre del Grupo</Label>
+          <div className="space-y-4 py-2">
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="nombre" className="text-xs font-semibold text-muted-foreground">Nombre del Grupo</Label>
                 <Input
                   id="nombre"
                   placeholder="Ej. LEALES FC, Liga de los Lunes..."
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
+                  className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="descripcion">Descripción</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="descripcion" className="text-xs font-semibold text-muted-foreground">Descripción</Label>
                 <Input
                   id="descripcion"
                   placeholder="Ej. Grupo de amigos para los partidos semanales de los lunes."
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
+                  className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
                 />
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Seleccionar Jugadores ({selectedUserIds.length})</Label>
-                <Input
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between border-b border-border pb-1.5">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Seleccionar Jugadores ({selectedUserIds.length})
+                </Label>
+                <input
+                  type="text"
                   placeholder="Buscar jugador..."
                   value={searchUserQuery}
                   onChange={(e) => setSearchUserQuery(e.target.value)}
-                  className="max-w-[250px] h-8 text-xs"
+                  className="px-2 py-1 h-7 w-[160px] rounded border border-border bg-background text-[11px] font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
 
-              <div className="border rounded-xl max-h-[220px] overflow-y-auto divide-y divide-border/60 bg-muted/10">
+              <div className="border border-border rounded bg-secondary/10 max-h-[160px] overflow-y-auto divide-y divide-border pr-1">
                 {filteredUsers.length === 0 ? (
-                  <p className="text-center py-6 text-sm text-muted-foreground">No se encontraron jugadores</p>
+                  <p className="text-center py-6 text-xs text-muted-foreground">No se encontraron jugadores</p>
                 ) : (
                   filteredUsers.map((user) => {
                     const isSelected = selectedUserIds.includes(user.id);
@@ -308,18 +324,18 @@ export default function GruposPage() {
                       <div
                         key={user.id}
                         onClick={() => toggleUserSelection(user.id)}
-                        className={`flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors duration-200 ${
-                          isSelected ? "bg-primary/5 text-foreground" : "hover:bg-muted/30"
+                        className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
+                          isSelected ? "bg-primary/5 text-foreground" : "hover:bg-secondary/30"
                         }`}
                       >
-                        <div>
-                          <p className="text-sm font-semibold">{user.nombre}</p>
-                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">{user.nombre}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono truncate">{user.email}</p>
                         </div>
-                        <div className={`h-5 w-5 rounded-md border flex items-center justify-center transition-colors duration-200 ${
-                          isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
+                        <div className={`h-4.5 w-4.5 rounded border flex items-center justify-center transition-colors ${
+                          isSelected ? "bg-primary border-primary text-primary-foreground" : "border-border bg-background"
                         }`}>
-                          {isSelected && <Check size={14} className="stroke-[3]" />}
+                          {isSelected && <Check size={11} className="stroke-[3]" />}
                         </div>
                       </div>
                     );
@@ -329,13 +345,22 @@ export default function GruposPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)} disabled={saving}>
+          <DialogFooter className="border-t border-border pt-3 gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setDialogOpen(false)} 
+              disabled={saving}
+              className="h-8 text-xs font-semibold px-3 border-border hover:bg-secondary shadow-none"
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSaveGrupo} disabled={saving} className="">
-              {saving ? <Spinner size="sm" className="mr-2" /> : null}
-              {selectedGrupo ? "Actualizar Grupo" : "Crear Grupo"}
+            <Button 
+              onClick={handleSaveGrupo} 
+              disabled={saving}
+              className="h-8 text-xs font-semibold px-3 shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {saving && <Spinner size="sm" className="mr-1.5" />}
+              <span>{selectedGrupo ? "Guardar Cambios" : "Crear Grupo"}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

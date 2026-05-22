@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,7 +15,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, Plus, Pencil, Trash2, Key, Info, Calendar, Users, User, Trophy, Settings, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -52,21 +50,11 @@ const MODULE_ICONS: Record<string, any> = {
   "Otros Módulos": Settings
 };
 
-const MODULE_COLORS: Record<string, string> = {
-  "Convocatorias": "from-blue-500/15 to-indigo-500/5 border-blue-500/20 text-blue-400",
-  "Asistencias": "from-emerald-500/15 to-teal-500/5 border-emerald-500/20 text-emerald-400",
-  "Equipos": "from-purple-500/15 to-fuchsia-500/5 border-purple-500/20 text-purple-400",
-  "Roles y Permisos": "from-amber-500/15 to-orange-500/5 border-amber-500/20 text-amber-400",
-  "Usuarios": "from-cyan-500/15 to-blue-500/5 border-cyan-500/20 text-cyan-400",
-  "Deportes": "from-rose-500/15 to-pink-500/5 border-rose-500/20 text-rose-400",
-  "Otros Módulos": "from-slate-500/15 to-zinc-500/5 border-slate-500/20 text-slate-400"
-};
-
 const getModulo = (clave: string): string => {
   const c = clave.toLowerCase();
   if (c.includes("convocatoria")) return "Convocatorias";
   if (c.includes("asistencia") || c.includes("externo") || c.includes("invitar")) return "Asistencias";
-  if (c.includes("equipo") || c.includes("bando")) return "Bandos";
+  if (c.includes("equipo") || c.includes("bando")) return "Equipos";
   if (c.includes("rol") || c.includes("permiso")) return "Roles y Permisos";
   if (c.includes("usuario")) return "Usuarios";
   if (c.includes("deporte") || c.includes("posicion")) return "Deportes";
@@ -173,37 +161,41 @@ export default function PermisosPage() {
 
   if (!hasPermission("gestionar_roles") && !hasPermission("ver_permisos")) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>No tienes permisos para acceder a esta página</AlertDescription>
-      </Alert>
+      <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-4 rounded-lg">
+        <div className="notion-callout-icon">
+          <Shield size={16} />
+        </div>
+        <div className="text-xs font-semibold">No tienes permisos para acceder a esta página</div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header and Add Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
-            Permisos del Sistema
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Gestione y supervise todos los privilegios y accesos agrupados por módulos deportivos.
-          </p>
+    <div className="space-y-6 max-w-5xl animate-fadeIn pb-12">
+      {/* Cover/Header area */}
+      <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl select-none">🔑</span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Permisos del Sistema</h1>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              Administración y supervisión de todos los privilegios y accesos agrupados por módulos.
+            </p>
+          </div>
         </div>
-
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => openDialog()} className="">
-              <Plus size={16} className="mr-2" /> Nuevo Permiso
+            <Button onClick={() => openDialog()} className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus size={14} /> 
+              <span>Nuevo Permiso</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border border-border/60">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">
+          <DialogContent className="bg-popover border border-border shadow-none rounded-lg max-w-md p-5 space-y-4">
+            <DialogHeader className="border-b border-border pb-3">
+              <DialogTitle className="text-sm font-semibold tracking-tight">
                 {editingPermiso ? "Editar Permiso" : "Crear Permiso"}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
                 {editingPermiso
                   ? `Editando los detalles del permiso: ${editingPermiso.clave}`
                   : "Defina una nueva clave y descripción para el permiso."}
@@ -211,75 +203,87 @@ export default function PermisosPage() {
             </DialogHeader>
 
             {error && (
-              <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-                <Info size={16} className="text-destructive shrink-0" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 rounded">
+                <div className="notion-callout-icon">
+                  <Shield size={14} className="shrink-0" />
+                </div>
+                <div className="text-[11px] font-medium leading-normal">{error}</div>
+              </div>
             )}
 
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="clave">Nombre / Clave del Permiso</Label>
+            <div className="space-y-3.5 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="clave" className="text-xs font-semibold text-muted-foreground">Nombre / Clave del Permiso</Label>
                 <Input
                   id="clave"
                   value={formData.clave}
                   onChange={(e) => setFormData({ ...formData, clave: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
                   placeholder="Ej: editar_marcador"
-                  className="font-mono bg-background/50"
+                  className="font-mono h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Se recomienda usar formato snake_case en minúsculas. El administrador puede editar este campo para cualquier permiso.
+                  Se recomienda usar formato snake_case en minúsculas.
                 </p>
 
                 {editingPermiso && SYSTEM_PERMISSIONS.includes(editingPermiso.clave) && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-[11px] flex gap-2 items-start mt-2">
-                    <Info size={14} className="shrink-0 mt-0.5" />
-                    <p>
+                  <div className="notion-callout border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400 p-3 rounded mt-2">
+                    <div className="notion-callout-icon">
+                      <Info size={14} className="shrink-0" />
+                    </div>
+                    <div className="text-[10px] leading-normal font-semibold">
                       <strong>Atención:</strong> Está editando una clave de sistema principal. Asegúrese de que el código del backend o las anotaciones de seguridad coincidan con este nuevo nombre.
-                    </p>
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="descripcion">Descripción</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="descripcion" className="text-xs font-semibold text-muted-foreground">Descripción</Label>
                 <Input
                   id="descripcion"
                   value={formData.descripcion}
                   onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                   placeholder="Ej: Permite actualizar el resultado de un partido"
-                  className="bg-background/50"
+                  className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
                 />
               </div>
             </div>
 
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-border/60">
+            <DialogFooter className="border-t border-border pt-3 gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setDialogOpen(false)}
+                className="h-8 text-xs font-semibold px-3 border-border hover:bg-secondary shadow-none"
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={saving || !formData.clave || !formData.descripcion} className="">
-                {saving ? <Spinner className="h-4 w-4" /> : editingPermiso ? "Actualizar" : "Guardar"}
+              <Button 
+                onClick={handleSave} 
+                disabled={saving || !formData.clave || !formData.descripcion}
+                className="h-8 text-xs font-semibold px-3 shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {saving ? <Spinner size="sm" /> : editingPermiso ? "Actualizar" : "Guardar"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Search and Quick Stats Bar */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch">
-        <div className="relative flex-1 max-w-md">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      {/* Search and Stats bar */}
+      <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar permisos por nombre o descripción..."
-            className="pl-10 bg-card/50 border-border/60 focus:border-primary/45 transition-all duration-300"
+            className="pl-8 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
           />
         </div>
-        <div className="flex gap-4 items-center bg-card/45 backdrop-blur-md px-4 py-2 rounded-xl border border-border/40 text-xs font-semibold">
-          <span className="text-muted-foreground">Total Permisos: <strong className="text-foreground">{permisos.length}</strong></span>
+        <div className="flex gap-3 items-center border border-border bg-card px-3 py-1.5 rounded-lg text-[10px] font-semibold text-muted-foreground select-none">
+          <span>Total: <strong className="text-foreground">{permisos.length}</strong></span>
           <span className="text-border">|</span>
-          <span className="text-muted-foreground">Filtrados: <strong className="text-primary">{filteredPermisos.length}</strong></span>
+          <span>Filtrados: <strong className="text-foreground">{filteredPermisos.length}</strong></span>
         </div>
       </div>
 
@@ -289,92 +293,84 @@ export default function PermisosPage() {
           <Spinner className="h-10 w-10 text-primary" />
         </div>
       ) : filteredPermisos.length === 0 ? (
-        <Card className="border-dashed border-2 py-16 flex flex-col items-center justify-center bg-card/30">
-          <Shield className="h-12 w-12 text-muted-foreground/60 mb-4 animate-pulse" />
-          <h3 className="text-lg font-bold text-foreground">No se encontraron permisos</h3>
-          <p className="text-sm text-muted-foreground mt-1 max-w-sm text-center">
+        <div className="border border-border border-dashed py-16 flex flex-col items-center justify-center bg-card rounded-lg">
+          <Shield className="h-8 w-8 text-muted-foreground mb-3 animate-pulse" />
+          <h3 className="text-sm font-bold text-foreground">No se encontraron permisos</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs text-center">
             {searchTerm ? "No se encontraron coincidencias para su búsqueda." : "No se han cargado privilegios en el sistema. Presione el botón superior para agregar uno."}
           </p>
-        </Card>
+        </div>
       ) : (
-        <div className="space-y-10">
+        <div className="space-y-8">
           {/* Order and display the defined modules */}
           {moduloOrder.map((modulo) => {
             const permisosModulo = groupedPermisos[modulo];
             if (!permisosModulo || permisosModulo.length === 0) return null;
 
             const Icon = MODULE_ICONS[modulo] || Settings;
-            const colorClass = MODULE_COLORS[modulo] || "from-slate-500/15 to-zinc-500/5 border-slate-500/20 text-slate-400";
 
             return (
-              <div key={modulo} className="space-y-4">
+              <div key={modulo} className="space-y-3">
                 {/* Module Heading */}
-                <div className={`flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r border backdrop-blur-sm ${colorClass}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-background/40 rounded-xl border border-white/10 shadow-sm">
-                      <Icon size={20} className="stroke-[2.5px]" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-lg text-foreground tracking-tight">{modulo}</h3>
-                      <p className="text-[10px] text-muted-foreground/80 font-bold uppercase tracking-wider">MÓDULO DE GESTIÓN</p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="bg-background/30 border-white/10 text-foreground font-semibold px-2.5 py-1">
-                    {permisosModulo.length} {permisosModulo.length === 1 ? "permiso" : "permisos"}
-                  </Badge>
+                <div className="flex items-center gap-2 border-b border-border pb-2 pt-2 select-none">
+                  <Icon size={14} className="text-foreground shrink-0" />
+                  <span className="font-bold text-xs text-foreground tracking-wide uppercase">{modulo}</span>
+                  <span className="text-[10px] text-muted-foreground">({permisosModulo.length})</span>
                 </div>
 
                 {/* Permissions Grid */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {permisosModulo.map((permiso) => {
                     const isSystem = SYSTEM_PERMISSIONS.includes(permiso.clave);
                     return (
-                      <Card key={permiso.id} className="relative group overflow-hidden border-border/50 bg-card/60 backdrop-blur-md hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.02]">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary/5 to-transparent rounded-bl-full pointer-events-none transition-opacity opacity-0 group-hover:opacity-100" />
-                        <CardHeader className="flex flex-row items-start justify-between pb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
-                              <Key size={16} className="text-primary" />
-                            </div>
-                            <div className="overflow-hidden">
-                              <CardTitle className="text-sm font-mono font-bold truncate max-w-[155px] sm:max-w-[190px]" title={permiso.clave}>
+                      <div 
+                        key={permiso.id} 
+                        className="bg-card border border-border rounded-lg shadow-none p-4 space-y-3 hover:border-muted-foreground/30 transition-colors flex flex-col justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Key size={13} className="text-muted-foreground shrink-0" />
+                              <span className="font-mono text-xs font-bold text-foreground truncate select-all" title={permiso.clave}>
                                 {permiso.clave}
-                              </CardTitle>
-                              {isSystem && (
-                                <span className="inline-block mt-1 text-[8px] font-extrabold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                                  Core del Sistema
-                                </span>
-                              )}
+                              </span>
                             </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <p className="text-xs text-muted-foreground line-clamp-2 h-8">
-                            {permiso.descripcion}
-                          </p>
-
-                          <div className="flex items-center gap-2 pt-2.5 border-t border-border/40">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openDialog(permiso)}
-                              className="h-8 text-xs border-border/60 hover:bg-primary/5 hover:text-primary transition-all duration-200"
-                            >
-                              <Pencil size={11} className="mr-1" /> Editar
-                            </Button>
-                            {!isSystem && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(permiso.id, permiso.clave)}
-                                className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
+                            {isSystem && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-[8px] uppercase px-1.5 py-0.2 font-semibold bg-secondary border-border text-muted-foreground rounded shadow-none shrink-0"
                               >
-                                <Trash2 size={11} className="mr-1" /> Eliminar
-                              </Button>
+                                Sistema
+                              </Badge>
                             )}
                           </div>
-                        </CardContent>
-                      </Card>
+                          
+                          <p className="text-[11px] text-muted-foreground leading-normal line-clamp-3">
+                            {permiso.descripcion}
+                          </p>
+                        </div>
+
+                        <div className="flex gap-2 pt-2.5 border-t border-border mt-auto">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => openDialog(permiso)}
+                            className="h-6 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
+                          >
+                            <Pencil size={10} /> Editar
+                          </Button>
+                          {!isSystem && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(permiso.id, permiso.clave)}
+                              className="h-6 px-2 text-[10px] font-semibold rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto gap-1"
+                            >
+                              <Trash2 size={10} /> Eliminar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
