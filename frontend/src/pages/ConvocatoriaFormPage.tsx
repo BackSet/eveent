@@ -155,7 +155,7 @@ export default function ConvocatoriaFormPage() {
   if (loading) { return <div className="flex justify-center items-center py-20 min-h-[60vh]"><Spinner /></div>; }
 
   return (
-    <div className="space-y-5 max-w-3xl animate-fadeIn pb-12">
+    <div className="space-y-5 max-w-3xl mx-auto animate-fadeIn pb-12 px-4 sm:px-6">
       <Button variant="ghost" onClick={() => navigate("/convocatorias")} className="gap-1 font-medium text-muted-foreground hover:text-foreground">
         <ArrowLeft size={15} /> Volver
       </Button>

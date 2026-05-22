@@ -171,7 +171,7 @@ export default function PermisosPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl animate-fadeIn pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto animate-fadeIn pb-12 px-4 sm:px-6">
       {/* Cover/Header area */}
       <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
         <div className="flex items-center gap-3">

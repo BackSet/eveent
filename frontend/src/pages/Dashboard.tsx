@@ -183,14 +183,14 @@ export default function Dashboard() {
   const activeConvs = convocatorias.filter(c => c.estado === "ABIERTA" || c.estado === "EN_PROGRESO");
 
   return (
-    <div className="notion-animate-fade relative">
+    <div className="min-h-screen bg-background -mx-6 -mt-6 notion-animate-fade">
       {/* Notion Cover Image Banner */}
       <div className="notion-cover notion-cover-sports relative">
         <div className="notion-page-icon-overlay">🏆</div>
       </div>
 
       {/* Main Page Workspace Content */}
-      <div className="px-6 md:px-12 pt-14 pb-16 space-y-10">
+      <div className="max-w-5xl mx-auto px-6 sm:px-12 pt-14 pb-16 space-y-10">
         
         {/* Workspace Title & Header Block */}
         <div className="space-y-4">

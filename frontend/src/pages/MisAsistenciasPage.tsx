@@ -12,7 +12,7 @@ export default function MisAsistenciasPage() {
   const { data: asistencias, loading } = useApi<Asistencia[]>("/api/asistencias/mis-asistencias");
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto animate-fadeIn pb-12 px-4 sm:px-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Mis Asistencias</h1>
         <p className="text-muted-foreground text-sm mt-0.5">

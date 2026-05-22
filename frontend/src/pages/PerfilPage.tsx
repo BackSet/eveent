@@ -231,13 +231,13 @@ export default function PerfilPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl animate-fadeIn pb-12 -mx-4 md:-mx-8 -mt-6">
+    <div className="min-h-screen bg-background -mx-6 -mt-6 notion-animate-fade">
       {/* Cover Image */}
-      <div className="notion-cover notion-cover-sports h-32 md:h-40">
+      <div className="notion-cover notion-cover-sports h-32 md:h-40 relative">
         <div className="notion-page-icon-overlay select-none">👤</div>
       </div>
 
-      <div className="px-4 md:px-8 space-y-6">
+      <div className="max-w-4xl mx-auto px-6 sm:px-12 pb-24 pt-16 space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Ajustes de Perfil</h1>
           <p className="text-muted-foreground text-xs mt-1">

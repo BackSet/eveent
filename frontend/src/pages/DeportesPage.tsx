@@ -192,7 +192,7 @@ export default function DeportesPage() {
   }
 
   return (
-    <div className="space-y-6 notion-animate-fade pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
       {/* Cover / Header section */}
       <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
         <div className="h-28 notion-cover notion-cover-soccer" />
