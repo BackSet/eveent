@@ -23,4 +23,7 @@ public class PosicionesDeporte {
 
     @Column(length = 10)
     private String abreviatura;
+
+    @Column(name = "categoria_linea", length = 30)
+    private String categoriaLinea;
 }

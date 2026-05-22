@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
+import { getApiErrorMessage } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,8 +65,8 @@ export default function UsuariosPage() {
       ]);
       setUsuarios(usersRes.data);
       setRoles(rolesRes.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al cargar datos");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al cargar datos");
     } finally {
       setLoading(false);
     }
@@ -105,8 +106,8 @@ export default function UsuariosPage() {
       showSuccess("Roles actualizados correctamente");
       setEditDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al actualizar roles");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al actualizar roles");
     } finally {
       setSaving(false);
     }
@@ -124,8 +125,8 @@ export default function UsuariosPage() {
       showSuccess("Usuario creado correctamente");
       setCreateDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al crear usuario");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al crear usuario");
     } finally {
       setSaving(false);
     }
@@ -137,8 +138,8 @@ export default function UsuariosPage() {
       await api.delete(`/api/usuarios/${id}`);
       showSuccess("Usuario eliminado correctamente");
       fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al eliminar usuario");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al eliminar usuario");
     }
   };
 
@@ -147,8 +148,8 @@ export default function UsuariosPage() {
       await api.patch(`/api/usuarios/${id}/toggle-activo`);
       showSuccess("Estado actualizado correctamente");
       fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al actualizar estado");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al actualizar estado");
     }
   };
 
@@ -194,7 +195,7 @@ export default function UsuariosPage() {
             Administra los usuarios y sus roles en el sistema
           </p>
         </div>
-        <Button onClick={openCreateDialog} className="glow-btn">
+        <Button onClick={openCreateDialog} className="">
           <Plus size={16} /> Nuevo Usuario
         </Button>
       </div>
@@ -315,7 +316,7 @@ export default function UsuariosPage() {
             <Button
               onClick={handleSaveRoles}
               disabled={saving || selectedRoles.length === 0}
-              className="glow-btn"
+              className=""
             >
               {saving ? <Spinner /> : "Guardar Cambios"}
             </Button>
@@ -384,7 +385,7 @@ export default function UsuariosPage() {
             <Button
               onClick={handleCreateUser}
               disabled={saving || !formData.nombre || !formData.email}
-              className="glow-btn"
+              className=""
             >
               {saving ? <Spinner /> : "Crear Usuario"}
             </Button>

@@ -35,6 +35,13 @@ public class Convocatoria {
     @Column(nullable = false)
     private LocalDateTime fechaHora;
 
+    @Column(name = "fecha_hora_fin")
+    private LocalDateTime fechaHoraFin;
+
+    @Column(name = "duracion_estimada_minutos", columnDefinition = "integer default 60")
+    @Builder.Default
+    private Integer duracionEstimadaMinutos = 60;
+
     @Column(length = 200)
     private String lugar;
 
@@ -43,7 +50,7 @@ public class Convocatoria {
     private Usuario creadoPor;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     @Builder.Default
     private EstadoConvocatoria estado = EstadoConvocatoria.BORRADOR;
 
@@ -58,13 +65,19 @@ public class Convocatoria {
     @Column(length = 100)
     private String categoria;
 
+    @Column(name = "fecha_apertura_inscripcion")
+    private LocalDateTime fechaAperturaInscripcion;
+
     private LocalDateTime fechaLimiteInscripcion;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recurrencia_id")
-    private ConvocatoriaRecurrente recurrencia;
+    @JoinColumn(name = "configuracion_recurrente_id")
+    private ConfiguracionRecurrente configuracionRecurrente;
 
     @Column(name = "manejo_excedente", nullable = false, length = 20)
     @Builder.Default
     private String manejoExcedente = "LISTA_ESPERA";
+
+    @OneToMany(mappedBy = "convocatoria", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private java.util.List<Asistencia> asistencias;
 }

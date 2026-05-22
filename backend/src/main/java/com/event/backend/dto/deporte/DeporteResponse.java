@@ -1,15 +1,12 @@
 package com.event.backend.dto.deporte;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class DeporteResponse {
     private Long id;
     private String nombre;
+    private Boolean esPorEquipos;
+    private Integer minJugadoresPorBando;
+    private Integer maxJugadoresPorBando;
 }

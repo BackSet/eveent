@@ -2,13 +2,14 @@ package com.event.backend.service;
 
 import com.event.backend.dto.grupo.GrupoRequest;
 import com.event.backend.dto.grupo.GrupoResponse;
+import com.event.backend.exception.ForbiddenException;
+import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.Grupo;
 import com.event.backend.model.Usuario;
 import com.event.backend.repository.GrupoRepository;
 import com.event.backend.repository.UsuarioRepository;
-import com.event.backend.security.UserDetailsImpl;
+import com.event.backend.security.SecurityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class GrupoService {
 
     private final GrupoRepository grupoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final SecurityService securityService;
 
     @Transactional(readOnly = true)
     public List<GrupoResponse> findAll() {
@@ -34,11 +36,11 @@ public class GrupoService {
     public GrupoResponse findById(Long id) {
         return grupoRepository.findById(id)
                 .map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Grupo no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Grupo no encontrado con id: " + id));
     }
 
     public GrupoResponse create(GrupoRequest request) {
-        Usuario creador = getCurrentUser();
+        Usuario creador = securityService.getCurrentUser();
         List<Usuario> miembros = new ArrayList<>();
         if (request.getMiembroIds() != null && !request.getMiembroIds().isEmpty()) {
             miembros = usuarioRepository.findAllById(request.getMiembroIds());
@@ -57,12 +59,10 @@ public class GrupoService {
 
     public GrupoResponse update(Long id, GrupoRequest request) {
         Grupo grupo = grupoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Grupo no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Grupo no encontrado con id: " + id));
 
-        Usuario currentUser = getCurrentUser();
-        boolean isAdmin = currentUser.getEmail().equals("admin@event.com");
-        if (!grupo.getCreadoPor().getId().equals(currentUser.getId()) && !isAdmin) {
-            throw new RuntimeException("No tienes permiso para editar este grupo");
+        if (!securityService.isOwnerOrAdmin(grupo.getCreadoPor().getId())) {
+            throw new ForbiddenException("No tienes permiso para editar este grupo");
         }
 
         if (request.getNombre() != null) grupo.setNombre(request.getNombre());
@@ -80,26 +80,13 @@ public class GrupoService {
 
     public void delete(Long id) {
         Grupo grupo = grupoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Grupo no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Grupo no encontrado con id: " + id));
 
-        Usuario currentUser = getCurrentUser();
-        boolean isAdmin = currentUser.getEmail().equals("admin@event.com");
-        if (!grupo.getCreadoPor().getId().equals(currentUser.getId()) && !isAdmin) {
-            throw new RuntimeException("No tienes permiso para eliminar este grupo");
+        if (!securityService.isOwnerOrAdmin(grupo.getCreadoPor().getId())) {
+            throw new ForbiddenException("No tienes permiso para eliminar este grupo");
         }
 
         grupoRepository.delete(grupo);
-    }
-
-    private Usuario getCurrentUser() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl userDetails) {
-            return usuarioRepository.findById(userDetails.getId())
-                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        }
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
     }
 
     private GrupoResponse toResponse(Grupo grupo) {

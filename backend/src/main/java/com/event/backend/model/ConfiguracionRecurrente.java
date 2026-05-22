@@ -3,14 +3,14 @@ package com.event.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.Map;
 
 @Entity
-@Table(name = "convocatorias_recurrentes")
+@Table(name = "configuraciones_recurrentes")
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 @Builder
-public class ConvocatoriaRecurrente {
+public class ConfiguracionRecurrente {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,17 +40,12 @@ public class ConvocatoriaRecurrente {
     @Column(length = 100)
     private String categoria;
 
-    @Column(nullable = false, length = 20)
-    private String patron;
+    @Column(name = "rrule_expression", length = 255)
+    private String rruleExpression;
 
-    @Column(length = 50)
-    private String diasSemana;
-
-    @Column(nullable = false)
-    private LocalTime horaEvento;
-
-    @Column
-    private LocalTime horaPartido;
+    @Convert(converter = HorariosMapConverter.class)
+    @Column(name = "horarios_por_dia", columnDefinition = "text")
+    private Map<String, HorarioDia> horariosPorDia;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "grupo_destino_id")

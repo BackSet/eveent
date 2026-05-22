@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard,
@@ -12,7 +12,6 @@ import {
   Shield,
   Key,
   Settings,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, memo } from "react";
@@ -31,7 +30,8 @@ const menuItems = [
 
 export const Sidebar = memo(function Sidebar() {
   const location = useLocation();
-  const { hasPermission, user } = useAuth();
+  const navigate = useNavigate();
+  const { hasPermission, user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const filteredItems = useMemo(() => menuItems.filter((item) => {
@@ -41,60 +41,51 @@ export const Sidebar = memo(function Sidebar() {
 
   return (
     <>
-      {/* Mobile Toggle Button */}
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg hover:bg-accent transition"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-card border rounded-lg shadow-sm hover:bg-muted transition"
         onClick={() => setIsOpen(!isOpen)}
       >
-        {isOpen ? <X size={20} className="text-foreground" /> : <Menu size={20} className="text-foreground" />}
+        {isOpen ? <X size={18} /> : <Menu size={18} />}
       </button>
 
-      {/* Backdrop */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
+          className="lg:hidden fixed inset-0 bg-black/40 z-40"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      {/* Sidebar Container */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-40 w-68 bg-card/80 backdrop-blur-md border-r transform transition-all duration-300 ease-in-out lg:transform-none",
-          isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"
+          "fixed lg:static inset-y-0 left-0 z-40 w-64 bg-card border-r transform transition-transform duration-200 lg:transform-none",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="flex flex-col h-full">
-          {/* Logo / Header */}
-          <div className="p-6 border-b flex items-center gap-3">
-            <div className="flex items-center justify-center p-2.5 rounded-xl bg-primary/10 border border-primary/20">
-              <Trophy className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <span className="text-gradient font-black text-xl tracking-tight">Event</span>
-              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mt-[-2px]">
-                Gestión Deportiva
-              </p>
+          <div className="px-5 py-5 border-b">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary text-primary-foreground">
+                <Trophy className="h-4 w-4" />
+              </div>
+              <span className="font-black text-lg tracking-tight text-primary">Event</span>
             </div>
           </div>
 
-          {/* User Preview */}
-          <div className="px-6 py-4 border-b bg-muted/30">
+          <div className="px-5 py-3.5 border-b">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center font-bold text-white shadow-md">
+              <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center font-bold text-sm text-primary-foreground">
                 {user?.nombre?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div className="overflow-hidden">
-                <p className="text-sm font-semibold truncate text-foreground">{user?.nombre}</p>
+                <p className="text-sm font-semibold truncate">{user?.nombre}</p>
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
             </div>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              Menú Principal
+          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+            <p className="px-3 mb-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+              Menú
             </p>
             {filteredItems.map((item) => {
               const Icon = item.icon;
@@ -107,35 +98,27 @@ export const Sidebar = memo(function Sidebar() {
                   to={item.path}
                   onClick={() => setIsOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 relative group overflow-hidden",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 glow-btn"
-                      : "text-muted-foreground hover:bg-primary/5 hover:text-foreground"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
-                  <Icon size={18} className={cn("transition-transform group-hover:scale-110", isActive ? "text-white" : "text-muted-foreground group-hover:text-primary")} />
+                  <Icon size={16} />
                   {item.label}
-                  {isActive && (
-                    <span className="absolute right-0 top-1/4 bottom-1/4 w-1 rounded-l-full bg-white animate-pulse" />
-                  )}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Footer - Log Out */}
-          <div className="p-4 border-t bg-muted/10">
-            <Link
-              to="/login"
-              onClick={() => {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-              }}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-300 group"
+          <div className="p-3 border-t">
+            <button
+              onClick={() => { logout(); navigate("/login"); }}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors w-full"
             >
-              <LogOut size={18} className="transition-transform group-hover:-translate-x-1" />
+              <LogOut size={16} />
               Cerrar Sesión
-            </Link>
+            </button>
           </div>
         </div>
       </aside>

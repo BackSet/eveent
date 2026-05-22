@@ -1,17 +1,10 @@
 package com.event.backend.dto.convocatoria;
 
 import com.event.backend.model.EstadoConvocatoria;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.time.LocalDateTime;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class ConvocatoriaResponse {
     private Long id;
     private String titulo;
@@ -19,6 +12,8 @@ public class ConvocatoriaResponse {
     private Long deporteId;
     private String deporteNombre;
     private LocalDateTime fechaHora;
+    private LocalDateTime fechaHoraFin;
+    private Integer duracionEstimadaMinutos;
     private String lugar;
     private Long creadoPorId;
     private String creadoPorNombre;
@@ -26,7 +21,8 @@ public class ConvocatoriaResponse {
     private LocalDateTime fechaCreacion;
     private Integer cupoMaximo;
     private String categoria;
+    private LocalDateTime fechaAperturaInscripcion;
     private LocalDateTime fechaLimiteInscripcion;
     private String manejoExcedente;
-    private Long recurrenciaId;
+    private Long configuracionRecurrenteId;
 }

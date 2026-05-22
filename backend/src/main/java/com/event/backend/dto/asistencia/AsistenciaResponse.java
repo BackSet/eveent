@@ -1,17 +1,10 @@
 package com.event.backend.dto.asistencia;
 
 import com.event.backend.model.EstadoAsistencia;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.time.LocalDateTime;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class AsistenciaResponse {
     private Long id;
     private Long convocatoriaId;
@@ -22,10 +15,12 @@ public class AsistenciaResponse {
     private Long invitadoPorId;
     private String invitadoPorNombre;
     private EstadoAsistencia estado;
-    private Long posicionId;
-    private String posicionNombre;
-    private Long equipoId;
-    private String equipoNombre;
+    private Long posicionPreferidaId;
+    private String posicionPreferidaNombre;
+    private Long posicionAsignadaId;
+    private String posicionAsignadaNombre;
+    private Long bandoId;
+    private String bandoNombre;
     private Integer numeroCamiseta;
     private LocalDateTime fechaRespuesta;
 }

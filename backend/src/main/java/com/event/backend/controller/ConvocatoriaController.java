@@ -3,12 +3,14 @@ package com.event.backend.controller;
 import com.event.backend.dto.convocatoria.ConvocatoriaRequest;
 import com.event.backend.dto.convocatoria.ConvocatoriaResponse;
 import com.event.backend.model.EstadoConvocatoria;
+import com.event.backend.security.SecurityService;
 import com.event.backend.service.ConvocatoriaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,12 +22,18 @@ import java.util.List;
 public class ConvocatoriaController {
 
     private final ConvocatoriaService convocatoriaService;
+    private final SecurityService securityService;
 
     @GetMapping
     public ResponseEntity<List<ConvocatoriaResponse>> findAll(
             @RequestParam(required = false) EstadoConvocatoria estado) {
+        boolean isOrganizer = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("crear_convocatoria"));
         if (estado != null) {
             return ResponseEntity.ok(convocatoriaService.findByEstado(estado));
+        }
+        if (!isOrganizer) {
+            return ResponseEntity.ok(convocatoriaService.findAllVisible());
         }
         return ResponseEntity.ok(convocatoriaService.findAll());
     }
@@ -35,9 +43,10 @@ public class ConvocatoriaController {
         return ResponseEntity.ok(convocatoriaService.findById(id));
     }
 
-    @GetMapping("/mis-convocalas")
-    public ResponseEntity<List<ConvocatoriaResponse>> findMisConvocalas() {
-        return ResponseEntity.ok(convocatoriaService.findByCreador(null));
+    @GetMapping("/mis-convocatorias")
+    public ResponseEntity<List<ConvocatoriaResponse>> findMisConvocatorias() {
+        Long userId = securityService.getCurrentUserId();
+        return ResponseEntity.ok(convocatoriaService.findByCreador(userId));
     }
 
     @PostMapping
@@ -50,6 +59,18 @@ public class ConvocatoriaController {
     @PreAuthorize("hasAuthority('crear_convocatoria')")
     public ResponseEntity<ConvocatoriaResponse> update(@PathVariable Long id, @Valid @RequestBody ConvocatoriaRequest request) {
         return ResponseEntity.ok(convocatoriaService.update(id, request));
+    }
+
+    @PutMapping("/{id}/abrir")
+    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    public ResponseEntity<ConvocatoriaResponse> abrir(@PathVariable Long id) {
+        return ResponseEntity.ok(convocatoriaService.abrir(id));
+    }
+
+    @PutMapping("/{id}/cancelar")
+    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    public ResponseEntity<ConvocatoriaResponse> cancelar(@PathVariable Long id) {
+        return ResponseEntity.ok(convocatoriaService.cancelar(id));
     }
 
     @DeleteMapping("/{id}")

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
+import { getApiErrorMessage } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,8 +96,8 @@ export default function RolesPage() {
       }
       setDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al guardar rol");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al guardar rol");
     } finally {
       setSaving(false);
     }
@@ -107,8 +108,8 @@ export default function RolesPage() {
     try {
       await api.delete(`/api/roles/${id}`);
       fetchData();
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Error al eliminar rol");
+    } catch (err: unknown) {
+      alert(getApiErrorMessage(err) || "Error al eliminar rol");
     }
   };
 
@@ -132,7 +133,7 @@ export default function RolesPage() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => openDialog()} className="glow-btn">
+            <Button onClick={() => openDialog()} className="">
               <Plus size={16} /> Nuevo Rol
             </Button>
           </DialogTrigger>
@@ -186,7 +187,7 @@ export default function RolesPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={saving || !formData.nombre} className="glow-btn">
+              <Button onClick={handleSave} disabled={saving || !formData.nombre} className="">
                 {saving ? <Spinner /> : editingRol ? "Actualizar" : "Crear"}
               </Button>
             </DialogFooter>

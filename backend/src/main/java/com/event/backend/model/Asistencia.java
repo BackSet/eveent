@@ -15,8 +15,9 @@ import java.time.LocalDateTime;
         @NamedAttributeNode("convocatoria"),
         @NamedAttributeNode("usuario"),
         @NamedAttributeNode("invitadoPor"),
-        @NamedAttributeNode("posicion"),
-        @NamedAttributeNode("equipo")
+        @NamedAttributeNode("posicionPreferida"),
+        @NamedAttributeNode("posicionAsignada"),
+        @NamedAttributeNode("bando")
     }
 )
 public class Asistencia {
@@ -46,12 +47,16 @@ public class Asistencia {
     private EstadoAsistencia estado = EstadoAsistencia.PENDIENTE;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "posicion_id")
-    private PosicionesDeporte posicion;
+    @JoinColumn(name = "posicion_preferida_id")
+    private PosicionesDeporte posicionPreferida;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "equipo_id")
-    private EquiposConvocatoria equipo;
+    @JoinColumn(name = "posicion_asignada_id")
+    private PosicionesDeporte posicionAsignada;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bando_id")
+    private BandoConvocatoria bando;
 
     @Builder.Default
     private LocalDateTime fechaRespuesta = LocalDateTime.now();

@@ -2,6 +2,12 @@ export interface Usuario {
   id: number;
   nombre: string;
   email: string;
+  username?: string;
+  numeroCamiseta?: number;
+  roles?: string[];
+  permissions?: string[];
+  activo?: boolean;
+  fechaCreacion?: string;
 }
 
 export interface RolesSistema {
@@ -13,11 +19,15 @@ export interface PermisosSistema {
   id: number;
   clave: string;
   descripcion: string;
+  modulo?: string;
 }
 
 export interface Deporte {
   id: number;
   nombre: string;
+  esPorEquipos?: boolean;
+  minJugadoresPorBando?: number;
+  maxJugadoresPorBando?: number;
 }
 
 export interface PosicionesDeporte {
@@ -25,57 +35,70 @@ export interface PosicionesDeporte {
   deporteId: number;
   nombre: string;
   abreviatura: string;
+  categoriaLinea?: string;
 }
 
 export enum EstadoConvocatoria {
-  BORRADOR = 'BORRADOR',
-  ABIERTA = 'ABIERTA',
-  CERRADA = 'CERRADA',
-  CANCELADA = 'CANCELADA',
+  BORRADOR = "BORRADOR",
+  ABIERTA = "ABIERTA",
+  EN_PROGRESO = "EN_PROGRESO",
+  FINALIZADA = "FINALIZADA",
+  CANCELADA = "CANCELADA",
 }
 
 export interface Convocatoria {
   id: number;
   titulo: string;
-  descripcion: string;
+  descripcion?: string;
   deporteId?: number;
   deporteNombre?: string;
-  deporte?: Deporte;
-  fechaHora: string;
-  lugar: string;
+  lugar?: string;
   estado: EstadoConvocatoria;
   creadoPorId?: number;
   creadoPorNombre?: string;
   cupoMaximo?: number;
   categoria?: string;
+  fechaCreacion?: string;
+  fechaAperturaInscripcion?: string;
   fechaLimiteInscripcion?: string;
+  fechaHora?: string;
+  fechaHoraFin?: string;
+  duracionEstimadaMinutos?: number;
+  configuracionRecurrenteId?: number;
   manejoExcedente?: string;
-  recurrenciaId?: number;
 }
 
-export interface EquiposConvocatoria {
+export interface BandoConvocatoria {
   id: number;
   convocatoriaId: number;
   nombre: string;
-  color: string;
+  color?: string;
 }
 
 export enum EstadoAsistencia {
-  ASISTIRE = 'ASISTIRE',
-  NO_ASISTIRE = 'NO_ASISTIRE',
-  PENDIENTE = 'PENDIENTE',
-  LISTA_ESPERA = 'LISTA_ESPERA',
+  ASISTIRE = "ASISTIRE",
+  NO_ASISTIRE = "NO_ASISTIRE",
+  PENDIENTE = "PENDIENTE",
+  LISTA_ESPERA = "LISTA_ESPERA",
 }
 
 export interface Asistencia {
   id: number;
   convocatoriaId: number;
+  convocatoriaTitulo?: string;
   usuarioId: number | null;
+  usuarioNombre?: string | null;
   nombreExterno: string | null;
   invitadoPorId: number | null;
+  invitadoPorNombre?: string | null;
   estado: EstadoAsistencia;
-  posicionId: number | null;
-  equipoId: number | null;
+  posicionPreferidaId: number | null;
+  posicionPreferidaNombre?: string | null;
+  posicionAsignadaId?: number | null;
+  posicionAsignadaNombre?: string | null;
+  bandoId: number | null;
+  bandoNombre?: string | null;
+  numeroCamiseta?: number | null;
   fechaRespuesta: string;
 }
 
@@ -97,21 +120,25 @@ export interface Grupo {
   fechaCreacion: string;
 }
 
-export interface ConvocatoriaRecurrente {
+export interface HorarioDia {
+  horaApertura: string;
+  horaEvento: string;
+  duracionMinutos: number;
+}
+
+export interface ConfiguracionRecurrente {
   id: number;
   titulo: string;
-  descripcion: string;
+  descripcion?: string;
   deporteId: number;
-  deporteNombre: string;
-  lugar: string;
+  deporteNombre?: string;
+  lugar?: string;
   cupoMaximo: number;
-  categoria: string;
-  patron: string;
-  diasSemana: string;
-  horaEvento: string;
-  horaPartido: string;
-  grupoDestinoId: number | null;
-  grupoDestinoNombre: string | null;
+  categoria?: string;
+  rruleExpression: string;
+  horariosPorDia: Record<string, HorarioDia>;
+  grupoDestinoId?: number | null;
+  grupoDestinoNombre?: string | null;
   activo: boolean;
   fechaCreacion: string;
 }

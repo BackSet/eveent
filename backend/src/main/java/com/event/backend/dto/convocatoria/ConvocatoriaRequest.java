@@ -4,43 +4,29 @@ import com.event.backend.model.EstadoConvocatoria;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.time.LocalDateTime;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class ConvocatoriaRequest {
-
     @NotBlank(message = "El titulo es obligatorio")
-    @Size(min = 3, max = 150, message = "El titulo debe tener entre 3 y 150 caracteres")
+    @Size(min = 3, max = 150)
     private String titulo;
-
-    @Size(max = 500, message = "La descripcion debe tener maximo 500 caracteres")
+    @Size(max = 500)
     private String descripcion;
-
     @NotNull(message = "El deporte es obligatorio")
     private Long deporteId;
-
     @NotNull(message = "La fecha y hora es obligatoria")
     private LocalDateTime fechaHora;
-
-    @Size(max = 200, message = "El lugar debe tener maximo 200 caracteres")
+    private LocalDateTime fechaHoraFin;
+    private Integer duracionEstimadaMinutos;
+    @Size(max = 200)
     private String lugar;
-
     private EstadoConvocatoria estado;
-
     private Integer cupoMaximo;
-
-    @Size(max = 100, message = "La categoria debe tener maximo 100 caracteres")
+    @Size(max = 100)
     private String categoria;
-
+    private LocalDateTime fechaAperturaInscripcion;
     private LocalDateTime fechaLimiteInscripcion;
-
     private String manejoExcedente;
 }

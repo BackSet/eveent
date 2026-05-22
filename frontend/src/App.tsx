@@ -1,9 +1,11 @@
-import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider } from './hooks/useAuth'
 import ProtectedRoute from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Spinner } from '@/components/ui/spinner'
+import { setOnUnauthorized } from './services/api'
 
 const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -26,9 +28,15 @@ function PageLoader() {
   )
 }
 
-function App() {
+function AppWithApiSetup() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    setOnUnauthorized(() => navigate('/login', { replace: true }))
+  }, [navigate])
+
   return (
-    <AuthProvider>
+    <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -67,6 +75,14 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>
+    </ErrorBoundary>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppWithApiSetup />
     </AuthProvider>
   )
 }

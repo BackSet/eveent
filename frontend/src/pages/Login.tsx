@@ -44,11 +44,11 @@ export default function Login() {
       <div className="w-full max-w-md z-10 transition-all duration-500">
         {/* Header / Brand Logo */}
         <div className="text-center mb-8 flex flex-col items-center">
-          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-primary/10 border border-primary/20 mb-4 animate-float">
+          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
             <Trophy className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight">
-            <span className="text-gradient font-black">Event</span>
+            <span className="text-primary font-black">Event</span>
           </h1>
           <p className="text-muted-foreground mt-2 text-sm max-w-xs font-medium">
             Plataforma Premium de Gestión de Eventos Deportivos
@@ -56,7 +56,7 @@ export default function Login() {
         </div>
 
         {/* Auth Card */}
-        <div className="glass-card rounded-3xl p-8 border border-border/80 shadow-2xl relative overflow-hidden">
+        <div className="bg-card rounded-3xl p-8 border shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-primary to-purple-500" />
           
           <div className="flex items-center gap-2 mb-6">
@@ -135,7 +135,7 @@ export default function Login() {
 
 <Button
                 type="submit"
-                className="glow-btn w-full rounded-xl py-6 gap-2 mt-2 group"
+                className="w-full rounded-xl py-6 gap-2 mt-2 group"
               >
                 {isRegister ? 'Registrarse' : 'Ingresar'}
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />

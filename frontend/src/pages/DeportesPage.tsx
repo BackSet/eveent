@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "@/services/api";
+import { getApiErrorMessage } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,13 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Trash2, Edit, Trophy, Compass, Sparkles, LayoutList, Target } from "lucide-react";
+import { Plus, Trash2, Edit, Trophy, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-
-interface Deporte {
-  id: number;
-  nombre: string;
-}
+import type { Deporte } from "@/types";
 
 interface Posicion {
   id: number;
@@ -46,7 +43,7 @@ export default function DeportesPage() {
 
   const [deporteDialogOpen, setDeporteDialogOpen] = useState(false);
   const [editingDeporte, setEditingDeporte] = useState<Deporte | null>(null);
-  const [deporteForm, setDeporteForm] = useState({ nombre: "" });
+  const [deporteForm, setDeporteForm] = useState({ nombre: "", esPorEquipos: true, minJugadoresPorBando: 1, maxJugadoresPorBando: 11 });
   const [deporteSaving, setDeporteSaving] = useState(false);
   const [deporteError, setDeporteError] = useState("");
 
@@ -65,8 +62,8 @@ export default function DeportesPage() {
       if (data.length > 0 && !selectedDeporte) {
         setSelectedDeporte(data[0]);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al cargar deportes");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al cargar deportes");
     } finally {
       setLoading(false);
     }
@@ -76,8 +73,8 @@ export default function DeportesPage() {
     try {
       const { data } = await api.get(`/api/deportes/${deporteId}/posiciones`);
       setPosiciones(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al cargar posiciones");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al cargar posiciones");
     }
   };
 
@@ -96,16 +93,16 @@ export default function DeportesPage() {
     setDeporteError("");
     try {
       if (editingDeporte) {
-        await api.put(`/api/deportes/${editingDeporte.id}`, { nombre: deporteForm.nombre });
+        await api.put(`/api/deportes/${editingDeporte.id}`, deporteForm);
       } else {
-        await api.post("/api/deportes", { nombre: deporteForm.nombre });
+        await api.post("/api/deportes", deporteForm);
       }
       setDeporteDialogOpen(false);
       setEditingDeporte(null);
-      setDeporteForm({ nombre: "" });
+      setDeporteForm({ nombre: "", esPorEquipos: true, minJugadoresPorBando: 1, maxJugadoresPorBando: 11 });
       fetchDeportes();
-    } catch (err: any) {
-      setDeporteError(err.response?.data?.message || "Error al guardar deporte");
+    } catch (err: unknown) {
+      setDeporteError(getApiErrorMessage(err) || "Error al guardar deporte");
     } finally {
       setDeporteSaving(false);
     }
@@ -119,8 +116,8 @@ export default function DeportesPage() {
         setSelectedDeporte(null);
       }
       fetchDeportes();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al eliminar deporte");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al eliminar deporte");
     }
   };
 
@@ -144,8 +141,8 @@ export default function DeportesPage() {
       setEditingPosicion(null);
       setPosicionForm({ nombre: "", abreviatura: "" });
       fetchPosiciones(selectedDeporte.id);
-    } catch (err: any) {
-      setPosicionError(err.response?.data?.message || "Error al guardar posicion");
+    } catch (err: unknown) {
+      setPosicionError(getApiErrorMessage(err) || "Error al guardar posicion");
     } finally {
       setPosicionSaving(false);
     }
@@ -157,18 +154,18 @@ export default function DeportesPage() {
     try {
       await api.delete(`/api/posiciones/${id}`);
       fetchPosiciones(selectedDeporte.id);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al eliminar posicion");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al eliminar posicion");
     }
   };
 
   const openDeporteDialog = (deporte?: Deporte) => {
     if (deporte) {
       setEditingDeporte(deporte);
-      setDeporteForm({ nombre: deporte.nombre });
+      setDeporteForm({ nombre: deporte.nombre, esPorEquipos: deporte.esPorEquipos ?? true, minJugadoresPorBando: deporte.minJugadoresPorBando ?? 1, maxJugadoresPorBando: deporte.maxJugadoresPorBando ?? 11 });
     } else {
       setEditingDeporte(null);
-      setDeporteForm({ nombre: "" });
+      setDeporteForm({ nombre: "", esPorEquipos: true, minJugadoresPorBando: 1, maxJugadoresPorBando: 11 });
     }
     setDeporteError("");
     setDeporteDialogOpen(true);
@@ -189,72 +186,72 @@ export default function DeportesPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Spinner className="h-10 w-10 text-primary" />
+        <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Header Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/45 backdrop-blur-md p-6 rounded-3xl border border-border/80 shadow-md">
+    <div className="space-y-6 animate-fadeIn">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold text-primary uppercase tracking-wider mb-2">
-            <Compass size={12} />
-            Configuración Deportiva
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Deportes & Posiciones</h1>
-          <p className="text-muted-foreground text-sm font-medium mt-0.5">
-            Administra las disciplinas deportivas disponibles y define las posiciones de juego oficiales
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">Deportes & Posiciones</h1>
+          <p className="text-muted-foreground text-sm">Administra disciplinas y posiciones de juego</p>
         </div>
         
         {canManage && (
           <Dialog open={deporteDialogOpen} onOpenChange={setDeporteDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => openDeporteDialog()} className="glow-btn flex items-center gap-2">
-                <Plus size={16} />
+              <Button onClick={() => openDeporteDialog()} className="gap-1.5 font-semibold">
+                <Plus size={15} />
                 <span>Nuevo Deporte</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="rounded-3xl border border-border">
+            <DialogContent className="rounded-xl border">
               <DialogHeader>
-                <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                  <Trophy size={18} className="text-primary" />
+                <DialogTitle className="font-semibold">
                   {editingDeporte ? "Editar Deporte" : "Nuevo Deporte"}
                 </DialogTitle>
-                <DialogDescription className="text-xs font-semibold">
-                  Define el nombre de la disciplina deportiva para las convocatorias.
+                <DialogDescription className="text-xs">
+                  Define el nombre de la disciplina deportiva.
                 </DialogDescription>
               </DialogHeader>
               
               {deporteError && (
-                <Alert variant="destructive" className="rounded-2xl">
-                  <AlertDescription>{deporteError}</AlertDescription>
-                </Alert>
+                <Alert variant="destructive"><AlertDescription>{deporteError}</AlertDescription></Alert>
               )}
               
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nombre" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nombre de la Disciplina</Label>
+              <div className="space-y-3 py-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="nombre" className="text-xs font-medium text-muted-foreground">Nombre</Label>
                   <Input
                     id="nombre"
                     value={deporteForm.nombre}
-                    onChange={(e) => setDeporteForm({ nombre: e.target.value })}
+                    onChange={(e) => setDeporteForm({ ...deporteForm, nombre: e.target.value })}
                     placeholder="Ej: Básquetbol, Vóleibol"
-                    className="rounded-xl"
                   />
+                </div>
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+                  <div>
+                    <Label className="text-xs font-semibold">Por Equipos</Label>
+                    <p className="text-[10px] text-muted-foreground">Si es falso, matchmaking individual (1 por bando)</p>
+                  </div>
+                  <input type="checkbox" checked={deporteForm.esPorEquipos} onChange={(e) => setDeporteForm({ ...deporteForm, esPorEquipos: e.target.checked })} className="h-4 w-4 accent-primary cursor-pointer rounded" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="minJugadores" className="text-xs font-medium text-muted-foreground">Mín. por Bando</Label>
+                    <Input id="minJugadores" type="number" min="1" value={deporteForm.minJugadoresPorBando} onChange={(e) => setDeporteForm({ ...deporteForm, minJugadoresPorBando: parseInt(e.target.value) || 1 })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="maxJugadores" className="text-xs font-medium text-muted-foreground">Máx. por Bando</Label>
+                    <Input id="maxJugadores" type="number" min="1" value={deporteForm.maxJugadoresPorBando} onChange={(e) => setDeporteForm({ ...deporteForm, maxJugadoresPorBando: parseInt(e.target.value) || 11 })} />
+                  </div>
                 </div>
               </div>
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setDeporteDialogOpen(false)} className="rounded-xl font-bold">
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleSaveDeporte}
-                  disabled={deporteSaving || !deporteForm.nombre}
-                  className="rounded-xl font-bold"
-                >
+                <Button variant="outline" onClick={() => setDeporteDialogOpen(false)} className="font-medium">Cancelar</Button>
+                <Button onClick={handleSaveDeporte} disabled={deporteSaving || !deporteForm.nombre} className="font-medium">
                   {deporteSaving ? <Spinner /> : editingDeporte ? "Actualizar" : "Crear"}
                 </Button>
               </DialogFooter>
@@ -264,80 +261,50 @@ export default function DeportesPage() {
       </div>
 
       {error && (
-        <Alert variant="destructive" className="rounded-2xl">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
       )}
 
-      {/* Grid splits */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Sports Column */}
-        <Card className="border border-border shadow-md">
-          <CardHeader className="pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg font-bold text-foreground">Disciplinas</CardTitle>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Disciplinas</CardTitle>
+              <span className="text-xs text-muted-foreground">{deportes.length}</span>
             </div>
-            <span className="text-xs font-bold text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-xl">
-              {deportes.length} registradas
-            </span>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent>
             {deportes.length === 0 ? (
-              <p className="text-muted-foreground text-center py-10 font-medium">
-                No hay deportes registrados
-              </p>
+              <p className="text-muted-foreground text-center py-8 text-sm">Sin deportes</p>
             ) : (
-              <div className="grid gap-3">
+              <div className="space-y-1">
                 {deportes.map((deporte) => {
                   const isSelected = selectedDeporte?.id === deporte.id;
                   return (
                     <div
                       key={deporte.id}
-                      className={`flex items-center justify-between p-4.5 rounded-2xl border cursor-pointer transition-all duration-300 relative overflow-hidden group ${
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
                         isSelected
-                          ? "border-primary bg-primary/5 shadow-md shadow-primary/5 scale-[1.01]"
-                          : "border-border/70 hover:border-primary/25 hover:bg-muted/10"
+                          ? "bg-primary/5 border border-primary/15"
+                          : "hover:bg-muted/50 border border-transparent"
                       }`}
                       onClick={() => setSelectedDeporte(deporte)}
                     >
-                      {isSelected && (
-                        <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-primary" />
-                      )}
-                      <div className="flex items-center gap-3 pl-1">
-                        <div className={`h-8 w-8 rounded-xl flex items-center justify-center border shrink-0 transition-colors ${
-                          isSelected ? "bg-primary/10 border-primary/20 text-primary" : "bg-muted/40 border-border text-muted-foreground group-hover:text-primary"
-                        }`}>
-                          <Target size={14} />
-                        </div>
-                        <span className={`font-bold text-sm transition-colors ${isSelected ? "text-primary" : "text-foreground"}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${isSelected ? "text-primary" : ""}`}>
                           {deporte.nombre}
                         </span>
+                        <Badge variant={deporte.esPorEquipos ? "default" : "outline"} className="text-[8px] px-1 py-0">
+                          {deporte.esPorEquipos ? "Equipos" : "Individual"}
+                        </Badge>
                       </div>
                       
                       {canManage && (
-                        <div className="flex gap-1 items-center shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="rounded-xl hover:bg-primary/5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDeporteDialog(deporte);
-                            }}
-                          >
-                            <Edit size={14} className="text-muted-foreground hover:text-primary" />
+                        <div className="flex gap-0.5 items-center shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted" onClick={(e) => { e.stopPropagation(); openDeporteDialog(deporte); }}>
+                            <Edit size={13} className="text-muted-foreground" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="rounded-xl hover:bg-destructive/5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteDeporte(deporte.id);
-                            }}
-                          >
-                            <Trash2 size={14} className="text-destructive" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-destructive/5" onClick={(e) => { e.stopPropagation(); handleDeleteDeporte(deporte.id); }}>
+                            <Trash2 size={13} className="text-destructive" />
                           </Button>
                         </div>
                       )}
@@ -349,72 +316,49 @@ export default function DeportesPage() {
           </CardContent>
         </Card>
 
-        {/* Positions Column */}
-        <Card className="border border-border shadow-md">
-          <CardHeader className="pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <LayoutList className="h-5 w-5 text-purple-500" />
-              <CardTitle className="text-lg font-bold text-foreground">
-                {selectedDeporte ? `Posiciones • ${selectedDeporte.nombre}` : "Posiciones"}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">
+                {selectedDeporte ? `Posiciones · ${selectedDeporte.nombre}` : "Posiciones"}
               </CardTitle>
+              {selectedDeporte && canManage && (
+                <Button size="sm" variant="outline" onClick={() => openPosicionDialog()} className="gap-1 font-medium h-7 text-xs">
+                  <Plus size={12} />
+                  Nueva
+                </Button>
+              )}
             </div>
-            {selectedDeporte && canManage && (
-              <Button size="sm" onClick={() => openPosicionDialog()} className="gap-1.5 font-bold">
-                <Plus size={14} />
-                <span>Nueva Posición</span>
-              </Button>
-            )}
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent>
             {!selectedDeporte ? (
-              <div className="text-center py-12 space-y-2">
-                <p className="text-muted-foreground font-medium">Selecciona una disciplina</p>
-                <p className="text-xs text-muted-foreground font-medium">Elige un deporte del panel izquierdo para ver sus posiciones.</p>
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground">Selecciona una disciplina</p>
               </div>
             ) : posiciones.length === 0 ? (
-              <div className="text-center py-12 space-y-2">
-                <p className="text-muted-foreground font-medium">No hay posiciones oficiales</p>
-                {canManage && (
-                  <p className="text-xs text-muted-foreground font-medium">Agrega las posiciones para que los jugadores puedan elegirlas.</p>
-                )}
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground">Sin posiciones</p>
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="space-y-1">
                 {posiciones.map((pos) => (
                   <div
                     key={pos.id}
-                    className="flex items-center justify-between p-4.5 rounded-2xl border border-border/70 bg-card hover:border-primary/25 transition-all shadow-sm"
+                    className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border/50 hover:border-primary/20 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500 flex items-center justify-center font-black text-xs shrink-0 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-primary/10 border-primary/15 text-primary shrink-0">
                         {pos.abreviatura || "P"}
-                      </div>
-                      <div>
-                        <span className="font-extrabold text-sm text-foreground">{pos.nombre}</span>
-                        {pos.abreviatura && (
-                          <Badge variant="outline" className="ml-2 bg-purple-500/5 text-purple-500 border-purple-500/10 font-extrabold text-[9px] uppercase rounded-md px-1.5 py-0">
-                            {pos.abreviatura}
-                          </Badge>
-                        )}
-                      </div>
+                      </span>
+                      <span className="text-sm font-medium">{pos.nombre}</span>
                     </div>
                     {canManage && (
-                      <div className="flex gap-1 items-center shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-xl hover:bg-primary/5"
-                          onClick={() => openPosicionDialog(pos)}
-                        >
-                          <Edit size={14} className="text-muted-foreground hover:text-primary" />
+                      <div className="flex gap-0.5 items-center shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted" onClick={() => openPosicionDialog(pos)}>
+                          <Edit size={13} className="text-muted-foreground" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-xl hover:bg-destructive/5"
-                          onClick={() => handleDeletePosicion(pos.id)}
-                        >
-                          <Trash2 size={14} className="text-destructive" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-destructive/5" onClick={() => handleDeletePosicion(pos.id)}>
+                          <Trash2 size={13} className="text-destructive" />
                         </Button>
                       </div>
                     )}
@@ -426,61 +370,45 @@ export default function DeportesPage() {
         </Card>
       </div>
 
-      {/* Position Dialog */}
       <Dialog open={posicionDialogOpen} onOpenChange={setPosicionDialogOpen}>
-        <DialogContent className="rounded-3xl border border-border">
+        <DialogContent className="rounded-xl border">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <Sparkles className="h-18 w-18 text-primary" />
-              {editingPosicion ? "Editar Posición de Juego" : "Nueva Posición de Juego"}
+            <DialogTitle className="font-semibold">
+              {editingPosicion ? "Editar Posición" : "Nueva Posición"}
             </DialogTitle>
-            <DialogDescription className="text-xs font-semibold">
-              Agrega una demarcación oficial para el deporte {selectedDeporte?.nombre}.
+            <DialogDescription className="text-xs">
+              Agrega una demarcación para {selectedDeporte?.nombre}.
             </DialogDescription>
           </DialogHeader>
           
           {posicionError && (
-            <Alert variant="destructive" className="rounded-2xl">
-              <AlertDescription>{posicionError}</AlertDescription>
-            </Alert>
+            <Alert variant="destructive"><AlertDescription>{posicionError}</AlertDescription></Alert>
           )}
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="pos-nombre" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nombre de la Posición</Label>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="pos-nombre" className="text-xs font-medium text-muted-foreground">Nombre</Label>
               <Input
                 id="pos-nombre"
                 value={posicionForm.nombre}
-                onChange={(e) =>
-                  setPosicionForm({ ...posicionForm, nombre: e.target.value })
-                }
+                onChange={(e) => setPosicionForm({ ...posicionForm, nombre: e.target.value })}
                 placeholder="Ej: Portero, Centrocampista"
-                className="rounded-xl"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="pos-abreviatura" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Abreviatura Oficial</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="pos-abreviatura" className="text-xs font-medium text-muted-foreground">Abreviatura</Label>
               <Input
                 id="pos-abreviatura"
                 value={posicionForm.abreviatura}
-                onChange={(e) =>
-                  setPosicionForm({ ...posicionForm, abreviatura: e.target.value })
-                }
+                onChange={(e) => setPosicionForm({ ...posicionForm, abreviatura: e.target.value })}
                 placeholder="Ej: POR, MED"
                 maxLength={10}
-                className="rounded-xl"
               />
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setPosicionDialogOpen(false)} className="rounded-xl font-bold">
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSavePosicion}
-              disabled={posicionSaving || !posicionForm.nombre}
-              className="rounded-xl font-bold"
-            >
+            <Button variant="outline" onClick={() => setPosicionDialogOpen(false)} className="font-medium">Cancelar</Button>
+            <Button onClick={handleSavePosicion} disabled={posicionSaving || !posicionForm.nombre} className="font-medium">
               {posicionSaving ? <Spinner /> : editingPosicion ? "Actualizar" : "Crear"}
             </Button>
           </DialogFooter>

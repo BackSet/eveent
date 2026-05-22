@@ -1,0 +1,31 @@
+package com.event.backend.service;
+
+import com.event.backend.dto.asistencia.AsistenciaResponse;
+import com.event.backend.model.Asistencia;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AsistenciaMapper {
+
+    public AsistenciaResponse toResponse(Asistencia a) {
+        return AsistenciaResponse.builder()
+                .id(a.getId())
+                .convocatoriaId(a.getConvocatoria().getId())
+                .convocatoriaTitulo(a.getConvocatoria().getTitulo())
+                .usuarioId(a.getUsuario() != null ? a.getUsuario().getId() : null)
+                .usuarioNombre(a.getUsuario() != null ? a.getUsuario().getNombre() : null)
+                .nombreExterno(a.getNombreExterno())
+                .invitadoPorId(a.getInvitadoPor() != null ? a.getInvitadoPor().getId() : null)
+                .invitadoPorNombre(a.getInvitadoPor() != null ? a.getInvitadoPor().getNombre() : null)
+                .estado(a.getEstado())
+                .posicionPreferidaId(a.getPosicionPreferida() != null ? a.getPosicionPreferida().getId() : null)
+                .posicionPreferidaNombre(a.getPosicionPreferida() != null ? a.getPosicionPreferida().getNombre() : null)
+                .posicionAsignadaId(a.getPosicionAsignada() != null ? a.getPosicionAsignada().getId() : null)
+                .posicionAsignadaNombre(a.getPosicionAsignada() != null ? a.getPosicionAsignada().getNombre() : null)
+                .bandoId(a.getBando() != null ? a.getBando().getId() : null)
+                .bandoNombre(a.getBando() != null ? a.getBando().getNombre() : null)
+                .numeroCamiseta(a.getUsuario() != null ? a.getUsuario().getNumeroCamiseta() : null)
+                .fechaRespuesta(a.getFechaRespuesta())
+                .build();
+    }
+}

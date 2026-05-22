@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import api from "@/services/api";
+import { getApiErrorMessage } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,7 @@ interface PermisoFormData {
 
 const SYSTEM_PERMISSIONS = [
   "crear_convocatoria",
-  "dividir_equipos",
+  "dividir_bandos",
   "invitar_externos",
   "gestionar_roles",
   "ver_convocatoria",
@@ -65,7 +66,7 @@ const getModulo = (clave: string): string => {
   const c = clave.toLowerCase();
   if (c.includes("convocatoria")) return "Convocatorias";
   if (c.includes("asistencia") || c.includes("externo") || c.includes("invitar")) return "Asistencias";
-  if (c.includes("equipo")) return "Equipos";
+  if (c.includes("equipo") || c.includes("bando")) return "Bandos";
   if (c.includes("rol") || c.includes("permiso")) return "Roles y Permisos";
   if (c.includes("usuario")) return "Usuarios";
   if (c.includes("deporte") || c.includes("posicion")) return "Deportes";
@@ -124,8 +125,8 @@ export default function PermisosPage() {
       }
       setDialogOpen(false);
       fetchPermisos();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al guardar el permiso. Verifique que no exista un duplicado.");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al guardar el permiso. Verifique que no exista un duplicado.");
     } finally {
       setSaving(false);
     }
@@ -136,8 +137,8 @@ export default function PermisosPage() {
     try {
       await api.delete(`/api/permisos/${id}`);
       fetchPermisos();
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Error al eliminar el permiso");
+    } catch (err: unknown) {
+      alert(getApiErrorMessage(err) || "Error al eliminar el permiso");
     }
   };
 
@@ -193,7 +194,7 @@ export default function PermisosPage() {
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => openDialog()} className="glow-btn">
+            <Button onClick={() => openDialog()} className="">
               <Plus size={16} className="mr-2" /> Nuevo Permiso
             </Button>
           </DialogTrigger>
@@ -256,7 +257,7 @@ export default function PermisosPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-border/60">
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={saving || !formData.clave || !formData.descripcion} className="glow-btn">
+              <Button onClick={handleSave} disabled={saving || !formData.clave || !formData.descripcion} className="">
                 {saving ? <Spinner className="h-4 w-4" /> : editingPermiso ? "Actualizar" : "Guardar"}
               </Button>
             </DialogFooter>

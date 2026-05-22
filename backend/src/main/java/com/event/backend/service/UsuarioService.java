@@ -5,6 +5,9 @@ import com.event.backend.dto.usuario.UsuarioProfileRequest;
 import com.event.backend.dto.usuario.UsuarioResponse;
 import com.event.backend.dto.usuario.UsuarioRoleRequest;
 import com.event.backend.dto.usuario.UsuarioPosicionDto;
+import com.event.backend.exception.BusinessException;
+import com.event.backend.exception.ConflictException;
+import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.RolesSistema;
 import com.event.backend.model.Usuario;
 import com.event.backend.model.UsuarioRol;
@@ -18,13 +21,16 @@ import com.event.backend.repository.UsuarioRolRepository;
 import com.event.backend.repository.RolPermisoRepository;
 import com.event.backend.repository.UsuarioPosicionRepository;
 import com.event.backend.repository.PosicionesDeporteRepository;
+import com.event.backend.security.SecurityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -38,33 +44,63 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final UsuarioPosicionRepository usuarioPosicionRepository;
     private final PosicionesDeporteRepository posicionesDeporteRepository;
+    private final SecurityService securityService;
 
     @Transactional(readOnly = true)
     public List<UsuarioResponse> findAll() {
-        return usuarioRepository.findAll().stream()
-                .map(this::toResponse)
-                .toList();
+        List<Usuario> usuarios = usuarioRepository.findAll();
+        if (usuarios.isEmpty()) return List.of();
+
+        List<Long> userIds = usuarios.stream().map(Usuario::getId).toList();
+
+        List<UsuarioRol> allRoles = usuarioRolRepository.findAllByUsuarioIdIn(userIds);
+        Map<Long, List<UsuarioRol>> rolesByUser = allRoles.stream()
+                .collect(Collectors.groupingBy(ur -> ur.getId().getUsuarioId()));
+
+        List<Long> allRolIds = allRoles.stream()
+                .map(ur -> ur.getRol().getId()).distinct().toList();
+
+        Map<Long, List<String>> permsByRol = allRolIds.isEmpty() ? Map.of() :
+                rolPermisoRepository.findAllByRolIdInWithPermiso(allRolIds).stream()
+                        .collect(Collectors.groupingBy(
+                                rp -> rp.getId().getRolId(),
+                                Collectors.mapping(rp -> rp.getPermiso().getClave(), Collectors.toList())
+                        ));
+
+        return usuarios.stream().map(u -> {
+            List<UsuarioRol> userRoles = rolesByUser.getOrDefault(u.getId(), List.of());
+            List<String> roleNames = userRoles.stream().map(ur -> ur.getRol().getNombre()).toList();
+            List<String> permNames = userRoles.stream()
+                    .flatMap(ur -> permsByRol.getOrDefault(ur.getRol().getId(), List.of()).stream())
+                    .distinct().toList();
+            return UsuarioResponse.builder()
+                    .id(u.getId()).nombre(u.getNombre()).email(u.getEmail())
+                    .username(u.getUsername()).numeroCamiseta(u.getNumeroCamiseta())
+                    .roles(roleNames).permissions(permNames)
+                    .activo(u.getActivo()).fechaCreacion(u.getFechaCreacion())
+                    .build();
+        }).toList();
     }
 
     @Transactional(readOnly = true)
     public UsuarioResponse findById(Long id) {
         return usuarioRepository.findById(id)
                 .map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + id));
     }
 
     @Transactional(readOnly = true)
     public UsuarioResponse getCurrentProfile() {
-        Usuario usuario = getCurrentUser();
-        return toResponse(usuario);
+        return toResponse(securityService.getCurrentUser());
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public UsuarioResponse updateProfile(UsuarioProfileRequest request) {
-        Usuario usuario = getCurrentUser();
+        Usuario usuario = securityService.getCurrentUser();
 
         if (!usuario.getEmail().equals(request.getEmail()) &&
                 usuarioRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("El email ya esta en uso por otro usuario");
+            throw new ConflictException("El email ya esta en uso por otro usuario");
         }
 
         usuario.setNombre(request.getNombre());
@@ -75,11 +111,12 @@ public class UsuarioService {
         return toResponse(usuario);
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public void changePassword(PasswordChangeRequest request) {
-        Usuario usuario = getCurrentUser();
+        Usuario usuario = securityService.getCurrentUser();
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), usuario.getPasswordHash())) {
-            throw new RuntimeException("La contraseña actual es incorrecta");
+            throw new BusinessException("La contraseña actual es incorrecta");
         }
 
         usuario.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
@@ -88,23 +125,24 @@ public class UsuarioService {
 
     public UsuarioResponse changePasswordByAdmin(Long id, String newPassword) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + id));
 
         usuario.setPasswordHash(passwordEncoder.encode(newPassword));
         usuario = usuarioRepository.save(usuario);
         return toResponse(usuario);
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public UsuarioResponse updateUserRoles(UsuarioRoleRequest request) {
         Usuario usuario = usuarioRepository.findById(request.getUsuarioId())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + request.getUsuarioId()));
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + request.getUsuarioId()));
 
         List<UsuarioRol> existingRoles = usuarioRolRepository.findByIdUsuarioId(usuario.getId());
         usuarioRolRepository.deleteAll(existingRoles);
 
         List<RolesSistema> roles = rolesSistemaRepository.findAllByNombreIn(request.getRoles());
         if (roles.size() != request.getRoles().size()) {
-            throw new RuntimeException("Uno o mas roles no encontrados");
+            throw new BusinessException("Uno o mas roles no encontrados");
         }
 
         List<UsuarioRol> newRoles = roles.stream()
@@ -127,9 +165,10 @@ public class UsuarioService {
                 .toList();
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public UsuarioResponse create(UsuarioResponse request) {
         if (usuarioRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("El email ya esta registrado");
+            throw new ConflictException("El email ya esta registrado");
         }
 
         Usuario usuario = usuarioRepository.save(Usuario.builder()
@@ -147,7 +186,7 @@ public class UsuarioService {
 
         List<RolesSistema> roles = rolesSistemaRepository.findAllByNombreIn(rolesToAssign);
         if (roles.isEmpty()) {
-            throw new RuntimeException("Ningun rol valido encontrado");
+            throw new BusinessException("Ningun rol valido encontrado");
         }
 
         List<UsuarioRol> newRoles = roles.stream()
@@ -163,13 +202,14 @@ public class UsuarioService {
         return toResponse(usuario);
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public UsuarioResponse update(Long id, UsuarioResponse request) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + id));
 
         if (!usuario.getEmail().equals(request.getEmail()) &&
                 usuarioRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("El email ya esta en uso por otro usuario");
+            throw new ConflictException("El email ya esta en uso por otro usuario");
         }
 
         usuario.setNombre(request.getNombre());
@@ -181,24 +221,20 @@ public class UsuarioService {
         return toResponse(usuario);
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public void delete(Long id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + id));
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public UsuarioResponse toggleActivo(Long id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + id));
         usuario.setActivo(!usuario.getActivo());
         return toResponse(usuarioRepository.save(usuario));
-    }
-
-    private Usuario getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
     }
 
     private UsuarioResponse toResponse(Usuario usuario) {
@@ -213,10 +249,11 @@ public class UsuarioService {
                 .distinct()
                 .toList();
 
-        List<String> permissions = rolPermisoRepository.findByIdRolIdIn(rolIds).stream()
-                .map(rp -> rp.getPermiso().getClave())
-                .distinct()
-                .toList();
+        List<String> permissions = rolIds.isEmpty() ? List.of() :
+                rolPermisoRepository.findByIdRolIdIn(rolIds).stream()
+                        .map(rp -> rp.getPermiso().getClave())
+                        .distinct()
+                        .toList();
 
         return UsuarioResponse.builder()
                 .id(usuario.getId())
@@ -233,7 +270,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioPosicionDto> getCurrentUserPosiciones() {
-        Usuario usuario = getCurrentUser();
+        Usuario usuario = securityService.getCurrentUser();
         List<UsuarioPosicion> list = usuarioPosicionRepository.findByUsuarioId(usuario.getId());
         return list.stream()
                 .map(up -> UsuarioPosicionDto.builder()
@@ -247,9 +284,9 @@ public class UsuarioService {
     }
 
     public List<UsuarioPosicionDto> updateCurrentUserPosiciones(List<UsuarioPosicionDto> positionsDto) {
-        Usuario usuario = getCurrentUser();
+        Usuario usuario = securityService.getCurrentUser();
         usuarioPosicionRepository.deleteByUsuarioId(usuario.getId());
-        
+
         if (positionsDto == null || positionsDto.isEmpty()) {
             return List.of();
         }
@@ -257,7 +294,7 @@ public class UsuarioService {
         List<UsuarioPosicion> newPositions = positionsDto.stream()
                 .map(dto -> {
                     PosicionesDeporte posicion = posicionesDeporteRepository.findById(dto.getPosicionId())
-                            .orElseThrow(() -> new RuntimeException("Posicion no encontrada con id: " + dto.getPosicionId()));
+                            .orElseThrow(() -> new NotFoundException("Posicion no encontrada con id: " + dto.getPosicionId()));
                     return UsuarioPosicion.builder()
                             .id(new UsuarioPosicionId(usuario.getId(), posicion.getId()))
                             .usuario(usuario)

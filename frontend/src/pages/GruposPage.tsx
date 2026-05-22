@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
+import { getApiErrorMessage } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,8 +45,8 @@ export default function GruposPage() {
       ]);
       setGrupos(gruposRes.data);
       setUsuarios(usersRes.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al cargar datos");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al cargar datos");
     } finally {
       setLoading(false);
     }
@@ -103,8 +104,8 @@ export default function GruposPage() {
       }
       setDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al guardar el grupo");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al guardar el grupo");
     } finally {
       setSaving(false);
     }
@@ -116,8 +117,8 @@ export default function GruposPage() {
       await api.delete(`/api/grupos/${id}`);
       showSuccess("Grupo eliminado correctamente");
       fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al eliminar el grupo");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al eliminar el grupo");
     }
   };
 
@@ -160,7 +161,7 @@ export default function GruposPage() {
             Crea audiencias personalizadas (como ligas o equipos) para tus convocatorias recurrentes o individuales
           </p>
         </div>
-        <Button onClick={openCreateDialog} className="glow-btn">
+        <Button onClick={openCreateDialog} className="">
           <Plus size={16} className="mr-2" /> Nuevo Grupo
         </Button>
       </div>
@@ -191,8 +192,8 @@ export default function GruposPage() {
           </Card>
         ) : (
           grupos.map((grupo) => (
-            <Card key={grupo.id} className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border bg-card/40 backdrop-blur-sm">
-              <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-primary to-purple-500" />
+            <Card key={grupo.id} className="relative overflow-hidden group hover:border-primary/20 transition-colors border">
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div>
@@ -332,7 +333,7 @@ export default function GruposPage() {
             <Button variant="ghost" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveGrupo} disabled={saving} className="glow-btn">
+            <Button onClick={handleSaveGrupo} disabled={saving} className="">
               {saving ? <Spinner size="sm" className="mr-2" /> : null}
               {selectedGrupo ? "Actualizar Grupo" : "Crear Grupo"}
             </Button>

@@ -8,9 +8,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -18,92 +21,143 @@ import java.util.List;
 @Transactional
 public class RecurrenciaScheduler {
 
-    private final ConvocatoriaRecurrenteRepository recurrenciaRepository;
+    private final ConfiguracionRecurrenteRepository configuracionRepository;
     private final ConvocatoriaRepository convocatoriaRepository;
     private final AsistenciaRepository asistenciaRepository;
 
-    @Scheduled(fixedRate = 300000)
+    @Scheduled(fixedRate = 60000)
     public void runScheduler() {
-        log.debug("Planificador ejecutándose...");
+        runLifecycleTriggers();
         generarInstanciasProximas();
-        cerrarConvocatoriasVencidas();
     }
 
-    public void generarInstanciasProximas() {
-        List<ConvocatoriaRecurrente> activas = recurrenciaRepository.findByActivoTrue();
-        if (activas.isEmpty()) return;
-        log.info("Generando instancias para {} reglas activas...", activas.size());
+    public void runLifecycleTriggers() {
+        LocalDateTime now = LocalDateTime.now();
 
-        LocalDate today = LocalDate.now();
+        List<Convocatoria> abiertas = convocatoriaRepository.findByEstado(EstadoConvocatoria.ABIERTA);
+        for (Convocatoria c : abiertas) {
+            if (c.getFechaHora() != null && !c.getFechaHora().isAfter(now)) {
+                c.setEstado(EstadoConvocatoria.EN_PROGRESO);
+                convocatoriaRepository.save(c);
+                log.info("Convocatoria {} → EN_PROGRESO (evento inicio)", c.getId());
+            }
+        }
 
-        for (ConvocatoriaRecurrente rule : activas) {
-            try {
-                LocalDate targetDate = today;
-                boolean shouldGenerate = false;
-
-                if ("DIARIO".equalsIgnoreCase(rule.getPatron())) {
-                    shouldGenerate = true;
-                } else if ("SEMANAL".equalsIgnoreCase(rule.getPatron())) {
-                    String dayOfWeekName = targetDate.getDayOfWeek().name();
-                    if (rule.getDiasSemana() != null && rule.getDiasSemana().toUpperCase().contains(dayOfWeekName)) {
-                        shouldGenerate = true;
-                    }
-                }
-
-                if (shouldGenerate) {
-                    LocalDateTime eventTime = LocalDateTime.of(targetDate, rule.getHoraPartido());
-
-                    if (!convocatoriaRepository.existsByRecurrenciaIdAndFechaHora(rule.getId(), eventTime)) {
-                        log.info("Generando convocatoria: '{}' para fecha: {}", rule.getTitulo(), eventTime);
-
-                        Convocatoria newConvocatoria = Convocatoria.builder()
-                                .titulo(rule.getTitulo())
-                                .descripcion(rule.getDescripcion())
-                                .deporte(rule.getDeporte())
-                                .fechaHora(eventTime)
-                                .lugar(rule.getLugar())
-                                .creadoPor(rule.getCreadoPor())
-                                .estado(EstadoConvocatoria.ABIERTA)
-                                .cupoMaximo(rule.getCupoMaximo())
-                                .categoria(rule.getCategoria())
-                                .recurrencia(rule)
-                                .manejoExcedente("LISTA_ESPERA")
-                                .fechaLimiteInscripcion(eventTime)
-                                .build();
-
-                        newConvocatoria = convocatoriaRepository.save(newConvocatoria);
-
-                        if (rule.getGrupoDestino() != null) {
-                            Grupo grupo = rule.getGrupoDestino();
-                            if (grupo.getMiembros() != null) {
-                                for (Usuario member : grupo.getMiembros()) {
-                                    Asistencia asistencia = Asistencia.builder()
-                                            .convocatoria(newConvocatoria)
-                                            .usuario(member)
-                                            .estado(EstadoAsistencia.PENDIENTE)
-                                            .fechaRespuesta(LocalDateTime.now())
-                                            .build();
-                                    asistenciaRepository.save(asistencia);
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                log.error("Error procesando regla ID {}: {}", rule.getId(), e.getMessage(), e);
+        List<Convocatoria> inProgress = convocatoriaRepository.findByEstado(EstadoConvocatoria.EN_PROGRESO);
+        for (Convocatoria c : inProgress) {
+            LocalDateTime endTime = c.getFechaHoraFin();
+            if (endTime == null && c.getDuracionEstimadaMinutos() != null && c.getFechaHora() != null) {
+                endTime = c.getFechaHora().plusMinutes(c.getDuracionEstimadaMinutos());
+            }
+            if (endTime != null && !endTime.isAfter(now)) {
+                c.setEstado(EstadoConvocatoria.FINALIZADA);
+                convocatoriaRepository.save(c);
+                log.info("Convocatoria {} → FINALIZADA", c.getId());
             }
         }
     }
 
-    public void cerrarConvocatoriasVencidas() {
-        List<Convocatoria> vencidas = convocatoriaRepository
-                .findByEstadoAndFechaHoraBefore(EstadoConvocatoria.ABIERTA, LocalDateTime.now());
-        for (Convocatoria c : vencidas) {
-            c.setEstado(EstadoConvocatoria.CERRADA);
-            convocatoriaRepository.save(c);
+    public void generarInstanciasProximas() {
+        List<ConfiguracionRecurrente> activas = configuracionRepository.findByActivoTrue();
+        if (activas.isEmpty()) return;
+
+        LocalDate today = LocalDate.now();
+
+        for (ConfiguracionRecurrente rule : activas) {
+            try {
+                if (!shouldGenerateToday(rule, today)) continue;
+
+                String dayKey = getDayKey(today);
+                Map<String, HorarioDia> horarios = rule.getHorariosPorDia();
+                HorarioDia horario = horarios != null ? horarios.get(dayKey) : null;
+
+                if (horario == null && horarios != null) {
+                    horario = horarios.get("DEFAULT");
+                }
+
+                LocalTime horaEvento = horario != null && horario.getHoraEvento() != null
+                        ? LocalTime.parse(horario.getHoraEvento())
+                        : LocalTime.of(20, 0);
+                int duracion = horario != null && horario.getDuracionMinutos() != null
+                        ? horario.getDuracionMinutos() : 60;
+
+                LocalDateTime eventTime = LocalDateTime.of(today, horaEvento);
+
+                if (convocatoriaRepository.existsByConfiguracionRecurrenteIdAndFechaHora(rule.getId(), eventTime)) continue;
+
+                log.info("Generando convocatoria: '{}' para fecha: {}", rule.getTitulo(), eventTime);
+
+                Convocatoria newConv = Convocatoria.builder()
+                        .titulo(rule.getTitulo())
+                        .descripcion(rule.getDescripcion())
+                        .deporte(rule.getDeporte())
+                        .fechaHora(eventTime)
+                        .fechaHoraFin(eventTime.plusMinutes(duracion))
+                        .duracionEstimadaMinutos(duracion)
+                        .lugar(rule.getLugar())
+                        .creadoPor(rule.getCreadoPor())
+                        .estado(EstadoConvocatoria.BORRADOR)
+                        .cupoMaximo(rule.getCupoMaximo())
+                        .categoria(rule.getCategoria())
+                        .configuracionRecurrente(rule)
+                        .manejoExcedente("LISTA_ESPERA")
+                        .build();
+
+                if (horario != null && horario.getHoraApertura() != null) {
+                    LocalTime horaApertura = LocalTime.parse(horario.getHoraApertura());
+                    newConv.setFechaAperturaInscripcion(LocalDateTime.of(today, horaApertura));
+                }
+
+                newConv = convocatoriaRepository.save(newConv);
+
+                if (rule.getGrupoDestino() != null) {
+                    Grupo grupo = rule.getGrupoDestino();
+                    if (grupo.getMiembros() != null) {
+                        final Convocatoria savedConv = newConv;
+                        List<Asistencia> bulkAsistencias = grupo.getMiembros().stream()
+                                .map(member -> Asistencia.builder()
+                                        .convocatoria(savedConv)
+                                        .usuario(member)
+                                        .estado(EstadoAsistencia.PENDIENTE)
+                                        .fechaRespuesta(LocalDateTime.now())
+                                        .build())
+                                .toList();
+                        asistenciaRepository.saveAll(bulkAsistencias);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error procesando configuracion ID {}: {}", rule.getId(), e.getMessage(), e);
+            }
         }
-        if (!vencidas.isEmpty()) {
-            log.info("Cerradas {} convocatorias vencidas", vencidas.size());
+    }
+
+    private boolean shouldGenerateToday(ConfiguracionRecurrente rule, LocalDate today) {
+        String rrule = rule.getRruleExpression();
+        if (rrule == null || rrule.isBlank()) return false;
+
+        String upper = rrule.toUpperCase();
+
+        if (upper.contains("FREQ=DAILY")) return true;
+
+        if (upper.contains("FREQ=WEEKLY")) {
+            String shortDay = getDayKey(today);
+            return upper.contains(shortDay);
         }
+
+        if (upper.contains("FREQ=MONTHLY")) return true;
+
+        return false;
+    }
+
+    private String getDayKey(LocalDate date) {
+        return switch (date.getDayOfWeek()) {
+            case DayOfWeek.MONDAY -> "MO";
+            case DayOfWeek.TUESDAY -> "TU";
+            case DayOfWeek.WEDNESDAY -> "WE";
+            case DayOfWeek.THURSDAY -> "TH";
+            case DayOfWeek.FRIDAY -> "FR";
+            case DayOfWeek.SATURDAY -> "SA";
+            case DayOfWeek.SUNDAY -> "SU";
+        };
     }
 }

@@ -3,16 +3,19 @@ package com.event.backend.service;
 import com.event.backend.dto.asistencia.AsistenciaRequest;
 import com.event.backend.dto.asistencia.AsistenciaResponse;
 import com.event.backend.dto.asistencia.AsistenciaUpdateRequest;
+import com.event.backend.exception.ForbiddenException;
+import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.*;
 import com.event.backend.repository.*;
-import com.event.backend.security.UserDetailsImpl;
+import com.event.backend.security.SecurityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,41 +26,43 @@ public class AsistenciaService {
     private final ConvocatoriaRepository convocatoriaRepository;
     private final UsuarioRepository usuarioRepository;
     private final PosicionesDeporteRepository posicionRepository;
-    private final EquiposConvocatoriaRepository equipoRepository;
+    private final BandoConvocatoriaRepository bandoRepository;
+    private final SecurityService securityService;
+    private final AsistenciaMapper asistenciaMapper;
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByConvocatoriaId(Long convocatoriaId) {
         return asistenciaRepository.findByConvocatoriaId(convocatoriaId).stream()
-                .map(this::toResponse)
+                .map(asistenciaMapper::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByUsuarioId(Long usuarioId) {
         return asistenciaRepository.findByUsuarioId(usuarioId).stream()
-                .map(this::toResponse)
+                .map(asistenciaMapper::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public AsistenciaResponse findById(Long id) {
         return asistenciaRepository.findById(id)
-                .map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Asistencia no encontrada con id: " + id));
+                .map(asistenciaMapper::toResponse)
+                .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
     }
 
     @Transactional(readOnly = true)
     public AsistenciaResponse findByConvocatoriaAndUsuario(Long convocatoriaId) {
-        Long usuarioId = getCurrentUserId();
+        Long usuarioId = securityService.getCurrentUserId();
         return asistenciaRepository.findByConvocatoriaIdAndUsuarioId(convocatoriaId, usuarioId)
-                .map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("No tienes registro de asistencia para esta convocatoria"));
+                .map(asistenciaMapper::toResponse)
+                .orElseThrow(() -> new NotFoundException("No tienes registro de asistencia para esta convocatoria"));
     }
 
     public AsistenciaResponse create(AsistenciaRequest request) {
-        Usuario usuario = getCurrentUser();
+        Usuario usuario = securityService.getCurrentUser();
         Convocatoria convocatoria = convocatoriaRepository.findById(request.getConvocatoriaId())
-                .orElseThrow(() -> new RuntimeException("Convocatoria no encontrada con id: " + request.getConvocatoriaId()));
+                .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + request.getConvocatoriaId()));
 
         var existing = asistenciaRepository.findByConvocatoriaIdAndUsuarioId(request.getConvocatoriaId(), usuario.getId());
         if (existing.isPresent()) {
@@ -67,7 +72,7 @@ public class AsistenciaService {
             }
             asistencia.setFechaRespuesta(LocalDateTime.now());
             asistencia = asistenciaRepository.save(asistencia);
-            return toResponse(asistencia);
+            return asistenciaMapper.toResponse(asistencia);
         }
 
         Asistencia.AsistenciaBuilder builder = Asistencia.builder()
@@ -75,31 +80,30 @@ public class AsistenciaService {
                 .usuario(usuario)
                 .estado(request.getEstado() != null ? EstadoAsistencia.valueOf(request.getEstado()) : EstadoAsistencia.PENDIENTE);
 
-        if (request.getPosicionId() != null) {
-            PosicionesDeporte posicion = posicionRepository.findById(request.getPosicionId())
-                    .orElseThrow(() -> new RuntimeException("Posicion no encontrada con id: " + request.getPosicionId()));
-            builder.posicion(posicion);
+        if (request.getPosicionPreferidaId() != null) {
+            PosicionesDeporte posicion = posicionRepository.findById(request.getPosicionPreferidaId())
+                    .orElseThrow(() -> new NotFoundException("Posicion no encontrada con id: " + request.getPosicionPreferidaId()));
+            builder.posicionPreferida(posicion);
         }
 
-        if (request.getEquipoId() != null) {
-            EquiposConvocatoria equipo = equipoRepository.findById(request.getEquipoId())
-                    .orElseThrow(() -> new RuntimeException("Equipo no encontrado con id: " + request.getEquipoId()));
-            builder.equipo(equipo);
+        if (request.getBandoId() != null) {
+            BandoConvocatoria bando = bandoRepository.findById(request.getBandoId())
+                    .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + request.getBandoId()));
+            builder.bando(bando);
         }
 
         Asistencia asistencia = builder.build();
         asistencia = asistenciaRepository.save(asistencia);
-        return toResponse(asistencia);
+        return asistenciaMapper.toResponse(asistencia);
     }
 
     public AsistenciaResponse update(Long id, AsistenciaUpdateRequest request) {
         Asistencia asistencia = asistenciaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Asistencia no encontrada con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
-        Long currentUserId = getCurrentUserId();
-        boolean isAdmin = getCurrentUserEmail().equals("admin@event.com");
-        if (!asistencia.getUsuario().getId().equals(currentUserId) && !isAdmin) {
-            throw new RuntimeException("No tienes permiso para editar esta asistencia");
+        Long currentUserId = securityService.getCurrentUserId();
+        if (!asistencia.getUsuario().getId().equals(currentUserId) && !hasAdminPermission()) {
+            throw new ForbiddenException("No tienes permiso para editar esta asistencia");
         }
 
         EstadoAsistencia oldEstado = asistencia.getEstado();
@@ -109,9 +113,7 @@ public class AsistenciaService {
             if (newEstado == EstadoAsistencia.ASISTIRE && oldEstado != EstadoAsistencia.ASISTIRE) {
                 Convocatoria conv = asistencia.getConvocatoria();
                 if (conv.getCupoMaximo() != null && conv.getCupoMaximo() > 0) {
-                    long countAsistire = asistenciaRepository.findByConvocatoriaId(conv.getId()).stream()
-                            .filter(a -> a.getEstado() == EstadoAsistencia.ASISTIRE)
-                            .count();
+                    long countAsistire = asistenciaRepository.countByConvocatoriaIdAndEstado(conv.getId(), EstadoAsistencia.ASISTIRE);
                     if (countAsistire >= conv.getCupoMaximo()) {
                         if ("LISTA_ESPERA".equals(conv.getManejoExcedente())) {
                             newEstado = EstadoAsistencia.LISTA_ESPERA;
@@ -120,38 +122,37 @@ public class AsistenciaService {
                 }
             }
             asistencia.setEstado(newEstado);
-            asistencia.setFechaRespuesta(java.time.LocalDateTime.now());
+            asistencia.setFechaRespuesta(LocalDateTime.now());
         }
 
-        if (request.getPosicionId() != null) {
-            PosicionesDeporte posicion = posicionRepository.findById(request.getPosicionId())
-                    .orElseThrow(() -> new RuntimeException("Posicion no encontrada con id: " + request.getPosicionId()));
-            asistencia.setPosicion(posicion);
+        if (request.getPosicionPreferidaId() != null) {
+            PosicionesDeporte posicion = posicionRepository.findById(request.getPosicionPreferidaId())
+                    .orElseThrow(() -> new NotFoundException("Posicion no encontrada con id: " + request.getPosicionPreferidaId()));
+            asistencia.setPosicionPreferida(posicion);
         }
 
-        if (request.getEquipoId() != null) {
-            EquiposConvocatoria equipo = equipoRepository.findById(request.getEquipoId())
-                    .orElseThrow(() -> new RuntimeException("Equipo no encontrado con id: " + request.getEquipoId()));
-            asistencia.setEquipo(equipo);
+        if (request.getBandoId() != null) {
+            BandoConvocatoria bando = bandoRepository.findById(request.getBandoId())
+                    .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + request.getBandoId()));
+            asistencia.setBando(bando);
         }
 
         asistencia = asistenciaRepository.save(asistencia);
 
-        if (oldEstado == EstadoAsistencia.ASISTIRE && newEstado != EstadoAsistencia.ASISTIRE) {
+        if (oldEstado == EstadoAsistencia.ASISTIRE && newEstado != null && newEstado != EstadoAsistencia.ASISTIRE) {
             promoteFromWaitlist(asistencia.getConvocatoria().getId());
         }
 
-        return toResponse(asistencia);
+        return asistenciaMapper.toResponse(asistencia);
     }
 
     public void delete(Long id) {
         Asistencia asistencia = asistenciaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Asistencia no encontrada con id: " + id));
+                .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
-        Long currentUserId = getCurrentUserId();
-        boolean isAdmin = getCurrentUserEmail().equals("admin@event.com");
-        if (!asistencia.getUsuario().getId().equals(currentUserId) && !isAdmin) {
-            throw new RuntimeException("No tienes permiso para eliminar esta asistencia");
+        Long currentUserId = securityService.getCurrentUserId();
+        if (!asistencia.getUsuario().getId().equals(currentUserId) && !hasAdminPermission()) {
+            throw new ForbiddenException("No tienes permiso para eliminar esta asistencia");
         }
 
         EstadoAsistencia estado = asistencia.getEstado();
@@ -164,80 +165,51 @@ public class AsistenciaService {
         }
     }
 
+    private boolean hasAdminPermission() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("gestionar_convocatorias")
+                        || a.getAuthority().equals("ROLE_SUPERADMIN"));
+    }
+
     private void promoteFromWaitlist(Long convocatoriaId) {
-        List<Asistencia> waitlist = asistenciaRepository.findByConvocatoriaId(convocatoriaId).stream()
-                .filter(a -> a.getEstado() == EstadoAsistencia.LISTA_ESPERA)
-                .sorted(java.util.Comparator.comparing(Asistencia::getFechaRespuesta))
-                .toList();
+        List<Asistencia> waitlist = asistenciaRepository.findByConvocatoriaIdAndEstado(convocatoriaId, EstadoAsistencia.LISTA_ESPERA);
         if (!waitlist.isEmpty()) {
             Asistencia first = waitlist.get(0);
             first.setEstado(EstadoAsistencia.ASISTIRE);
-            first.setFechaRespuesta(java.time.LocalDateTime.now());
+            first.setFechaRespuesta(LocalDateTime.now());
             asistenciaRepository.save(first);
-            System.out.println("Promocionado de lista de espera a ASISTIRE al usuario: " + (first.getUsuario() != null ? first.getUsuario().getNombre() : "Invitado Externo"));
         }
-    }
-
-    private Long getCurrentUserId() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl userDetails) {
-            return userDetails.getId();
-        }
-        throw new RuntimeException("Usuario no autenticado");
-    }
-
-    private String getCurrentUserEmail() {
-        return SecurityContextHolder.getContext().getAuthentication().getName();
-    }
-
-    private Usuario getCurrentUser() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl userDetails) {
-            return usuarioRepository.findById(userDetails.getId())
-                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        }
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-    }
-
-    private AsistenciaResponse toResponse(Asistencia asistencia) {
-        return AsistenciaResponse.builder()
-                .id(asistencia.getId())
-                .convocatoriaId(asistencia.getConvocatoria().getId())
-                .convocatoriaTitulo(asistencia.getConvocatoria().getTitulo())
-                .usuarioId(asistencia.getUsuario() != null ? asistencia.getUsuario().getId() : null)
-                .usuarioNombre(asistencia.getUsuario() != null ? asistencia.getUsuario().getNombre() : null)
-                .nombreExterno(asistencia.getNombreExterno())
-                .invitadoPorId(asistencia.getInvitadoPor() != null ? asistencia.getInvitadoPor().getId() : null)
-                .invitadoPorNombre(asistencia.getInvitadoPor() != null ? asistencia.getInvitadoPor().getNombre() : null)
-                .estado(asistencia.getEstado())
-                .posicionId(asistencia.getPosicion() != null ? asistencia.getPosicion().getId() : null)
-                .posicionNombre(asistencia.getPosicion() != null ? asistencia.getPosicion().getNombre() : null)
-                .equipoId(asistencia.getEquipo() != null ? asistencia.getEquipo().getId() : null)
-                .equipoNombre(asistencia.getEquipo() != null ? asistencia.getEquipo().getNombre() : null)
-                .numeroCamiseta(asistencia.getUsuario() != null ? asistencia.getUsuario().getNumeroCamiseta() : null)
-                .fechaRespuesta(asistencia.getFechaRespuesta())
-                .build();
     }
 
     public List<AsistenciaResponse> bulkInvite(Long convocatoriaId, List<Long> usuarioIds) {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
-                .orElseThrow(() -> new RuntimeException("Convocatoria no encontrada"));
-                
-        return usuarioIds.stream()
-                .filter(userId -> asistenciaRepository.findByConvocatoriaIdAndUsuarioId(convocatoriaId, userId).isEmpty())
-                .map(userId -> {
-                    Usuario usuario = usuarioRepository.findById(userId)
-                            .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + userId));
-                    Asistencia asistencia = Asistencia.builder()
-                            .convocatoria(convocatoria)
-                            .usuario(usuario)
-                            .estado(EstadoAsistencia.PENDIENTE)
-                            .build();
-                    asistencia = asistenciaRepository.save(asistencia);
-                    return toResponse(asistencia);
-                })
+                .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada"));
+
+        List<Asistencia> existing = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
+        Set<Long> existingUserIds = existing.stream()
+                .filter(a -> a.getUsuario() != null)
+                .map(a -> a.getUsuario().getId())
+                .collect(Collectors.toSet());
+
+        List<Long> newIds = usuarioIds.stream().filter(uid -> !existingUserIds.contains(uid)).toList();
+        if (newIds.isEmpty()) return List.of();
+
+        List<Usuario> users = usuarioRepository.findAllById(newIds);
+
+        List<Asistencia> newAsistencias = users.stream()
+                .map(usuario -> Asistencia.builder()
+                        .convocatoria(convocatoria)
+                        .usuario(usuario)
+                        .estado(EstadoAsistencia.PENDIENTE)
+                        .build())
+                .toList();
+
+        asistenciaRepository.saveAll(newAsistencias);
+
+        return asistenciaRepository.findByConvocatoriaId(convocatoriaId).stream()
+                .map(asistenciaMapper::toResponse)
                 .toList();
     }
 }
