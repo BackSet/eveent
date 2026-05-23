@@ -293,6 +293,10 @@ export default function Login() {
                     <span className="text-[9px] text-muted-foreground italic font-semibold">Configurable luego</span>
                   </div>
 
+                  <p className="text-[10px] text-muted-foreground/80 leading-relaxed bg-secondary/10 p-2 rounded border border-border/40 text-[9px]">
+                    💡 <strong>Prioridades tácticas:</strong> El orden de selección define la prioridad. La <strong>1ª posición</strong> que marques será tu posición principal (⭐), las siguientes serán alternativas.
+                  </p>
+
                   {loadingSports ? (
                     <div className="flex justify-center py-2"><Spinner size="sm" /></div>
                   ) : (
@@ -352,23 +356,33 @@ export default function Login() {
                     <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">
                       Tus Posiciones Seleccionadas ({selectedPositions.length})
                     </label>
-                    <div className="flex flex-wrap gap-1 max-h-[75px] overflow-y-auto border border-border/60 p-2 rounded bg-secondary/5">
-                      {selectedPositions.map((pos) => (
-                        <Badge
-                          key={pos.id}
-                          variant="outline"
-                          className="text-[8px] font-semibold bg-background border-border text-foreground px-1.5 py-0.2 rounded-sm shadow-3xs flex items-center gap-0.5 select-none"
-                        >
-                          <span className="truncate">{pos.nombre} ({pos.deporteNombre})</span>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPositions((prev) => prev.filter((p) => p.id !== pos.id))}
-                            className="text-muted-foreground hover:text-destructive shrink-0 cursor-pointer ml-0.5"
+                    <div className="flex flex-wrap gap-1 max-h-[85px] overflow-y-auto border border-border/60 p-2 rounded bg-secondary/5">
+                      {selectedPositions.map((pos, index) => {
+                        const isPrimary = index === 0;
+                        return (
+                          <Badge
+                            key={pos.id}
+                            variant="outline"
+                            className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-sm shadow-3xs flex items-center gap-0.5 select-none ${
+                              isPrimary
+                                ? "bg-primary/10 border-primary/30 text-foreground font-bold"
+                                : "bg-background border-border text-foreground"
+                            }`}
                           >
-                            <X size={8} />
-                          </button>
-                        </Badge>
-                      ))}
+                            <span className="truncate">
+                              {isPrimary ? "⭐ 1ª: " : `${index + 1}ª: `}
+                              {pos.nombre} ({pos.deporteNombre})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPositions((prev) => prev.filter((p) => p.id !== pos.id))}
+                              className="text-muted-foreground hover:text-destructive shrink-0 cursor-pointer ml-0.5"
+                            >
+                              <X size={8} />
+                            </button>
+                          </Badge>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
