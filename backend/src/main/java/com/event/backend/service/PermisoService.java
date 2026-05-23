@@ -71,7 +71,7 @@ public class PermisoService {
                 "ver_convocatorias", "crear_convocatorias", "editar_convocatorias", "eliminar_convocatorias", "cancelar_convocatorias", "responder_asistencia", "invitar_externos", "dividir_equipos",
                 "ver_grupos", "crear_grupos", "editar_grupos", "eliminar_grupos",
                 "ver_deportes", "gestionar_deportes",
-                "ver_usuarios", "crear_usuarios", "editar_usuarios", "dar_baja_usuarios",
+                "ver_usuarios", "crear_usuarios", "editar_usuarios", "dar_baja_usuarios", "suspender_jugadores",
                 "ver_roles", "gestionar_roles", "ver_permisos"
         );
         if (corePermisos.contains(permiso.getClave())) {

@@ -23,4 +23,6 @@ public class UsuarioResponse {
     private List<UsuarioPosicionDto> posiciones;
     private Boolean activo;
     private LocalDateTime fechaCreacion;
+    private LocalDateTime fechaFinSuspension;
+    private String motivoSuspension;
 }

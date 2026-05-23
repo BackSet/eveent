@@ -1,6 +1,7 @@
 package com.event.backend.controller;
 
 import com.event.backend.dto.usuario.PasswordChangeRequest;
+import com.event.backend.dto.usuario.SuspensionRequest;
 import com.event.backend.dto.usuario.UsuarioProfileRequest;
 import com.event.backend.dto.usuario.UsuarioResponse;
 import com.event.backend.dto.usuario.UsuarioRoleRequest;
@@ -98,5 +99,17 @@ public class UsuarioController {
     @PreAuthorize("hasAuthority('dar_baja_usuarios')")
     public ResponseEntity<UsuarioResponse> toggleActivo(@PathVariable Long id) {
         return ResponseEntity.ok(usuarioService.toggleActivo(id));
+    }
+
+    @PostMapping("/{id}/suspender")
+    @PreAuthorize("hasAuthority('suspender_jugadores')")
+    public ResponseEntity<UsuarioResponse> suspender(@PathVariable Long id, @Valid @RequestBody SuspensionRequest request) {
+        return ResponseEntity.ok(usuarioService.suspender(id, request));
+    }
+
+    @PostMapping("/{id}/levantar-suspension")
+    @PreAuthorize("hasAuthority('suspender_jugadores')")
+    public ResponseEntity<UsuarioResponse> levantarSuspension(@PathVariable Long id) {
+        return ResponseEntity.ok(usuarioService.levantarSuspension(id));
     }
 }

@@ -104,6 +104,7 @@ public class DataInitializer implements CommandLineRunner {
         permisosData.put("ver_roles", "Ver roles y privilegios");
         permisosData.put("gestionar_roles", "Gestionar roles y privilegios");
         permisosData.put("ver_permisos", "Ver lista de permisos del sistema");
+        permisosData.put("suspender_jugadores", "Suspender jugadores del sistema");
 
         Map<String, List<String>> rolesPermisos = new HashMap<>();
         rolesPermisos.put("SuperAdmin", List.of(
@@ -111,12 +112,12 @@ public class DataInitializer implements CommandLineRunner {
                 "ver_grupos", "crear_grupos", "editar_grupos", "eliminar_grupos",
                 "ver_deportes", "gestionar_deportes",
                 "ver_usuarios", "crear_usuarios", "editar_usuarios", "dar_baja_usuarios",
-                "ver_roles", "gestionar_roles", "ver_permisos"
+                "ver_roles", "gestionar_roles", "ver_permisos", "suspender_jugadores"
         ));
         rolesPermisos.put("Organizador", List.of(
                 "ver_convocatorias", "crear_convocatorias", "editar_convocatorias", "cancelar_convocatorias", "responder_asistencia", "invitar_externos", "dividir_equipos",
                 "ver_grupos", "crear_grupos", "editar_grupos", "eliminar_grupos",
-                "ver_deportes", "gestionar_deportes"
+                "ver_deportes", "gestionar_deportes", "suspender_jugadores"
         ));
         rolesPermisos.put("Jugador", List.of(
                 "ver_convocatorias", "responder_asistencia", "ver_grupos"

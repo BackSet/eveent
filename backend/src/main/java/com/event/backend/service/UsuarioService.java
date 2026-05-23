@@ -1,6 +1,7 @@
 package com.event.backend.service;
 
 import com.event.backend.dto.usuario.PasswordChangeRequest;
+import com.event.backend.dto.usuario.SuspensionRequest;
 import com.event.backend.dto.usuario.UsuarioProfileRequest;
 import com.event.backend.dto.usuario.UsuarioResponse;
 import com.event.backend.dto.usuario.UsuarioRoleRequest;
@@ -28,6 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -96,6 +98,7 @@ public class UsuarioService {
                     .roles(roleNames).permissions(permNames)
                     .posiciones(userPosDtos)
                     .activo(u.getActivo()).fechaCreacion(u.getFechaCreacion())
+                    .fechaFinSuspension(u.getFechaFinSuspension()).motivoSuspension(u.getMotivoSuspension())
                     .build();
         }).toList();
     }
@@ -296,6 +299,8 @@ public class UsuarioService {
                 .posiciones(posiciones)
                 .activo(usuario.getActivo())
                 .fechaCreacion(usuario.getFechaCreacion())
+                .fechaFinSuspension(usuario.getFechaFinSuspension())
+                .motivoSuspension(usuario.getMotivoSuspension())
                 .build();
     }
 
@@ -338,5 +343,34 @@ public class UsuarioService {
         usuarioPosicionRepository.saveAll(newPositions);
 
         return getCurrentUserPosiciones();
+    }
+
+    @CacheEvict(value = "userDetails", allEntries = true)
+    public UsuarioResponse suspender(Long id, SuspensionRequest request) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + id));
+
+        if (request.getFechaFin() == null) {
+            throw new BusinessException("La fecha de finalizacion es obligatoria");
+        }
+        if (request.getFechaFin().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("La fecha de finalizacion debe ser futura");
+        }
+
+        usuario.setFechaFinSuspension(request.getFechaFin());
+        usuario.setMotivoSuspension(request.getMotivo());
+        usuario = usuarioRepository.save(usuario);
+        return toResponse(usuario);
+    }
+
+    @CacheEvict(value = "userDetails", allEntries = true)
+    public UsuarioResponse levantarSuspension(Long id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con id: " + id));
+
+        usuario.setFechaFinSuspension(null);
+        usuario.setMotivoSuspension(null);
+        usuario = usuarioRepository.save(usuario);
+        return toResponse(usuario);
     }
 }

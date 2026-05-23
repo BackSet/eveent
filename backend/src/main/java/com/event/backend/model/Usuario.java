@@ -39,4 +39,10 @@ public class Usuario {
     private LocalDateTime fechaCreacion = LocalDateTime.now();
 
     private LocalDateTime fechaActualizacion;
+
+    @Column(name = "fecha_fin_suspension")
+    private LocalDateTime fechaFinSuspension;
+
+    @Column(name = "motivo_suspension", length = 500)
+    private String motivoSuspension;
 }

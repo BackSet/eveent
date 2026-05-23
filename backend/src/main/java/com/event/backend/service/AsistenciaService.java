@@ -3,6 +3,7 @@ package com.event.backend.service;
 import com.event.backend.dto.asistencia.AsistenciaRequest;
 import com.event.backend.dto.asistencia.AsistenciaResponse;
 import com.event.backend.dto.asistencia.AsistenciaUpdateRequest;
+import com.event.backend.exception.BusinessException;
 import com.event.backend.exception.ForbiddenException;
 import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.*;
@@ -115,8 +116,18 @@ public class AsistenciaService {
         return requestedEstado;
     }
 
+    private void checkSuspension(Usuario usuario) {
+        if (usuario != null && usuario.getFechaFinSuspension() != null && usuario.getFechaFinSuspension().isAfter(LocalDateTime.now())) {
+            throw new BusinessException("No puedes registrar asistencia ya que te encuentras suspendido hasta " + 
+                usuario.getFechaFinSuspension() + " por el siguiente motivo: " + usuario.getMotivoSuspension());
+        }
+    }
+
     public AsistenciaResponse create(AsistenciaRequest request) {
         Usuario usuario = securityService.getCurrentUser();
+        if (request.getNombreExterno() == null || request.getNombreExterno().trim().isEmpty()) {
+            checkSuspension(usuario);
+        }
         Convocatoria convocatoria = convocatoriaRepository.findById(request.getConvocatoriaId())
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + request.getConvocatoriaId()));
 
@@ -275,6 +286,10 @@ public class AsistenciaService {
 
         if (!isOwner && !isHost && !hasAdminPermission()) {
             throw new ForbiddenException("No tienes permiso para editar esta asistencia");
+        }
+
+        if (isOwner) {
+            checkSuspension(asistencia.getUsuario());
         }
 
         EstadoAsistencia oldEstado = asistencia.getEstado();
