@@ -201,19 +201,19 @@ export default function Login() {
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                    Correo Electrónico
+                    {isRegister ? "Correo Electrónico" : "Correo o Usuario"}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50">
-                      <Mail size={13} />
+                      {isRegister ? <Mail size={13} /> : <User size={13} />}
                     </span>
                     <Input
-                      type="email"
+                      type={isRegister ? "email" : "text"}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
-                      placeholder="correo@ejemplo.com"
+                      placeholder={isRegister ? "correo@ejemplo.com" : "correo@ejemplo.com o tu_usuario"}
                     />
                   </div>
                 </div>

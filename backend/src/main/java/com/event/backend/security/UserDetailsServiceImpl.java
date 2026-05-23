@@ -26,10 +26,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "userDetails", key = "#email")
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + email));
+    @Cacheable(value = "userDetails", key = "#usernameOrEmail")
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+        Usuario usuario = usuarioRepository.findByEmail(usernameOrEmail)
+                .or(() -> usuarioRepository.findByUsername(usernameOrEmail))
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con correo o usuario: " + usernameOrEmail));
 
         List<UsuarioRol> usuarioRoles = usuarioRolRepository.findByIdUsuarioId(usuario.getId());
         var roles = usuarioRoles.stream()
