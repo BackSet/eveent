@@ -106,8 +106,9 @@ export default function ConvocatoriaDetailPage() {
         players.forEach((p) => {
           const name = p.nombreExterno || p.usuarioNombre || "Invitado";
           const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "👤";
+          const invBy = p.nombreExterno && p.invitadoPorNombre ? ` (Invitado de ${p.invitadoPorNombre})` : "";
           const pos = p.posicionAsignadaNombre ? ` - ${p.posicionAsignadaNombre}` : p.posicionPreferidaNombre ? ` - ${p.posicionPreferidaNombre}` : "";
-          shareText += `  • ${number} ${name}${pos}\n`;
+          shareText += `  • ${number} ${name}${invBy}${pos}\n`;
         });
       }
       shareText += `\n`;
@@ -118,7 +119,8 @@ export default function ConvocatoriaDetailPage() {
       playerLists.comodines.forEach((p) => {
         const name = p.nombreExterno || p.usuarioNombre || "Invitado";
         const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "👤";
-        shareText += `  • ${number} ${name}\n`;
+        const invBy = p.nombreExterno && p.invitadoPorNombre ? ` (Invitado de ${p.invitadoPorNombre})` : "";
+        shareText += `  • ${number} ${name}${invBy}\n`;
       });
       shareText += `\n`;
     }
