@@ -708,7 +708,7 @@ export default function ConvocatoriaDetailPage() {
                     return (
                       <div 
                         key={asis.id} 
-                        className={`flex flex-col p-3 rounded-lg border transition-premium relative overflow-hidden group bg-background hover:bg-muted/10 ${
+                        className={`flex flex-col p-3 rounded-lg border transition-premium relative overflow-hidden group bg-background hover:bg-muted/10 h-full min-h-[140px] ${
                           isSelected ? "border-primary bg-primary/[0.01]" : "border-border/60"
                         }`}
                       >
@@ -746,23 +746,29 @@ export default function ConvocatoriaDetailPage() {
                         </div>
 
                         {/* Preferred positions */}
-                        {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {asis.posicionesPreferidasNombres.map((name: string) => (
-                              <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
-                                {name}
+                        <div className="flex-grow mt-2 flex flex-col justify-start">
+                          {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {asis.posicionesPreferidasNombres.map((name: string) => (
+                                <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : asis.posicionPreferidaNombre ? (
+                            <div className="flex">
+                              <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                {asis.posicionPreferidaNombre}
                               </span>
-                            ))}
-                          </div>
-                        ) : asis.posicionPreferidaNombre ? (
-                          <div className="mt-2 flex">
-                            <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
-                              {asis.posicionPreferidaNombre}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[9px] text-muted-foreground italic mt-2 block">Sin posiciones preferidas</span>
-                        )}
+                            </div>
+                          ) : (
+                            <div className="flex mt-1">
+                              <span className="text-[9px] font-bold text-muted-foreground/45 bg-muted/40 uppercase tracking-widest px-1.5 py-0.5 rounded border border-dashed border-border">
+                                Sin Posición
+                              </span>
+                            </div>
+                          )}
+                        </div>
 
                         {/* Direct action buttons (hover actions / bottom actions) */}
                         <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
@@ -917,10 +923,16 @@ export default function ConvocatoriaDetailPage() {
                                           </span>
                                         ))}
                                       </div>
-                                    ) : asis.posicionPreferidaNombre && (
+                                    ) : asis.posicionPreferidaNombre ? (
                                       <div className="mt-2 flex">
                                         <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
                                           {asis.posicionPreferidaNombre}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="mt-2 flex">
+                                        <span className="text-[9px] font-bold text-muted-foreground/45 bg-muted/40 uppercase tracking-widest px-1.5 py-0.5 rounded border border-dashed border-border">
+                                          Comodín
                                         </span>
                                       </div>
                                     )}
@@ -1105,7 +1117,7 @@ export default function ConvocatoriaDetailPage() {
                             return (
                               <div 
                                 key={eq.id} 
-                                className="flex items-center justify-between p-2 rounded border border-border bg-background hover:bg-muted/10 transition-premium relative overflow-hidden group shadow-sm"
+                                className="flex items-center justify-between p-2 rounded border border-border bg-background hover:bg-muted/10 transition-premium relative overflow-hidden group shadow-sm h-full min-h-[40px]"
                               >
                                 {eq.color && (
                                   <div className="absolute top-0 bottom-0 left-0 w-[3px]" style={{ backgroundColor: teamColorHex }} />
@@ -1178,7 +1190,7 @@ export default function ConvocatoriaDetailPage() {
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {playerLists.confirmadosTotales.map((asis) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[56px]">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                   <div className="h-7 w-7 rounded bg-primary/10 flex items-center justify-center font-black text-primary text-xs shrink-0 select-none">
                                     {(asis.usuarioNombre || asis.nombreExterno || "?").charAt(0).toUpperCase()}
@@ -1201,8 +1213,10 @@ export default function ConvocatoriaDetailPage() {
                                         <Badge key={name} variant="outline" className="text-[9px]">{name}</Badge>
                                       ))}
                                     </div>
-                                  ) : asis.posicionPreferidaNombre && (
+                                  ) : asis.posicionPreferidaNombre ? (
                                     <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] border-dashed text-muted-foreground/50 border-border bg-transparent">Comodín</Badge>
                                   )}
                                 </div>
                               </div>
@@ -1217,7 +1231,7 @@ export default function ConvocatoriaDetailPage() {
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {playerLists.waitlist.map((asis, idx) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[56px]">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                   <span className="text-xs text-muted-foreground font-black shrink-0">{idx + 1}.</span>
                                   <div className="overflow-hidden">
@@ -1246,13 +1260,13 @@ export default function ConvocatoriaDetailPage() {
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {playerLists.pendientes.map((asis) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[50px]">
                                 <span className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre}</span>
                                 <Badge variant="warning" className="text-[8px] font-black uppercase shrink-0">Pendiente</Badge>
                               </div>
                             ))}
                             {playerLists.noAsistiran.map((asis) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
+                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[50px]">
                                 <span className="text-xs font-semibold text-muted-foreground line-through truncate">{asis.usuarioNombre}</span>
                                 <Badge variant="destructive" className="text-[8px] font-black uppercase shrink-0">No Asistirá</Badge>
                               </div>
