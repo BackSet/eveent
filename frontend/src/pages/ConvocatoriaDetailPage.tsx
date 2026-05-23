@@ -105,7 +105,7 @@ export default function ConvocatoriaDetailPage() {
       } else {
         players.forEach((p) => {
           const name = p.nombreExterno || p.usuarioNombre || "Invitado";
-          const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "";
+          const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "👤";
           const pos = p.posicionAsignadaNombre ? ` - ${p.posicionAsignadaNombre}` : p.posicionPreferidaNombre ? ` - ${p.posicionPreferidaNombre}` : "";
           shareText += `  • ${number} ${name}${pos}\n`;
         });
@@ -117,7 +117,7 @@ export default function ConvocatoriaDetailPage() {
       shareText += `🌟 *RESERVAS / COMODINES* (${playerLists.comodines.length}):\n`;
       playerLists.comodines.forEach((p) => {
         const name = p.nombreExterno || p.usuarioNombre || "Invitado";
-        const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "";
+        const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "👤";
         shareText += `  • ${number} ${name}\n`;
       });
       shareText += `\n`;
@@ -1032,7 +1032,7 @@ export default function ConvocatoriaDetailPage() {
                                     <div className="flex items-center justify-between gap-2 overflow-hidden">
                                       <div className="flex items-center gap-2 overflow-hidden flex-1">
                                         <span className="text-[10px] font-black px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-md shrink-0 monospace">
-                                          {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "—"}
+                                          {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "👤"}
                                         </span>
                                         <div className="overflow-hidden">
                                           <span className="text-xs font-semibold text-foreground truncate block">
