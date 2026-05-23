@@ -2,3 +2,11 @@ node_modules/
 dist/
 .env.local
 *.log
+
+# Agent & Skill files
+.agents/
+.antigravitycli/
+skills-lock.json
+
+# TypeScript Build Info
+*.tsbuildinfo
