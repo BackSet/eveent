@@ -81,6 +81,33 @@ public class AsistenciaService {
             }
         }
 
+        // Si es un jugador externo (invitado por el usuario actual)
+        if (request.getNombreExterno() != null && !request.getNombreExterno().trim().isEmpty()) {
+            Asistencia.AsistenciaBuilder builder = Asistencia.builder()
+                    .convocatoria(convocatoria)
+                    .usuario(null)
+                    .nombreExterno(request.getNombreExterno().trim())
+                    .invitadoPor(usuario)
+                    .estado(request.getEstado() != null ? EstadoAsistencia.valueOf(request.getEstado()) : EstadoAsistencia.ASISTIRE)
+                    .fechaRespuesta(LocalDateTime.now());
+
+            if (request.getPosicionPreferidaId() != null) {
+                PosicionesDeporte posicion = posicionRepository.findById(request.getPosicionPreferidaId())
+                        .orElseThrow(() -> new NotFoundException("Posicion no encontrada con id: " + request.getPosicionPreferidaId()));
+                builder.posicionPreferida(posicion);
+            }
+
+            if (request.getBandoId() != null) {
+                BandoConvocatoria bando = bandoRepository.findById(request.getBandoId())
+                        .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + request.getBandoId()));
+                builder.bando(bando);
+            }
+
+            Asistencia asistencia = builder.build();
+            asistencia = asistenciaRepository.save(asistencia);
+            return asistenciaMapper.toResponse(asistencia);
+        }
+
         var existing = asistenciaRepository.findByConvocatoriaIdAndUsuarioId(request.getConvocatoriaId(), usuario.getId());
         if (existing.isPresent()) {
             Asistencia asistencia = existing.get();
@@ -119,7 +146,10 @@ public class AsistenciaService {
                 .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
         Long currentUserId = securityService.getCurrentUserId();
-        if (!asistencia.getUsuario().getId().equals(currentUserId) && !hasAdminPermission()) {
+        boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
+        boolean isHost = asistencia.getInvitadoPor() != null && asistencia.getInvitadoPor().getId().equals(currentUserId);
+
+        if (!isOwner && !isHost && !hasAdminPermission()) {
             throw new ForbiddenException("No tienes permiso para editar esta asistencia");
         }
 
@@ -168,7 +198,10 @@ public class AsistenciaService {
                 .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
         Long currentUserId = securityService.getCurrentUserId();
-        if (!asistencia.getUsuario().getId().equals(currentUserId) && !hasAdminPermission()) {
+        boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
+        boolean isHost = asistencia.getInvitadoPor() != null && asistencia.getInvitadoPor().getId().equals(currentUserId);
+
+        if (!isOwner && !isHost && !hasAdminPermission()) {
             throw new ForbiddenException("No tienes permiso para eliminar esta asistencia");
         }
 

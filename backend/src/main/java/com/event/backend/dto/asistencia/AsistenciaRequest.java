@@ -10,4 +10,5 @@ public class AsistenciaRequest {
     private Long posicionPreferidaId;
     private Long bandoId;
     private String estado;
+    private String nombreExterno;
 }
