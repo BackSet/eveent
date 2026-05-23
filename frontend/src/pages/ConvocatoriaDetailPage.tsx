@@ -343,7 +343,7 @@ export default function ConvocatoriaDetailPage() {
     };
   }, [asistencias, bandos, matchmakerRun]);
 
-  const isOrganizador = hasPermission("crear_convocatoria") || hasPermission("dividir_bandos") || hasPermission("gestionar_convocatorias");
+  const isOrganizador = hasPermission("crear_convocatorias") || hasPermission("editar_convocatorias") || hasPermission("dividir_equipos");
 
   const isInProgressOrDone = useMemo(() => {
     if (!convocatoria) return false;

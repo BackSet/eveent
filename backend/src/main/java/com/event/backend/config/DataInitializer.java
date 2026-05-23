@@ -74,25 +74,53 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedRolesIfEmpty() {
         Map<String, String> permisosData = new HashMap<>();
-        permisosData.put("crear_convocatoria", "Crear convocatorias");
-        permisosData.put("dividir_equipos", "Dividir equipos");
+        // Convocatorias
+        permisosData.put("ver_convocatorias", "Ver convocatorias");
+        permisosData.put("crear_convocatorias", "Crear convocatorias");
+        permisosData.put("editar_convocatorias", "Editar convocatorias");
+        permisosData.put("eliminar_convocatorias", "Eliminar convocatorias");
+        permisosData.put("cancelar_convocatorias", "Cancelar convocatorias (dar de baja)");
+        permisosData.put("responder_asistencia", "Responder asistencia (RSVP)");
         permisosData.put("invitar_externos", "Invitar externos");
-        permisosData.put("gestionar_roles", "Gestionar roles y permisos");
-        permisosData.put("ver_convocatoria", "Ver convocatorias");
-        permisosData.put("responder_asistencia", "Responder asistencia");
-        permisosData.put("gestionar_usuarios", "Gestionar usuarios");
-        permisosData.put("gestionar_deportes", "Gestionar deportes y posiciones");
-        permisosData.put("ver_permisos", "Ver lista de permisos");
-        permisosData.put("gestionar_convocatorias", "Gestionar convocatorias");
+        permisosData.put("dividir_equipos", "Dividir equipos y balanceo");
+        
+        // Grupos
         permisosData.put("ver_grupos", "Ver grupos del sistema");
+        permisosData.put("crear_grupos", "Crear grupos de jugadores");
+        permisosData.put("editar_grupos", "Editar grupos y miembros");
+        permisosData.put("eliminar_grupos", "Eliminar grupos de jugadores");
+
+        // Deportes
+        permisosData.put("ver_deportes", "Ver disciplinas y posiciones");
+        permisosData.put("gestionar_deportes", "Gestionar disciplinas y posiciones");
+
+        // Usuarios
+        permisosData.put("ver_usuarios", "Ver lista de usuarios");
+        permisosData.put("crear_usuarios", "Crear nuevos usuarios");
+        permisosData.put("editar_usuarios", "Editar informacion de usuarios");
+        permisosData.put("dar_baja_usuarios", "Dar de baja usuarios");
+
+        // Roles
+        permisosData.put("ver_roles", "Ver roles y privilegios");
+        permisosData.put("gestionar_roles", "Gestionar roles y privilegios");
+        permisosData.put("ver_permisos", "Ver lista de permisos del sistema");
 
         Map<String, List<String>> rolesPermisos = new HashMap<>();
-        rolesPermisos.put("SuperAdmin", List.of("crear_convocatoria", "dividir_equipos", "invitar_externos",
-                "gestionar_roles", "ver_convocatoria", "responder_asistencia", "gestionar_usuarios", "gestionar_deportes",
-                "ver_permisos", "gestionar_convocatorias", "ver_grupos"));
-        rolesPermisos.put("Organizador", List.of("crear_convocatoria", "dividir_equipos", "invitar_externos",
-                "ver_convocatoria", "responder_asistencia", "gestionar_deportes", "gestionar_convocatorias", "ver_grupos"));
-        rolesPermisos.put("Jugador", List.of("ver_convocatoria", "responder_asistencia", "ver_grupos"));
+        rolesPermisos.put("SuperAdmin", List.of(
+                "ver_convocatorias", "crear_convocatorias", "editar_convocatorias", "eliminar_convocatorias", "cancelar_convocatorias", "responder_asistencia", "invitar_externos", "dividir_equipos",
+                "ver_grupos", "crear_grupos", "editar_grupos", "eliminar_grupos",
+                "ver_deportes", "gestionar_deportes",
+                "ver_usuarios", "crear_usuarios", "editar_usuarios", "dar_baja_usuarios",
+                "ver_roles", "gestionar_roles", "ver_permisos"
+        ));
+        rolesPermisos.put("Organizador", List.of(
+                "ver_convocatorias", "crear_convocatorias", "editar_convocatorias", "cancelar_convocatorias", "responder_asistencia", "invitar_externos", "dividir_equipos",
+                "ver_grupos", "crear_grupos", "editar_grupos", "eliminar_grupos",
+                "ver_deportes", "gestionar_deportes"
+        ));
+        rolesPermisos.put("Jugador", List.of(
+                "ver_convocatorias", "responder_asistencia", "ver_grupos"
+        ));
 
         List<String> rolNombres = rolesPermisos.keySet().stream().toList();
         List<RolesSistema> existingRoles = rolesRepo.findAllByNombreIn(rolNombres);

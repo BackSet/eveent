@@ -50,7 +50,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [dbView, setDbView] = useState<"TABLE" | "BOARD">("TABLE");
 
-  const isOrganizer = hasPermission("crear_convocatoria");
+  const isOrganizer = hasPermission("crear_convocatorias");
 
   // Get current greeting based on time of day
   const getGreeting = () => {

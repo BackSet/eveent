@@ -16,7 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/roles")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('gestionar_roles')")
+@PreAuthorize("hasAnyAuthority('ver_roles', 'gestionar_roles')")
 public class RolController {
 
     private final RolService rolService;
@@ -32,16 +32,19 @@ public class RolController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('gestionar_roles')")
     public ResponseEntity<RolResponse> create(@Valid @RequestBody RolRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(rolService.create(request));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('gestionar_roles')")
     public ResponseEntity<RolResponse> update(@PathVariable Long id, @Valid @RequestBody RolRequest request) {
         return ResponseEntity.ok(rolService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('gestionar_roles')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         rolService.delete(id);
         return ResponseEntity.noContent().build();

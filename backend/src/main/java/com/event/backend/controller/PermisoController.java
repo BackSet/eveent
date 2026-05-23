@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/permisos")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('gestionar_roles')")
+@PreAuthorize("hasAnyAuthority('ver_permisos', 'gestionar_roles')")
 public class PermisoController {
 
     private final PermisoService permisoService;

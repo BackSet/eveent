@@ -20,31 +20,31 @@ public class GrupoController {
     private final GrupoService grupoService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ver_convocatoria')")
+    @PreAuthorize("hasAuthority('ver_grupos')")
     public ResponseEntity<List<GrupoResponse>> findAll() {
         return ResponseEntity.ok(grupoService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ver_convocatoria')")
+    @PreAuthorize("hasAuthority('ver_grupos')")
     public ResponseEntity<GrupoResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(grupoService.findById(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    @PreAuthorize("hasAuthority('crear_grupos')")
     public ResponseEntity<GrupoResponse> create(@Valid @RequestBody GrupoRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(grupoService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    @PreAuthorize("hasAuthority('editar_grupos')")
     public ResponseEntity<GrupoResponse> update(@PathVariable Long id, @Valid @RequestBody GrupoRequest request) {
         return ResponseEntity.ok(grupoService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    @PreAuthorize("hasAuthority('eliminar_grupos')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         grupoService.delete(id);
         return ResponseEntity.noContent().build();

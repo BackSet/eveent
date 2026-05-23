@@ -178,7 +178,7 @@ export default function UsuariosPage() {
     );
   }
 
-  if (!hasPermission("gestionar_usuarios") && !hasPermission("gestionar_roles")) {
+  if (!hasPermission("ver_usuarios") && !hasPermission("gestionar_usuarios")) {
     return (
       <Alert variant="destructive">
         <AlertDescription>No tienes permisos para acceder a esta página</AlertDescription>
@@ -199,13 +199,15 @@ export default function UsuariosPage() {
             </p>
           </div>
         </div>
-        <Button 
-          onClick={openCreateDialog} 
-          className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus size={14} /> 
-          <span>Nuevo Usuario</span>
-        </Button>
+        {(hasPermission("crear_usuarios") || hasPermission("gestionar_usuarios")) && (
+          <Button 
+            onClick={openCreateDialog} 
+            className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus size={14} /> 
+            <span>Nuevo Usuario</span>
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -283,39 +285,45 @@ export default function UsuariosPage() {
 
               {/* Actions */}
               <div className="col-span-1 md:col-span-2 flex items-center justify-end gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleToggleActivo(usuario.id)}
-                  className="h-7 w-7 rounded hover:bg-secondary text-muted-foreground"
-                  title={usuario.activo ? "Desactivar" : "Activar"}
-                >
-                  {usuario.activo ? (
-                    <UserX size={13} className="text-amber-600 dark:text-amber-400" />
-                  ) : (
-                    <UserCheck size={13} className="text-emerald-600 dark:text-emerald-400" />
-                  )}
-                </Button>
+                {(hasPermission("dar_baja_usuarios") || hasPermission("gestionar_usuarios")) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleToggleActivo(usuario.id)}
+                    className="h-7 w-7 rounded hover:bg-secondary text-muted-foreground"
+                    title={usuario.activo ? "Desactivar" : "Activar"}
+                  >
+                    {usuario.activo ? (
+                      <UserX size={13} className="text-amber-600 dark:text-amber-400" />
+                    ) : (
+                      <UserCheck size={13} className="text-emerald-600 dark:text-emerald-400" />
+                    )}
+                  </Button>
+                )}
                 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEditDialog(usuario)}
-                  className="h-7 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
-                >
-                  <Shield size={11} /> 
-                  <span>Roles</span>
-                </Button>
+                {hasPermission("gestionar_roles") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditDialog(usuario)}
+                    className="h-7 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
+                  >
+                    <Shield size={11} /> 
+                    <span>Roles</span>
+                  </Button>
+                )}
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDeleteUser(usuario.id)}
-                  className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  title="Eliminar"
-                >
-                  <Trash2 size={13} />
-                </Button>
+                {(hasPermission("dar_baja_usuarios") || hasPermission("gestionar_usuarios")) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteUser(usuario.id)}
+                    className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={13} />
+                  </Button>
+                )}
               </div>
             </div>
           ))}

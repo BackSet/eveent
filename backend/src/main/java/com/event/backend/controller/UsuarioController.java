@@ -26,13 +26,13 @@ public class UsuarioController {
     private final RolesSistemaRepository rolesSistemaRepository;
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('gestionar_usuarios', 'crear_convocatoria')")
+    @PreAuthorize("hasAnyAuthority('ver_usuarios', 'gestionar_usuarios')")
     public ResponseEntity<List<UsuarioResponse>> findAll() {
         return ResponseEntity.ok(usuarioService.findAll());
     }
 
     @GetMapping("/roles")
-    @PreAuthorize("hasAuthority('gestionar_roles')")
+    @PreAuthorize("hasAnyAuthority('ver_roles', 'gestionar_roles')")
     public ResponseEntity<List<RolesSistema>> findAllRoles() {
         return ResponseEntity.ok(rolesSistemaRepository.findAll());
     }
@@ -64,7 +64,7 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('gestionar_usuarios')")
+    @PreAuthorize("hasAnyAuthority('ver_usuarios', 'gestionar_usuarios')")
     public ResponseEntity<UsuarioResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(usuarioService.findById(id));
     }
@@ -76,26 +76,26 @@ public class UsuarioController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('gestionar_usuarios')")
+    @PreAuthorize("hasAuthority('crear_usuarios')")
     public ResponseEntity<UsuarioResponse> create(@Valid @RequestBody UsuarioResponse request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('gestionar_usuarios')")
+    @PreAuthorize("hasAuthority('editar_usuarios')")
     public ResponseEntity<UsuarioResponse> update(@PathVariable Long id, @Valid @RequestBody UsuarioResponse request) {
         return ResponseEntity.ok(usuarioService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('gestionar_usuarios')")
+    @PreAuthorize("hasAuthority('dar_baja_usuarios')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         usuarioService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/toggle-activo")
-    @PreAuthorize("hasAuthority('gestionar_usuarios')")
+    @PreAuthorize("hasAuthority('dar_baja_usuarios')")
     public ResponseEntity<UsuarioResponse> toggleActivo(@PathVariable Long id) {
         return ResponseEntity.ok(usuarioService.toggleActivo(id));
     }

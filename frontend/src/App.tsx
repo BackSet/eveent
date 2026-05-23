@@ -61,16 +61,16 @@ function AppWithApiSetup() {
             <Route path="/mis-asistencias" element={<MisAsistenciasPage />} />
             <Route path="/perfil" element={<PerfilPage />} />
             <Route path="/usuarios" element={
-              <ProtectedRoute requiredPermission="gestionar_usuarios"><UsuariosPage /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="ver_usuarios"><UsuariosPage /></ProtectedRoute>
             } />
             <Route path="/grupos" element={
-              <ProtectedRoute requiredPermission="crear_convocatoria"><GruposPage /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="crear_grupos"><GruposPage /></ProtectedRoute>
             } />
             <Route path="/mis-grupos" element={
               <ProtectedRoute requiredPermission="ver_grupos"><MisGruposPage /></ProtectedRoute>
             } />
             <Route path="/roles" element={
-              <ProtectedRoute requiredPermission="gestionar_roles"><RolesPage /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="ver_roles"><RolesPage /></ProtectedRoute>
             } />
             <Route path="/permisos" element={
               <ProtectedRoute requiredPermission="ver_permisos"><PermisosPage /></ProtectedRoute>

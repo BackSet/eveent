@@ -37,7 +37,7 @@ export default function GruposPage() {
   const [searchUserQuery, setSearchUserQuery] = useState("");
   const [searchMemberQuery, setSearchMemberQuery] = useState("");
 
-  const isOrganizer = hasPermission("crear_convocatoria");
+  const isOrganizer = hasPermission("crear_grupos") || hasPermission("editar_grupos");
 
   const fetchData = useCallback(async (selectGroupIdToKeep?: number) => {
     try {
@@ -205,11 +205,11 @@ export default function GruposPage() {
     );
   }
 
-  if (!hasPermission("ver_convocatoria")) {
+  if (!hasPermission("crear_grupos") && !hasPermission("editar_grupos")) {
     return (
-      <Alert variant="destructive" className="max-w-5xl mx-auto my-6">
-        <AlertDescription>No tienes permisos para acceder a esta página</AlertDescription>
-      </Alert>
+      <div className="text-center py-12">
+        <p className="text-muted-foreground text-xs">No tienes permiso para ver esta sección.</p>
+      </div>
     );
   }
 

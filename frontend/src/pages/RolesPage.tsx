@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,45 @@ export default function RolesPage() {
   const [formData, setFormData] = useState<RolFormData>({ nombre: "", permisoIds: [] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const getModuleForPermission = (clave: string): string => {
+    if (clave.includes("convocatoria") || clave === "responder_asistencia" || clave === "invitar_externos" || clave === "dividir_equipos") {
+      return "📅 Convocatorias";
+    }
+    if (clave.includes("grupo")) {
+      return "👥 Grupos de Jugadores";
+    }
+    if (clave.includes("deporte") || clave.includes("posicion")) {
+      return "⚽ Deportes y Posiciones";
+    }
+    if (clave.includes("usuario")) {
+      return "👤 Usuarios del Sistema";
+    }
+    if (clave.includes("rol") || clave.includes("permiso")) {
+      return "🛡️ Roles y Privilegios";
+    }
+    return "📦 Otros Permisos";
+  };
+
+  const groupedPermisos = useMemo(() => {
+    const groups: Record<string, Permiso[]> = {
+      "📅 Convocatorias": [],
+      "👥 Grupos de Jugadores": [],
+      "⚽ Deportes y Posiciones": [],
+      "👤 Usuarios del Sistema": [],
+      "🛡️ Roles y Privilegios": []
+    };
+
+    permisos.forEach(p => {
+      const category = getModuleForPermission(p.clave);
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(p);
+    });
+
+    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+  }, [permisos]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -169,23 +208,31 @@ export default function RolesPage() {
                   className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Permisos</Label>
-                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto border border-border rounded p-3 bg-secondary/10 pr-1">
-                  {permisos.map(permiso => (
-                    <div key={permiso.id} className="flex items-center space-x-2.5 px-1 py-1 rounded hover:bg-secondary/40 transition-colors">
-                      <Checkbox
-                        id={`perm-${permiso.id}`}
-                        checked={formData.permisoIds.includes(permiso.id)}
-                        onCheckedChange={() => togglePermiso(permiso.id)}
-                        className="rounded border-border"
-                      />
-                      <Label
-                        htmlFor={`perm-${permiso.id}`}
-                        className="text-xs font-semibold text-foreground cursor-pointer flex-1"
-                      >
-                        {permiso.clave}
-                      </Label>
+              <div className="space-y-2.5">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Permisos por Módulo</Label>
+                <div className="space-y-4 max-h-[300px] overflow-y-auto border border-border rounded-lg p-3 bg-secondary/10 pr-1 divide-y divide-border/30">
+                  {groupedPermisos.map(([moduleName, list]: [string, Permiso[]]) => (
+                    <div key={moduleName} className="space-y-2 pt-3 first:pt-0 first:border-0 border-t border-border/20">
+                      <h4 className="text-[10px] font-extrabold text-primary uppercase tracking-wider mb-1.5">{moduleName}</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {list.map((permiso: Permiso) => (
+                          <div key={permiso.id} className="flex items-center space-x-2.5 px-1 py-1 rounded hover:bg-secondary/40 transition-colors">
+                            <Checkbox
+                              id={`perm-${permiso.id}`}
+                              checked={formData.permisoIds.includes(permiso.id)}
+                              onCheckedChange={() => togglePermiso(permiso.id)}
+                              className="rounded border-border"
+                            />
+                            <Label
+                              htmlFor={`perm-${permiso.id}`}
+                              className="text-xs font-semibold text-foreground cursor-pointer flex-1 truncate"
+                              title={permiso.descripcion}
+                            >
+                              {permiso.clave}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>

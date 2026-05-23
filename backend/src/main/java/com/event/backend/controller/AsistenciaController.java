@@ -20,7 +20,7 @@ public class AsistenciaController {
     private final AsistenciaService asistenciaService;
 
     @GetMapping("/api/convocatorias/{convocatoriaId}/asistencias")
-    @PreAuthorize("hasAuthority('ver_convocatoria')")
+    @PreAuthorize("hasAuthority('ver_convocatorias')")
     public ResponseEntity<List<AsistenciaResponse>> findByConvocatoria(@PathVariable Long convocatoriaId) {
         return ResponseEntity.ok(asistenciaService.findByConvocatoriaId(convocatoriaId));
     }
@@ -32,33 +32,33 @@ public class AsistenciaController {
     }
 
     @PostMapping("/api/convocatorias/{convocatoriaId}/asistencias")
-    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'invitar_externos', 'crear_convocatoria')")
+    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'invitar_externos', 'crear_convocatorias', 'editar_convocatorias')")
     public ResponseEntity<AsistenciaResponse> create(@PathVariable Long convocatoriaId, @Valid @RequestBody AsistenciaRequest request) {
         request.setConvocatoriaId(convocatoriaId);
         return ResponseEntity.status(HttpStatus.CREATED).body(asistenciaService.create(request));
     }
 
     @GetMapping("/api/asistencias/{id}")
-    @PreAuthorize("hasAuthority('ver_convocatoria')")
+    @PreAuthorize("hasAuthority('ver_convocatorias')")
     public ResponseEntity<AsistenciaResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(asistenciaService.findById(id));
     }
 
     @PutMapping("/api/asistencias/{id}")
-    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'crear_convocatoria')")
+    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'editar_convocatorias')")
     public ResponseEntity<AsistenciaResponse> update(@PathVariable Long id, @Valid @RequestBody AsistenciaUpdateRequest request) {
         return ResponseEntity.ok(asistenciaService.update(id, request));
     }
 
     @DeleteMapping("/api/asistencias/{id}")
-    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'crear_convocatoria')")
+    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'editar_convocatorias')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         asistenciaService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/api/asistencias/bulk")
-    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'crear_convocatoria')")
+    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'editar_convocatorias')")
     public ResponseEntity<Void> deleteBulk(@RequestParam List<Long> ids) {
         asistenciaService.deleteBulk(ids);
         return ResponseEntity.noContent().build();
@@ -71,7 +71,7 @@ public class AsistenciaController {
     }
 
     @PostMapping("/api/convocatorias/{convocatoriaId}/asistencias/bulk")
-    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    @PreAuthorize("hasAnyAuthority('crear_convocatorias', 'editar_convocatorias')")
     public ResponseEntity<List<AsistenciaResponse>> bulkInvite(@PathVariable Long convocatoriaId, @RequestBody List<Long> usuarioIds) {
         return ResponseEntity.ok(asistenciaService.bulkInvite(convocatoriaId, usuarioIds));
     }

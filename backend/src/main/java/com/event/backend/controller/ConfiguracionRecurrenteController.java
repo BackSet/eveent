@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/configuraciones-recurrentes")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('crear_convocatoria')")
+@PreAuthorize("hasAnyAuthority('crear_convocatorias', 'editar_convocatorias')")
 public class ConfiguracionRecurrenteController {
 
     private final ConfiguracionRecurrenteService configuracionService;

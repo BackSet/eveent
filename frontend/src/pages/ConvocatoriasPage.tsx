@@ -28,7 +28,7 @@ export default function ConvocatoriasPage() {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
 
-  const isOrganizer = hasPermission("crear_convocatoria");
+  const isOrganizer = hasPermission("crear_convocatorias");
 
   const getSportEmoji = (deporteNombre?: string) => {
     if (!deporteNombre) return "🏆";

@@ -31,13 +31,13 @@ const convocatoriaItems = [
 // Configuración para el Organizador del Evento
 const configItems = [
   { icon: Trophy, label: "Disciplinas y Posiciones", path: "/deportes", permission: "gestionar_deportes", emoji: "⚽" },
-  { icon: Users, label: "Grupos de Jugadores", path: "/grupos", permission: "crear_convocatoria", emoji: "📂" },
+  { icon: Users, label: "Grupos de Jugadores", path: "/grupos", permission: "crear_grupos", emoji: "📂" },
 ];
 
 // Administración para el Administrador del Sistema
 const adminItems = [
-  { icon: User, label: "Usuarios del Sistema", path: "/usuarios", permission: "gestionar_usuarios", emoji: "👥" },
-  { icon: Shield, label: "Roles y Privilegios", path: "/roles", permission: "gestionar_roles", emoji: "🛡️" },
+  { icon: User, label: "Usuarios del Sistema", path: "/usuarios", permission: "ver_usuarios", emoji: "👥" },
+  { icon: Shield, label: "Roles y Privilegios", path: "/roles", permission: "ver_roles", emoji: "🛡️" },
   { icon: Key, label: "Permisos del Sistema", path: "/permisos", permission: "ver_permisos", emoji: "🔑" },
 ];
 

@@ -17,7 +17,7 @@ public class MatchmakingController {
     private final MatchmakingService matchmakingService;
 
     @PostMapping("/{id}/matchmaking")
-    @PreAuthorize("hasAuthority('crear_convocatoria')")
+    @PreAuthorize("hasAuthority('dividir_equipos')")
     public ResponseEntity<List<AsistenciaResponse>> runMatchmaking(
             @PathVariable Long id,
             @RequestParam(required = false) Integer numEquipos) {
