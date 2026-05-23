@@ -21,6 +21,7 @@ const generalItems = [
   { icon: LayoutDashboard, label: "Inicio", path: "/dashboard", emoji: "🏠" },
   { icon: User, label: "Mi Perfil", path: "/perfil", emoji: "👤" },
   { icon: Users, label: "Mis Convocatorias", path: "/mis-asistencias", emoji: "✅" },
+  { icon: Users, label: "Mis Grupos", path: "/mis-grupos", permission: "ver_grupos", emoji: "👥" },
 ];
 
 const convocatoriaItems = [
@@ -30,7 +31,7 @@ const convocatoriaItems = [
 // Configuración para el Organizador del Evento
 const configItems = [
   { icon: Trophy, label: "Disciplinas y Posiciones", path: "/deportes", permission: "gestionar_deportes", emoji: "⚽" },
-  { icon: Users, label: "Grupos de Jugadores", path: "/grupos", permission: "ver_convocatoria", emoji: "📂" },
+  { icon: Users, label: "Grupos de Jugadores", path: "/grupos", permission: "crear_convocatoria", emoji: "📂" },
 ];
 
 // Administración para el Administrador del Sistema
@@ -45,6 +46,11 @@ export const Sidebar = memo(function Sidebar() {
   const navigate = useNavigate();
   const { hasPermission, user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+
+  const filteredGeneralItems = useMemo(() => generalItems.filter((item) => {
+    if (!item.permission) return true;
+    return hasPermission(item.permission);
+  }), [hasPermission]);
 
   const filteredConfigItems = useMemo(() => configItems.filter((item) => {
     if (!item.permission) return true;
@@ -127,7 +133,7 @@ export const Sidebar = memo(function Sidebar() {
             <p className="px-2.5 py-1 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
               Mi Espacio
             </p>
-            {generalItems.map((item) => {
+            {filteredGeneralItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Link

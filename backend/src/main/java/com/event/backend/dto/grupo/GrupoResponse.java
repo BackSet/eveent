@@ -16,4 +16,5 @@ public class GrupoResponse {
     private LocalDateTime fechaCreacion;
     private List<Long> miembroIds;
     private List<String> miembroNombres;
+    private List<GrupoMiembroResponse> miembros;
 }

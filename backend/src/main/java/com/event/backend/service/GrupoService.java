@@ -1,14 +1,20 @@
 package com.event.backend.service;
 
+import com.event.backend.dto.grupo.GrupoMiembroResponse;
 import com.event.backend.dto.grupo.GrupoRequest;
 import com.event.backend.dto.grupo.GrupoResponse;
+import com.event.backend.dto.usuario.UsuarioPosicionDto;
 import com.event.backend.exception.ForbiddenException;
 import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.Grupo;
 import com.event.backend.model.Usuario;
+import com.event.backend.model.UsuarioPosicion;
 import com.event.backend.repository.GrupoRepository;
 import com.event.backend.repository.UsuarioRepository;
+import com.event.backend.repository.UsuarioPosicionRepository;
 import com.event.backend.security.SecurityService;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +30,7 @@ public class GrupoService {
     private final GrupoRepository grupoRepository;
     private final UsuarioRepository usuarioRepository;
     private final SecurityService securityService;
+    private final UsuarioPosicionRepository usuarioPosicionRepository;
 
     @Transactional(readOnly = true)
     public List<GrupoResponse> findAll() {
@@ -107,6 +114,34 @@ public class GrupoService {
         List<Long> miembroIds = grupo.getMiembros().stream().map(Usuario::getId).toList();
         List<String> miembroNombres = grupo.getMiembros().stream().map(Usuario::getNombre).toList();
 
+        List<UsuarioPosicion> posiciones = miembroIds.isEmpty() ? List.of() :
+                usuarioPosicionRepository.findByUsuarioIdIn(miembroIds);
+        Map<Long, List<UsuarioPosicion>> posicionesByUser = posiciones.stream()
+                .collect(Collectors.groupingBy(up -> up.getId().getUsuarioId()));
+
+        List<GrupoMiembroResponse> miembrosDetalle = grupo.getMiembros().stream()
+                .map(u -> {
+                    List<UsuarioPosicionDto> userPosDtos = posicionesByUser.getOrDefault(u.getId(), List.of()).stream()
+                            .map(up -> UsuarioPosicionDto.builder()
+                                    .posicionId(up.getPosicion().getId())
+                                    .posicionNombre(up.getPosicion().getNombre())
+                                    .posicionAbreviatura(up.getPosicion().getAbreviatura())
+                                    .deporteId(up.getPosicion().getDeporte().getId())
+                                    .deporteNombre(up.getPosicion().getDeporte().getNombre())
+                                    .prioridad(up.getPrioridad())
+                                    .build())
+                            .toList();
+
+                    return GrupoMiembroResponse.builder()
+                            .id(u.getId())
+                            .nombre(u.getNombre())
+                            .email(u.getEmail())
+                            .numeroCamiseta(u.getNumeroCamiseta())
+                            .posiciones(userPosDtos)
+                            .build();
+                })
+                .toList();
+
         return GrupoResponse.builder()
                 .id(grupo.getId())
                 .nombre(grupo.getNombre())
@@ -116,6 +151,7 @@ public class GrupoService {
                 .fechaCreacion(grupo.getFechaCreacion())
                 .miembroIds(miembroIds)
                 .miembroNombres(miembroNombres)
+                .miembros(miembrosDetalle)
                 .build();
     }
 }

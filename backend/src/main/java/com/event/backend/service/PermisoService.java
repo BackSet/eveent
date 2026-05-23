@@ -69,7 +69,8 @@ public class PermisoService {
         // Evitar borrar permisos del sistema core sembrados por defecto
         List<String> corePermisos = List.of(
                 "crear_convocatoria", "dividir_equipos", "invitar_externos",
-                "gestionar_roles", "ver_convocatoria", "responder_asistencia", "gestionar_usuarios", "gestionar_deportes"
+                "gestionar_roles", "ver_convocatoria", "responder_asistencia", 
+                "gestionar_usuarios", "gestionar_deportes", "ver_grupos"
         );
         if (corePermisos.contains(permiso.getClave())) {
             throw new RuntimeException("No se puede eliminar un permiso del sistema por defecto: " + permiso.getClave());

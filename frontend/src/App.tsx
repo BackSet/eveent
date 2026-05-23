@@ -17,6 +17,7 @@ const MisAsistenciasPage = lazy(() => import('./pages/MisAsistenciasPage'))
 const PerfilPage = lazy(() => import('./pages/PerfilPage'))
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage'))
 const GruposPage = lazy(() => import('./pages/GruposPage'))
+const MisGruposPage = lazy(() => import('./pages/MisGruposPage'))
 const RolesPage = lazy(() => import('./pages/RolesPage'))
 const PermisosPage = lazy(() => import('./pages/PermisosPage'))
 
@@ -63,7 +64,10 @@ function AppWithApiSetup() {
               <ProtectedRoute requiredPermission="gestionar_usuarios"><UsuariosPage /></ProtectedRoute>
             } />
             <Route path="/grupos" element={
-              <ProtectedRoute requiredPermission="ver_convocatoria"><GruposPage /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="crear_convocatoria"><GruposPage /></ProtectedRoute>
+            } />
+            <Route path="/mis-grupos" element={
+              <ProtectedRoute requiredPermission="ver_grupos"><MisGruposPage /></ProtectedRoute>
             } />
             <Route path="/roles" element={
               <ProtectedRoute requiredPermission="gestionar_roles"><RolesPage /></ProtectedRoute>

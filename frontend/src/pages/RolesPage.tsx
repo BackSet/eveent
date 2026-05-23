@@ -257,16 +257,16 @@ export default function RolesPage() {
                 </div>
               </div>
 
-              {!PROTECTED_ROLES.includes(rol.nombre) && (
-                <div className="flex gap-2 pt-3 border-t border-border mt-auto">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => openDialog(rol)}
-                    className="h-7 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
-                  >
-                    <Pencil size={11} /> Editar
-                  </Button>
+              <div className="flex gap-2 pt-3 border-t border-border mt-auto">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => openDialog(rol)}
+                  className="h-7 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
+                >
+                  <Pencil size={11} /> Editar
+                </Button>
+                {!PROTECTED_ROLES.includes(rol.nombre) && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -275,8 +275,8 @@ export default function RolesPage() {
                   >
                     <Trash2 size={11} /> Eliminar
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
         </div>

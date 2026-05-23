@@ -84,14 +84,15 @@ public class DataInitializer implements CommandLineRunner {
         permisosData.put("gestionar_deportes", "Gestionar deportes y posiciones");
         permisosData.put("ver_permisos", "Ver lista de permisos");
         permisosData.put("gestionar_convocatorias", "Gestionar convocatorias");
+        permisosData.put("ver_grupos", "Ver grupos del sistema");
 
         Map<String, List<String>> rolesPermisos = new HashMap<>();
         rolesPermisos.put("SuperAdmin", List.of("crear_convocatoria", "dividir_equipos", "invitar_externos",
                 "gestionar_roles", "ver_convocatoria", "responder_asistencia", "gestionar_usuarios", "gestionar_deportes",
-                "ver_permisos", "gestionar_convocatorias"));
+                "ver_permisos", "gestionar_convocatorias", "ver_grupos"));
         rolesPermisos.put("Organizador", List.of("crear_convocatoria", "dividir_equipos", "invitar_externos",
-                "ver_convocatoria", "responder_asistencia", "gestionar_deportes", "gestionar_convocatorias"));
-        rolesPermisos.put("Jugador", List.of("ver_convocatoria", "responder_asistencia"));
+                "ver_convocatoria", "responder_asistencia", "gestionar_deportes", "gestionar_convocatorias", "ver_grupos"));
+        rolesPermisos.put("Jugador", List.of("ver_convocatoria", "responder_asistencia", "ver_grupos"));
 
         List<String> rolNombres = rolesPermisos.keySet().stream().toList();
         List<RolesSistema> existingRoles = rolesRepo.findAllByNombreIn(rolNombres);

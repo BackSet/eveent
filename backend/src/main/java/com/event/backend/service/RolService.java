@@ -10,7 +10,9 @@ import com.event.backend.model.RolesSistema;
 import com.event.backend.repository.PermisosSistemaRepository;
 import com.event.backend.repository.RolPermisoRepository;
 import com.event.backend.repository.RolesSistemaRepository;
+import com.event.backend.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,9 +69,14 @@ public class RolService {
         return toResponseWithFetch(rol);
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public RolResponse update(Long id, RolRequest request) {
         RolesSistema rol = rolesRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Rol no encontrado con id: " + id));
+
+        if (List.of("SuperAdmin", "Organizador", "Jugador").contains(rol.getNombre()) && !rol.getNombre().equals(request.getNombre())) {
+            throw new BusinessException("No se puede cambiar el nombre de un rol de sistema");
+        }
 
         rolesRepository.findByNombre(request.getNombre())
                 .filter(existing -> !existing.getId().equals(id))
@@ -89,6 +96,7 @@ public class RolService {
         return toResponseWithFetch(rol);
     }
 
+    @CacheEvict(value = "userDetails", allEntries = true)
     public void delete(Long id) {
         RolesSistema rol = rolesRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Rol no encontrado con id: " + id));
