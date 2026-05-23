@@ -379,6 +379,21 @@ public class DataInitializer implements CommandLineRunner {
         );
         seedPosicionesParaDeporte(ciclismo, ciclismoPos);
 
+        // 7. Pádel
+        Deporte padel = deporteRepo.findByNombreIgnoreCase("Pádel")
+                .orElseGet(() -> deporteRepo.save(Deporte.builder()
+                        .nombre("Pádel")
+                        .esPorEquipos(false)
+                        .minJugadoresPorBando(1)
+                        .maxJugadoresPorBando(2)
+                        .build()));
+
+        List<PosData> padelPos = List.of(
+                new PosData("Revés / Lado Izquierdo", "REV"),
+                new PosData("Drive / Lado Derecho", "DRV")
+        );
+        seedPosicionesParaDeporte(padel, padelPos);
+
         log.info("Seed de deportes y posiciones oficiales completado de forma auto-reparable.");
     }
 
