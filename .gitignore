@@ -10,3 +10,7 @@ skills-lock.json
 
 # TypeScript Build Info
 *.tsbuildinfo
+
+# IDE Settings
+.vscode/
+
