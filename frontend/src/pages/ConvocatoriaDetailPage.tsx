@@ -580,393 +580,445 @@ export default function ConvocatoriaDetailPage() {
 
         {/* Main Content Area (Alineaciones, Roster, etc) */}
         <div className="space-y-8">
-          <Tabs defaultValue="asistencias" className="w-full">
-            <div className="notion-db-header">
-              <TabsList className="bg-transparent border-0 gap-3 py-1 flex h-10 w-fit">
-                <TabsTrigger 
-                  value="asistencias" 
-                  className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-2 cursor-pointer pb-2"
-                >
-                  <Shirt size={14} className="inline mr-1" />
-                  Alineación / Roster
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="bandos" 
-                  className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none font-bold text-xs px-2 cursor-pointer pb-2"
-                >
-                  <Trophy size={14} className="inline mr-1" />
-                  Bandos ({bandos.length})
-                </TabsTrigger>
-              </TabsList>
+          <div className="space-y-6">
+            <div className="notion-db-header border-b pb-1 mb-2">
+              <div className="flex items-center gap-2 py-1">
+                <Shirt size={16} className="text-primary" />
+                <h2 className="font-extrabold text-sm text-foreground tracking-tight">Alineación / Roster</h2>
+              </div>
             </div>
 
-            {/* Tab Panel: Rosters */}
-            <TabsContent value="asistencias" className="space-y-6 focus:outline-none">
-              {/* Intelligent Matchmaking Balance Callout */}
-              {isOrganizador && (
-                <div className="notion-callout bg-primary/[0.03] border-primary/20 flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex gap-3">
-                    <div className="notion-callout-icon">⚡</div>
-                    <div>
-                      <div className="font-bold text-sm">Herramientas de Balanceo Táctico</div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Autobalancea los jugadores confirmados en bandos equitativos según su nivel y posición.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end">
-                    <div className="flex items-center gap-1.5 bg-background border border-border rounded px-2.5 py-1 h-8">
-                      <span className="text-[10px] text-muted-foreground font-black uppercase shrink-0 select-none">Equipos:</span>
-                      <select
-                        value={numEquipos}
-                        onChange={(e) => setNumEquipos(Number(e.target.value))}
-                        className="text-xs bg-transparent border-0 text-foreground cursor-pointer font-bold focus:outline-none py-0 pr-1 pl-0 shrink-0"
-                      >
-                        {Array.from({ length: 8 }, (_, i) => i + 1)
-                          .filter(n => {
-                            const isEquipos = convocatoria?.deporteEsPorEquipos !== false;
-                            return isEquipos ? n >= 2 : n >= 1;
-                          })
-                          .map((n) => (
-                            <option key={n} value={n}>{n}</option>
-                          ))}
-                      </select>
-                    </div>
-                    
-                    <Button 
-                      onClick={() => handleMatchmaking(numEquipos)} 
-                      disabled={matchmakingLoading || playerLists.confirmadosTotales.length < numEquipos}
-                      className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
-                    >
-                      {matchmakingLoading ? (
-                        <>
-                          <Spinner size="sm" className="mr-1.5" />
-                          Calculando...
-                        </>
-                      ) : (
-                        <>
-                          <Activity size={14} className="mr-1.5" />
-                          Autobalancear Equipos
-                        </>
-                      )}
-                    </Button>
+            {/* Intelligent Matchmaking Balance Callout */}
+            {isOrganizador && (
+              <div className="notion-callout bg-primary/[0.03] border-primary/20 flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex gap-3">
+                  <div className="notion-callout-icon">⚡</div>
+                  <div>
+                    <div className="font-bold text-sm">Herramientas de Balanceo Táctico</div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Autobalancea los jugadores confirmados en bandos equitativos según su nivel y posición.
+                    </p>
                   </div>
                 </div>
-              )}
+                
+                <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end">
+                  {/* Nuevo Bando Button */}
+                  {isOrganizador && (
+                    <Button 
+                      onClick={() => openBandoDialog()} 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-8 gap-1 font-bold text-xs rounded border border-border hover:bg-muted bg-background text-foreground shrink-0"
+                    >
+                      <Plus size={13} />
+                      Nuevo Bando
+                    </Button>
+                  )}
 
-              {/* Mis Invitados Panel */}
-              {managedInvitados.length > 0 && (
-                <div className="notion-callout bg-muted/20 border-border flex-col p-4 rounded-lg">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between w-full pb-3 border-b border-border/40 gap-3">
-                    <div className="flex items-center gap-2">
-                      <Users size={15} className="text-primary" />
-                      <div className="font-bold text-sm text-foreground">{isOrganizador ? "Gestión Global de Invitados" : "Mis Invitados"} ({managedInvitados.length})</div>
-                    </div>
-                    
-                    {/* Bulk actions bar */}
-                    <div className="flex flex-wrap gap-2">
-                      {selectedInvitados.length > 0 && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUpdateBulkEstado("ASISTIRE")}
-                            disabled={bulkDeleting}
-                            className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0"
-                          >
-                            <CheckCircle2 size={11} />
-                            Confirmar ({selectedInvitados.length})
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUpdateBulkEstado("NO_ASISTIRE")}
-                            disabled={bulkDeleting}
-                            className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-amber-500/20 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1 shrink-0"
-                          >
-                            <XCircle size={11} />
-                            Desconfirmar ({selectedInvitados.length})
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleDeleteBulk}
-                            disabled={bulkDeleting}
-                            className="h-7 px-2.5 text-[10px] font-black uppercase rounded shadow-sm flex items-center gap-1 shrink-0"
-                          >
-                            {bulkDeleting ? (
-                              <>
-                                <Spinner size="sm" className="mr-1" />
-                                Borrando...
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 size={11} />
-                                Eliminar ({selectedInvitados.length})
-                              </>
-                            )}
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-1.5 bg-background border border-border rounded px-2.5 py-1 h-8">
+                    <span className="text-[10px] text-muted-foreground font-black uppercase shrink-0 select-none">Equipos:</span>
+                    <select
+                      value={numEquipos}
+                      onChange={(e) => setNumEquipos(Number(e.target.value))}
+                      className="text-xs bg-transparent border-0 text-foreground cursor-pointer font-bold focus:outline-none py-0 pr-1 pl-0 shrink-0"
+                    >
+                      {Array.from({ length: 8 }, (_, i) => i + 1)
+                        .filter(n => {
+                          const isEquipos = convocatoria?.deporteEsPorEquipos !== false;
+                          return isEquipos ? n >= 2 : n >= 1;
+                        })
+                        .map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                    </select>
                   </div>
                   
-                  {/* Grid of invited cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
-                    {managedInvitados.map((asis) => {
-                      const isChecked = selectedInvitados.includes(asis.id);
-                      return (
-                        <div 
-                          key={asis.id} 
-                          className={`flex flex-col p-3 rounded border transition-all ${
-                            isChecked 
-                              ? "border-primary/45 bg-primary/[0.02]" 
-                              : "border-border/60 bg-background hover:bg-muted/10"
-                          }`}
+                  <Button 
+                    onClick={() => handleMatchmaking(numEquipos)} 
+                    disabled={matchmakingLoading || playerLists.confirmadosTotales.length < numEquipos}
+                    className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
+                  >
+                    {matchmakingLoading ? (
+                      <>
+                        <Spinner size="sm" className="mr-1.5" />
+                        Calculando...
+                      </>
+                    ) : (
+                      <>
+                        <Activity size={14} className="mr-1.5" />
+                        Autobalancear Equipos
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Mis Invitados Panel */}
+            {managedInvitados.length > 0 && (
+              <div className="notion-callout bg-muted/20 border-border flex-col p-4 rounded-lg">
+                <div className="flex flex-col md:flex-row md:items-center justify-between w-full pb-3 border-b border-border/40 gap-3">
+                  <div className="flex items-center gap-2">
+                    <Users size={15} className="text-primary" />
+                    <div className="font-bold text-sm text-foreground">{isOrganizador ? "Gestión Global de Invitados" : "Mis Invitados"} ({managedInvitados.length})</div>
+                  </div>
+                  
+                  {/* Bulk actions bar */}
+                  <div className="flex flex-wrap gap-2">
+                    {selectedInvitados.length > 0 && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUpdateBulkEstado("ASISTIRE")}
+                          disabled={bulkDeleting}
+                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0"
                         >
-                          <div className="flex items-center justify-between gap-3 overflow-hidden">
-                            <div className="flex items-center gap-2.5 overflow-hidden">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedInvitados([...selectedInvitados, asis.id]);
-                                  } else {
+                          <CheckCircle2 size={11} />
+                          Confirmar ({selectedInvitados.length})
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUpdateBulkEstado("NO_ASISTIRE")}
+                          disabled={bulkDeleting}
+                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-destructive/20 hover:bg-destructive/10 text-destructive-foreground dark:text-destructive flex items-center gap-1 shrink-0"
+                        >
+                          <XCircle size={11} />
+                          Desconfirmar ({selectedInvitados.length})
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDeleteBulk}
+                          disabled={bulkDeleting}
+                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-destructive/20 hover:bg-destructive/10 text-destructive-foreground dark:text-destructive flex items-center gap-1 shrink-0"
+                        >
+                          {bulkDeleting ? <Spinner className="w-3 h-3" /> : <Trash2 size={11} />}
+                          Eliminar ({selectedInvitados.length})
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
+                  {managedInvitados.map((asis) => {
+                    const isSelected = selectedInvitados.includes(asis.id);
+                    return (
+                      <div 
+                        key={asis.id} 
+                        className={`flex flex-col p-3 rounded-lg border transition-premium relative overflow-hidden group bg-background hover:bg-muted/10 ${
+                          isSelected ? "border-primary bg-primary/[0.01]" : "border-border/60"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 overflow-hidden flex-1">
+                            <input 
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                if (isSelected) {
                                     setSelectedInvitados(selectedInvitados.filter(id => id !== asis.id));
-                                  }
-                                }}
-                                className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary/20 cursor-pointer animate-none"
-                              />
-                              <div className="overflow-hidden">
-                                <p className="text-xs font-semibold text-foreground truncate">{asis.nombreExterno}</p>
-                                {asis.invitadoPorNombre && (
-                                  <p className="text-[9px] text-muted-foreground truncate leading-none mt-0.5">
-                                    Por: {asis.invitadoPorNombre}
-                                  </p>
-                                )}
-                                {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                                  <div className="flex flex-wrap gap-0.5 mt-1">
-                                    {asis.posicionesPreferidasNombres.map((name: string) => (
-                                      <span key={name} className="text-[8px] font-bold text-primary uppercase bg-primary/5 px-1 py-0.2 rounded">
-                                        {name}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : asis.posicionPreferidaNombre && (
-                                  <p className="text-[8px] text-primary uppercase font-black mt-1">{asis.posicionPreferidaNombre}</p>
-                                )}
-                              </div>
+                                } else {
+                                    setSelectedInvitados([...selectedInvitados, asis.id]);
+                                }
+                              }}
+                              className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/20 shrink-0 cursor-pointer"
+                            />
+                            <div className="overflow-hidden">
+                              <span className="text-xs font-bold text-foreground block truncate">
+                                {asis.nombreExterno}
+                              </span>
+                              <span className="text-[9px] text-muted-foreground block truncate">
+                                {asis.usuarioNombre ? `Registrado: ${asis.usuarioNombre}` : `Invitado de: ${asis.invitadoPorNombre}`}
+                              </span>
                             </div>
-                            
-                            {/* Individual status badge */}
-                            <Badge 
-                              variant={
-                                asis.estado === "ASISTIRE" 
-                                  ? "success" 
-                                  : asis.estado === "NO_ASISTIRE" 
-                                    ? "destructive" 
-                                    : asis.estado === "LISTA_ESPERA"
-                                      ? "info"
-                                      : "secondary"
-                              } 
-                              className="text-[8px] font-black uppercase shrink-0 py-0.5 px-1.5"
-                            >
-                              {asis.estado === "ASISTIRE" 
-                                ? "Confirmado" 
-                                : asis.estado === "NO_ASISTIRE" 
-                                  ? "No asistirá" 
-                                  : asis.estado === "LISTA_ESPERA"
-                                    ? "En Espera"
-                                    : "Pendiente"}
-                            </Badge>
                           </div>
-                          
-                          {/* Individual action toggles */}
-                          <div className="mt-3 flex items-center justify-end gap-1.5 border-t border-border/40 pt-2">
-                            {asis.estado === "ASISTIRE" || asis.estado === "LISTA_ESPERA" ? (
+
+                          {/* Action badges based on state */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {asis.estado === 'ASISTIRE' && <Badge variant="success" className="text-[8px] font-black uppercase px-1.5 py-0.2">Confirmado</Badge>}
+                            {asis.estado === 'NO_ASISTIRE' && <Badge variant="destructive" className="text-[8px] font-black uppercase px-1.5 py-0.2">No Asiste</Badge>}
+                            {asis.estado === 'LISTA_ESPERA' && <Badge variant="info" className="text-[8px] font-black uppercase px-1.5 py-0.2 bg-blue-500/10 text-blue-600 border-blue-500/20">En Espera</Badge>}
+                            {asis.estado === 'PENDIENTE' && <Badge variant="warning" className="text-[8px] font-black uppercase px-1.5 py-0.2">Pendiente</Badge>}
+                          </div>
+                        </div>
+
+                        {/* Preferred positions */}
+                        {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {asis.posicionesPreferidasNombres.map((name: string) => (
+                              <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : asis.posicionPreferidaNombre ? (
+                          <div className="mt-2 flex">
+                            <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                              {asis.posicionPreferidaNombre}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] text-muted-foreground italic mt-2 block">Sin posiciones preferidas</span>
+                        )}
+
+                        {/* Direct action buttons (hover actions / bottom actions) */}
+                        <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+                          <div className="flex gap-1.5">
+                            {/* Toggle confirmation check */}
+                            {asis.estado !== 'ASISTIRE' ? (
                               <Button
+                                size="icon"
                                 variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-[9px] font-bold text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 rounded flex items-center gap-1 transition-all"
-                                onClick={() => handleUpdateInvitadoEstado(asis.id, "NO_ASISTIRE")}
-                                title="Desconfirmar asistencia (No asistirá)"
+                                onClick={() => handleUpdateInvitadoEstado(asis.id, 'ASISTIRE')}
+                                className="h-6 w-6 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white"
+                                title="Confirmar Asistencia"
                               >
-                                <XCircle size={10} />
-                                Desconfirmar
+                                <CheckCircle2 size={11} />
                               </Button>
                             ) : (
                               <Button
+                                size="icon"
                                 variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-[9px] font-bold text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700 rounded flex items-center gap-1 transition-all"
-                                onClick={() => handleUpdateInvitadoEstado(asis.id, "ASISTIRE")}
-                                title="Confirmar asistencia"
+                                onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
+                                className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
+                                title="Marcar No Asistencia"
                               >
-                                <CheckCircle2 size={10} />
-                                Confirmar
+                                <XCircle size={11} />
                               </Button>
                             )}
+
+                            {/* If in Waitlist, also allow direct unconfirm */}
+                            {asis.estado === 'LISTA_ESPERA' && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
+                                className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
+                                title="Retirar de Espera"
+                              >
+                                <XCircle size={11} />
+                              </Button>
+                            )}
+
+                            {/* Edit guest data (name, position priority) */}
                             <Button
-                              variant="ghost"
                               size="icon"
-                              className="h-6 w-6 text-muted-foreground hover:bg-muted hover:text-foreground rounded transition-all"
+                              variant="ghost"
                               onClick={() => handleEditInvitadoClick(asis)}
-                              title="Editar datos de invitado"
+                              className="h-6 w-6 rounded bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                              title="Editar Datos"
                             >
                               <Edit size={11} />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive hover:bg-destructive/10 rounded transition-all"
-                              onClick={() => handleDeleteInvitado(asis.id)}
-                              title="Eliminar invitado completamente"
-                            >
-                              <Trash2 size={11} />
-                            </Button>
                           </div>
+
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDeleteInvitado(asis.id)}
+                            className="h-6 w-6 rounded bg-destructive/10 text-destructive hover:bg-destructive hover:text-white opacity-40 group-hover:opacity-100 transition-opacity"
+                            title="Eliminar Invitado de la lista"
+                          >
+                            <Trash2 size={11} />
+                          </Button>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Roster Layout */}
-              {asistencias.length === 0 ? (
-                <div className="text-center py-12 border border-dashed rounded-lg bg-muted/10">
-                  <Users size={32} className="mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-sm font-semibold text-muted-foreground">No se registran asistencias aún</p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                    Los jugadores invitados o registrados aparecerán aquí una vez respondan.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Balanced Teams Kanban Board */}
-                  {matchmakerRun && bandos.length >= 2 ? (
-                    <div className="space-y-6">
-                      <div className="notion-board">
-                        {playerLists.teamPlayersMap.map(({ team, players }) => {
-                          const teamColorHex = getTeamColorHex(team.color || "");
-                          return (
-                            <div key={team.id} className="notion-board-column">
-                              {/* Board Column Header */}
-                              <div className="notion-board-column-header border-b border-border pb-2 mb-2">
-                                <div className="flex items-center gap-2 overflow-hidden">
-                                  <span 
-                                    className="w-3 h-3 rounded-full border shrink-0" 
-                                    style={{ backgroundColor: teamColorHex }} 
-                                  />
-                                  <span className="font-bold text-sm truncate text-foreground">{team.nombre}</span>
-                                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.2 rounded font-normal">
-                                    {players.length}
-                                  </span>
-                                </div>
-                                {isOrganizador && (
-                                  <div className="flex items-center gap-0.5 shrink-0">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-6 w-6 text-muted-foreground hover:bg-muted"
-                                      onClick={() => openBandoDialog(team)}
-                                    >
-                                      <Edit size={11} />
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleDeleteBando(team.id)}
-                                    >
-                                      <Trash2 size={11} />
-                                    </Button>
-                                  </div>
-                                )}
+            {/* Roster Layout */}
+            {asistencias.length === 0 ? (
+              <div className="text-center py-12 border border-dashed rounded-lg bg-muted/10">
+                <Users size={32} className="mx-auto text-muted-foreground/50 mb-2" />
+                <p className="text-sm font-semibold text-muted-foreground">No se registran asistencias aún</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                  Los jugadores invitados o registrados aparecerán aquí una vez respondan.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Balanced Teams Kanban Board */}
+                {matchmakerRun && bandos.length >= 2 ? (
+                  <div className="space-y-6">
+                    <div className="notion-board">
+                      {playerLists.teamPlayersMap.map(({ team, players }) => {
+                        const teamColorHex = getTeamColorHex(team.color || "");
+                        return (
+                          <div key={team.id} className="notion-board-column">
+                            {/* Board Column Header */}
+                            <div className="notion-board-column-header border-b border-border pb-2 mb-2">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <span 
+                                  className="w-3 h-3 rounded-full border shrink-0" 
+                                  style={{ backgroundColor: teamColorHex }} 
+                                />
+                                <span className="font-bold text-sm truncate text-foreground">{team.nombre}</span>
+                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.2 rounded font-normal">
+                                  {players.length}
+                                </span>
                               </div>
+                              {isOrganizador && (
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 text-muted-foreground hover:bg-muted"
+                                    onClick={() => openBandoDialog(team)}
+                                  >
+                                    <Edit size={11} />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                    onClick={() => handleDeleteBando(team.id)}
+                                  >
+                                    <Trash2 size={11} />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
 
-                              {/* Player cards inside column */}
-                              <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
-                                {players.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground text-center py-6 italic font-medium">Sin jugadores asignados</p>
-                                ) : (
-                                  players.map((asis) => (
-                                    <div key={asis.id} className="notion-board-card">
-                                      <div className="flex items-center justify-between gap-2 overflow-hidden">
-                                        <div className="flex items-center gap-2 overflow-hidden flex-1">
-                                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-muted rounded border shrink-0 text-muted-foreground">
-                                            {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "—"}
+                            {/* Player cards inside column */}
+                            <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
+                              {players.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center py-6 italic font-medium">Sin jugadores asignados</p>
+                              ) : (
+                                players.map((asis) => (
+                                  <div key={asis.id} className="notion-board-card">
+                                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                      <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                        <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-muted rounded border shrink-0 text-muted-foreground">
+                                          {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "—"}
+                                        </span>
+                                        <div className="overflow-hidden">
+                                          <span className="text-xs font-semibold text-foreground truncate block">
+                                            {asis.usuarioNombre || asis.nombreExterno}
                                           </span>
-                                          <div className="overflow-hidden">
-                                            <span className="text-xs font-semibold text-foreground truncate block">
-                                              {asis.usuarioNombre || asis.nombreExterno}
+                                          {asis.nombreExterno && (
+                                            <span className="text-[9px] text-muted-foreground block truncate">
+                                              Invitado de {asis.invitadoPorNombre}
                                             </span>
-                                            {asis.nombreExterno && (
-                                              <span className="text-[9px] text-muted-foreground block truncate">
-                                                Invitado de {asis.invitadoPorNombre}
-                                              </span>
-                                            )}
-                                          </div>
+                                          )}
                                         </div>
                                       </div>
-                                      {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                                        <div className="mt-2 flex flex-wrap gap-1">
-                                          {asis.posicionesPreferidasNombres.map((name: string) => (
-                                            <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
-                                              {name}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : asis.posicionPreferidaNombre && (
-                                        <div className="mt-2 flex">
-                                          <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
-                                            {asis.posicionPreferidaNombre}
-                                          </span>
-                                        </div>
-                                      )}
-                                      
-                                      {isOrganizador && (
-                                        <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1">
-                                          <span className="text-[9px] text-muted-foreground font-medium shrink-0">Bando:</span>
-                                          <select
-                                            value={asis.bandoId || ""}
-                                            onChange={(e) => {
-                                              const val = e.target.value;
-                                              handleMovePlayer(asis.id, val ? Number(val) : -1);
-                                            }}
-                                            className="text-[10px] bg-background border border-border rounded px-1 py-0.5 max-w-[110px] focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
-                                          >
-                                            <option value="">Comodín / Sin asignar</option>
-                                            {bandos.map((b) => (
-                                              <option key={b.id} value={b.id}>{b.nombre}</option>
-                                            ))}
-                                          </select>
-                                        </div>
-                                      )}
                                     </div>
-                                  ))
-                                )}
-                              </div>
+                                    {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                                      <div className="mt-2 flex flex-wrap gap-1">
+                                        {asis.posicionesPreferidasNombres.map((name: string) => (
+                                          <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                            {name}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : asis.posicionPreferidaNombre && (
+                                      <div className="mt-2 flex">
+                                        <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                          {asis.posicionPreferidaNombre}
+                                        </span>
+                                      </div>
+                                    )}
+                                    
+                                    {isOrganizador && (
+                                      <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1">
+                                        <span className="text-[9px] text-muted-foreground font-medium shrink-0">Bando:</span>
+                                        <select
+                                          value={asis.bandoId || ""}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            handleMovePlayer(asis.id, val ? Number(val) : -1);
+                                          }}
+                                          className="text-[10px] bg-background border border-border rounded px-1 py-0.5 max-w-[110px] focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
+                                        >
+                                          <option value="">Comodín / Sin asignar</option>
+                                          {bandos.map((b) => (
+                                            <option key={b.id} value={b.id}>{b.nombre}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              )}
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                      {/* Comodines & Waitlist side-by-side */}
-                      {(playerLists.comodines.length > 0 || playerLists.waitlist.length > 0) && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                          {playerLists.comodines.length > 0 && (
-                            <div className="border border-amber-500/20 rounded bg-amber-500/[0.02] p-4">
-                              <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                <Compass size={13} />
-                                Comodines ({playerLists.comodines.length})
-                              </h4>
-                              <div className="space-y-2">
-                                {playerLists.comodines.map((asis) => (
-                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs gap-3">
-                                    <div className="overflow-hidden flex-1">
+                    {/* Comodines & Waitlist side-by-side */}
+                    {(playerLists.comodines.length > 0 || playerLists.waitlist.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                        {playerLists.comodines.length > 0 && (
+                          <div className="border border-amber-500/20 rounded bg-amber-500/[0.02] p-4">
+                            <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                              <Compass size={13} />
+                              Comodines ({playerLists.comodines.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {playerLists.comodines.map((asis) => (
+                                <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs gap-3">
+                                  <div className="overflow-hidden flex-1">
+                                    <span className="font-semibold text-foreground truncate block">
+                                      {asis.usuarioNombre || asis.nombreExterno}
+                                    </span>
+                                    {asis.nombreExterno && (
+                                      <span className="text-[9px] text-muted-foreground block truncate">
+                                        Invitado de {asis.invitadoPorNombre}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {asis.posicionesPreferidasNombres.map((name: string) => (
+                                          <Badge key={name} variant="outline" className="text-[9px]">{name}</Badge>
+                                        ))}
+                                      </div>
+                                    ) : asis.posicionPreferidaNombre && (
+                                      <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
+                                    )}
+                                    
+                                    {isOrganizador && (
+                                      <select
+                                        value=""
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (val) handleMovePlayer(asis.id, Number(val));
+                                        }}
+                                        className="text-[10px] bg-background border border-border rounded px-1 py-0.5 focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
+                                      >
+                                        <option value="">Mover a...</option>
+                                        {bandos.map((b) => (
+                                          <option key={b.id} value={b.id}>{b.nombre}</option>
+                                        ))}
+                                      </select>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {playerLists.waitlist.length > 0 && (
+                          <div className="border border-blue-500/20 rounded bg-blue-500/[0.02] p-4">
+                            <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                              <Clock size={13} />
+                              Lista de Espera ({playerLists.waitlist.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {playerLists.waitlist.map((asis, idx) => (
+                                <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
+                                  <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
+                                    <span className="text-[10px] text-muted-foreground font-bold shrink-0">{idx + 1}.</span>
+                                    <div className="overflow-hidden">
                                       <span className="font-semibold text-foreground truncate block">
                                         {asis.usuarioNombre || asis.nombreExterno}
                                       </span>
@@ -976,111 +1028,135 @@ export default function ConvocatoriaDetailPage() {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                          {asis.posicionesPreferidasNombres.map((name: string) => (
-                                            <Badge key={name} variant="outline" className="text-[9px]">{name}</Badge>
-                                          ))}
-                                        </div>
-                                      ) : asis.posicionPreferidaNombre && (
-                                        <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
-                                      )}
-                                      
-                                      {isOrganizador && (
-                                        <select
-                                          value=""
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val) handleMovePlayer(asis.id, Number(val));
-                                          }}
-                                          className="text-[10px] bg-background border border-border rounded px-1 py-0.5 focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
-                                        >
-                                          <option value="">Mover a...</option>
-                                          {bandos.map((b) => (
-                                            <option key={b.id} value={b.id}>{b.nombre}</option>
-                                          ))}
-                                        </select>
-                                      )}
-                                    </div>
                                   </div>
-                                ))}
-                              </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          )}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                          {playerLists.waitlist.length > 0 && (
-                            <div className="border border-blue-500/20 rounded bg-blue-500/[0.02] p-4">
-                              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                <Clock size={13} />
-                                Lista de Espera ({playerLists.waitlist.length})
-                              </h4>
-                              <div className="space-y-2">
-                                {playerLists.waitlist.map((asis, idx) => (
-                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
-                                    <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
-                                      <span className="text-[10px] text-muted-foreground font-bold shrink-0">{idx + 1}.</span>
-                                      <div className="overflow-hidden">
-                                        <span className="font-semibold text-foreground truncate block">
-                                          {asis.usuarioNombre || asis.nombreExterno}
-                                        </span>
-                                        {asis.nombreExterno && (
-                                          <span className="text-[9px] text-muted-foreground block truncate">
-                                            Invitado de {asis.invitadoPorNombre}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                    {/* Not attending & pending list */}
+                    {(playerLists.pendientes.length > 0 || playerLists.noAsistiran.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 border-t border-border pt-6">
+                        {playerLists.pendientes.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1">
+                              <Clock size={11} />
+                              <span>Sin Confirmar ({playerLists.pendientes.length})</span>
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              {playerLists.pendientes.map(p => (
+                                <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border">
+                                  {p.usuarioNombre}
+                                </span>
+                              ))}
                             </div>
+                          </div>
+                        )}
+
+                        {playerLists.noAsistiran.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-[10px] font-black text-destructive uppercase tracking-widest flex items-center gap-1">
+                              <XCircle size={11} />
+                              <span>No Asistirán ({playerLists.noAsistiran.length})</span>
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              {playerLists.noAsistiran.map(p => (
+                                <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border line-through">
+                                  {p.usuarioNombre}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Flat roster segmented in sub-tabs */
+                  <div className="space-y-6 w-full">
+                    {/* Equipos Configurados list before matchmaking */}
+                    {bandos.length > 0 && (
+                      <div className="space-y-3 p-4 border border-border bg-muted/5 dark:bg-muted/10 rounded-lg">
+                        <div className="flex items-center justify-between border-b border-border/40 pb-1.5">
+                          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                            <Trophy size={13} className="text-primary" />
+                            <span>Bandos / Equipos Configurados ({bandos.length})</span>
+                          </h4>
+                          {isOrganizador && (
+                            <Button 
+                              onClick={() => openBandoDialog()} 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-6 gap-1 font-bold text-[10px] uppercase rounded border border-border hover:bg-muted bg-background text-foreground"
+                            >
+                              <Plus size={11} /> Nuevo Bando
+                            </Button>
                           )}
                         </div>
-                      )}
-
-                      {/* Not attending & pending list */}
-                      {(playerLists.pendientes.length > 0 || playerLists.noAsistiran.length > 0) && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 border-t border-border pt-6">
-                          {playerLists.pendientes.length > 0 && (
-                            <div className="space-y-2">
-                              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1">
-                                <Clock size={11} />
-                                <span>Sin Confirmar ({playerLists.pendientes.length})</span>
-                              </span>
-                              <div className="flex flex-wrap gap-2">
-                                {playerLists.pendientes.map(p => (
-                                  <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border">
-                                    {p.usuarioNombre}
-                                  </span>
-                                ))}
+                        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                          {bandos.map((eq) => {
+                            const teamColorHex = getTeamColorHex(eq.color || "");
+                            return (
+                              <div 
+                                key={eq.id} 
+                                className="flex items-center justify-between p-2 rounded border border-border bg-background hover:bg-muted/10 transition-premium relative overflow-hidden group shadow-sm"
+                              >
+                                {eq.color && (
+                                  <div className="absolute top-0 bottom-0 left-0 w-[3px]" style={{ backgroundColor: teamColorHex }} />
+                                )}
+                                <div className="flex items-center gap-2 pl-1.5 overflow-hidden flex-1">
+                                  <div className="w-2.5 h-2.5 rounded-full shrink-0 border border-border" style={{ backgroundColor: teamColorHex }} />
+                                  <span className="text-xs font-semibold text-foreground truncate">{eq.nombre}</span>
+                                </div>
+                                {isOrganizador && (
+                                  <div className="flex gap-0.5 items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-5 w-5 rounded text-muted-foreground hover:text-primary hover:bg-muted" 
+                                      onClick={() => openBandoDialog(eq)}
+                                    >
+                                      <Edit size={10} />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-5 w-5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
+                                      onClick={() => handleDeleteBando(eq.id)}
+                                    >
+                                      <Trash2 size={10} />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          )}
-
-                          {playerLists.noAsistiran.length > 0 && (
-                            <div className="space-y-2">
-                              <span className="text-[10px] font-black text-destructive uppercase tracking-widest flex items-center gap-1">
-                                <XCircle size={11} />
-                                <span>No Asistirán ({playerLists.noAsistiran.length})</span>
-                              </span>
-                              <div className="flex flex-wrap gap-2">
-                                {playerLists.noAsistiran.map(p => (
-                                  <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border line-through">
-                                    {p.usuarioNombre}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Flat roster segmented in sub-tabs */
+                      </div>
+                    )}
+
+                    {bandos.length === 0 && isOrganizador && (
+                      <div className="text-center py-6 border border-dashed rounded-lg bg-muted/5">
+                        <Trophy size={20} className="mx-auto text-muted-foreground/40 mb-1" />
+                        <p className="text-xs text-muted-foreground font-semibold">No hay bandos configurados</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 mb-2.5">Crea bandos para poder distribuir a los jugadores en la alineación.</p>
+                        <Button 
+                          onClick={() => openBandoDialog()} 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-7 gap-1 font-bold text-xs rounded border border-border hover:bg-muted bg-background px-3 text-foreground"
+                        >
+                          <Plus size={12} /> Nuevo Bando
+                        </Button>
+                      </div>
+                    )}
+
                     <Tabs defaultValue="confirmados" className="w-full">
                       <div className="border-b mb-3">
                         <TabsList className="bg-transparent border-0 gap-4 py-1 flex h-10 w-fit">
@@ -1108,31 +1184,26 @@ export default function ConvocatoriaDetailPage() {
                                     {(asis.usuarioNombre || asis.nombreExterno || "?").charAt(0).toUpperCase()}
                                   </div>
                                   <div className="overflow-hidden">
-                                    <p className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre || asis.nombreExterno}</p>
+                                    <span className="text-xs font-semibold text-foreground truncate block">
+                                      {asis.usuarioNombre || asis.nombreExterno}
+                                    </span>
                                     {asis.nombreExterno && (
-                                      <p className="text-[9px] text-muted-foreground block truncate">
+                                      <span className="text-[9px] text-muted-foreground block truncate">
                                         Invitado de {asis.invitadoPorNombre}
-                                      </p>
-                                    )}
-                                    {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
-                                        {asis.posicionesPreferidasNombres.map((name: string) => (
-                                          <span key={name} className="text-[9px] text-primary uppercase font-black tracking-widest bg-primary/5 px-1 rounded">
-                                            {name}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : asis.posicionPreferidaNombre && (
-                                      <p className="text-[9px] text-primary uppercase font-black tracking-widest mt-0.5">
-                                        {asis.posicionPreferidaNombre}
-                                      </p>
+                                      </span>
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <Badge variant={asis.nombreExterno ? "outline" : "success"} className="text-[8px] font-black uppercase">
-                                    {asis.nombreExterno ? "Invitado" : "Confirmado"}
-                                  </Badge>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {asis.posicionesPreferidasNombres.map((name: string) => (
+                                        <Badge key={name} variant="outline" className="text-[9px]">{name}</Badge>
+                                      ))}
+                                    </div>
+                                  ) : asis.posicionPreferidaNombre && (
+                                    <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -1142,24 +1213,26 @@ export default function ConvocatoriaDetailPage() {
 
                       <TabsContent value="espera" className="space-y-2 focus:outline-none pt-2">
                         {playerLists.waitlist.length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">Lista de espera vacía.</p>
+                          <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">No hay jugadores en lista de espera.</p>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {playerLists.waitlist.map((asis, idx) => (
                               <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
-                                <div className="flex items-center gap-3 overflow-hidden flex-1 mr-2">
-                                  <span className="h-5 w-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-extrabold shrink-0">{idx + 1}</span>
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                  <span className="text-xs text-muted-foreground font-black shrink-0">{idx + 1}.</span>
                                   <div className="overflow-hidden">
-                                    <p className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre || asis.nombreExterno}</p>
+                                    <span className="text-xs font-semibold text-foreground truncate block">
+                                      {asis.usuarioNombre || asis.nombreExterno}
+                                    </span>
                                     {asis.nombreExterno && (
-                                      <p className="text-[9px] text-muted-foreground block truncate">
+                                      <span className="text-[9px] text-muted-foreground block truncate">
                                         Invitado de {asis.invitadoPorNombre}
-                                      </p>
+                                      </span>
                                     )}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                  <Badge variant="info" className="text-[8px] font-black uppercase">En Espera</Badge>
+                                  <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
                                 </div>
                               </div>
                             ))}
@@ -1188,77 +1261,11 @@ export default function ConvocatoriaDetailPage() {
                         )}
                       </TabsContent>
                     </Tabs>
-                  )}
-                </>
-              )}
-            </TabsContent>
-
-            {/* Tab Panel: Bandos Settings */}
-            <TabsContent value="bandos" className="space-y-4 focus:outline-none">
-              <div className="flex justify-between items-center pb-2 border-b border-border">
-                <div>
-                  <h3 className="font-semibold text-sm text-foreground">Grupos y Equipos</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Grupos asignados a esta convocatoria.</p>
-                </div>
-                
-                {isOrganizador && (
-                  <Button 
-                    onClick={() => openBandoDialog()} 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-8 gap-1 font-bold text-xs rounded border border-border hover:bg-muted"
-                  >
-                    <Plus size={13} /> Nuevo Bando
-                  </Button>
+                  </div>
                 )}
-              </div>
-
-              {bandos.length === 0 ? (
-                <div className="text-center py-10 border border-dashed rounded bg-muted/5">
-                  <Trophy size={28} className="mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-xs text-muted-foreground font-semibold">No hay bandos configurados</p>
-                  {isOrganizador && <p className="text-[10px] text-muted-foreground mt-0.5">Crea bandos para poder distribuir a los jugadores en la alineación.</p>}
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {bandos.map((eq) => (
-                    <div 
-                      key={eq.id} 
-                      className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium relative overflow-hidden group shadow-sm"
-                    >
-                      {eq.color && (
-                        <div className="absolute top-0 bottom-0 left-0 w-[4px]" style={{ backgroundColor: eq.color }} />
-                      )}
-                      <div className="flex items-center gap-3 pl-2 overflow-hidden">
-                        <div className="w-3.5 h-3.5 rounded-full shrink-0 border border-border" style={{ backgroundColor: eq.color || '#ccc' }} />
-                        <p className="text-xs font-semibold text-foreground truncate">{eq.nombre}</p>
-                      </div>
-                      {isOrganizador && (
-                        <div className="flex gap-1 items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 rounded text-muted-foreground hover:text-primary hover:bg-muted" 
-                            onClick={() => openBandoDialog(eq)}
-                          >
-                            <Edit size={12} />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
-                            onClick={() => handleDeleteBando(eq.id)}
-                          >
-                            <Trash2 size={12} />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+              </>
+            )}
+          </div>
 
           {/* Admin Operations Callout (Shown below) */}
           {isOrganizador && (
