@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Trash2, Edit, Plus, UserX, UserCheck } from "lucide-react";
+import { Shield, Trash2, Edit, Plus, UserX, UserCheck, Ban, Unlock } from "lucide-react";
 
 interface Usuario {
   id: number;
@@ -28,6 +28,8 @@ interface Usuario {
   roles: string[];
   activo: boolean;
   fechaCreacion: string;
+  fechaFinSuspension?: string | null;
+  motivoSuspension?: string | null;
 }
 
 interface Rol {
@@ -42,7 +44,7 @@ interface UsuarioFormData {
 }
 
 export default function UsuariosPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,100 @@ export default function UsuariosPage() {
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState<UsuarioFormData>({ nombre: "", email: "", roles: ["Jugador"] });
+
+  // Suspension States
+  const [suspensionDialogOpen, setSuspensionDialogOpen] = useState(false);
+  const [selectedUsuarioForSuspension, setSelectedUsuarioForSuspension] = useState<Usuario | null>(null);
+  const [suspensionDuration, setSuspensionDuration] = useState("24h");
+  const [customDate, setCustomDate] = useState("");
+  const [suspensionReason, setSuspensionReason] = useState("");
+  const [submittingSuspension, setSubmittingSuspension] = useState(false);
+
+  const toLocalISOString = (date: Date) => {
+    const pad = (num: number) => (num < 10 ? "0" : "") + num;
+    return (
+      date.getFullYear() +
+      "-" +
+      pad(date.getMonth() + 1) +
+      "-" +
+      pad(date.getDate()) +
+      "T" +
+      pad(date.getHours()) +
+      ":" +
+      pad(date.getMinutes()) +
+      ":" +
+      pad(date.getSeconds())
+    );
+  };
+
+  const isSuspended = (usuario: Usuario) => {
+    if (!usuario.fechaFinSuspension) return false;
+    return new Date(usuario.fechaFinSuspension).getTime() > Date.now();
+  };
+
+  const handleLevantarSuspension = async (usuario: Usuario) => {
+    if (!confirm(`¿Levantar la suspensión de ${usuario.nombre}?`)) return;
+    setError("");
+    try {
+      await api.post(`/api/usuarios/${usuario.id}/levantar-suspension`);
+      showSuccess("Suspensión levantada correctamente");
+      fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al levantar la suspensión");
+    }
+  };
+
+  const handleSuspenderUser = async () => {
+    if (!selectedUsuarioForSuspension) return;
+    if (!suspensionReason.trim()) {
+      setError("El motivo de la suspensión es obligatorio");
+      return;
+    }
+
+    let fechaFin: Date | null = null;
+    const now = new Date();
+    if (suspensionDuration === "24h") {
+      fechaFin = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    } else if (suspensionDuration === "3d") {
+      fechaFin = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    } else if (suspensionDuration === "1w") {
+      fechaFin = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    } else if (suspensionDuration === "1m") {
+      fechaFin = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    } else if (suspensionDuration === "custom") {
+      if (!customDate) {
+        setError("Debe seleccionar una fecha personalizada");
+        return;
+      }
+      fechaFin = new Date(customDate);
+      if (fechaFin.getTime() <= now.getTime()) {
+        setError("La fecha personalizada debe ser en el futuro");
+        return;
+      }
+    }
+
+    if (!fechaFin) return;
+
+    setSubmittingSuspension(true);
+    setError("");
+    try {
+      await api.post(`/api/usuarios/${selectedUsuarioForSuspension.id}/suspender`, {
+        fechaFin: toLocalISOString(fechaFin),
+        motivo: suspensionReason,
+      });
+      showSuccess(`Usuario ${selectedUsuarioForSuspension.nombre} suspendido correctamente`);
+      setSuspensionDialogOpen(false);
+      setSelectedUsuarioForSuspension(null);
+      setSuspensionReason("");
+      setSuspensionDuration("24h");
+      setCustomDate("");
+      fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err) || "Error al suspender al usuario");
+    } finally {
+      setSubmittingSuspension(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -251,8 +347,26 @@ export default function UsuariosPage() {
                   {usuario.nombre.charAt(0)}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-foreground truncate">{usuario.nombre}</div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-foreground truncate">{usuario.nombre}</span>
+                    {isSuspended(usuario) && (
+                      <Badge 
+                        variant="outline" 
+                        className="text-[9px] px-1 py-0.2 rounded font-bold bg-destructive/10 border-destructive/20 text-destructive select-none"
+                        title={`Motivo: ${usuario.motivoSuspension}`}
+                      >
+                        Suspendido 🚫
+                      </Badge>
+                    )}
+                  </div>
                   <div className="text-[10px] text-muted-foreground font-mono truncate">{usuario.email}</div>
+                  {isSuspended(usuario) && (
+                    <div className="text-[9px] text-destructive/80 font-medium mt-0.5 leading-normal" title={usuario.motivoSuspension || ""}>
+                      Suspendido hasta: {new Date(usuario.fechaFinSuspension!).toLocaleString()}
+                      <br/>
+                      Motivo: <span className="font-semibold">{usuario.motivoSuspension}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -301,6 +415,34 @@ export default function UsuariosPage() {
                   </Button>
                 )}
                 
+                {hasPermission("suspender_jugadores") && usuario.id !== user?.id && (
+                  isSuspended(usuario) ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleLevantarSuspension(usuario)}
+                      className="h-7 w-7 rounded hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 animate-pulse"
+                      title="Levantar Suspensión"
+                    >
+                      <Unlock size={13} />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedUsuarioForSuspension(usuario);
+                        setSuspensionDialogOpen(true);
+                        setError("");
+                      }}
+                      className="h-7 w-7 rounded hover:bg-destructive/10 text-destructive"
+                      title="Suspender Jugador"
+                    >
+                      <Ban size={13} />
+                    </Button>
+                  )
+                )}
+
                 {hasPermission("gestionar_roles") && (
                   <Button
                     variant="outline"
@@ -465,6 +607,110 @@ export default function UsuariosPage() {
               className="h-8 text-xs font-semibold px-3 shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {saving ? <Spinner size="sm" /> : "Crear Usuario"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspension Dialog */}
+      <Dialog open={suspensionDialogOpen} onOpenChange={setSuspensionDialogOpen}>
+        <DialogContent className="bg-popover border border-border shadow-none rounded-lg max-w-sm p-5 space-y-4">
+          <DialogHeader className="border-b border-border pb-3">
+            <DialogTitle className="text-sm font-semibold tracking-tight text-destructive flex items-center gap-1.5">
+              <Ban size={16} />
+              <span>Suspender Jugador</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Suspender a {selectedUsuarioForSuspension?.nombre}. Durante el periodo de suspensión, el jugador no podrá inscribirse ni confirmar su asistencia.
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 rounded">
+              <div className="notion-callout-icon">
+                <Shield size={14} className="shrink-0" />
+              </div>
+              <div className="text-[11px] font-medium leading-normal">{error}</div>
+            </div>
+          )}
+
+          <div className="space-y-4 py-2">
+            {/* Duration selectors */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Duración de la Suspensión</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: "24h", label: "24 Horas" },
+                  { value: "3d", label: "3 Días" },
+                  { value: "1w", label: "1 Semana" },
+                  { value: "1m", label: "1 Mes" },
+                  { value: "custom", label: "Personalizado" },
+                ].map((opt) => (
+                  <Button
+                    key={opt.value}
+                    type="button"
+                    variant={suspensionDuration === opt.value ? "default" : "outline"}
+                    onClick={() => {
+                      setSuspensionDuration(opt.value);
+                      setError("");
+                    }}
+                    className={`h-8 text-[10px] font-medium px-2 py-1 shadow-none border-border ${
+                      suspensionDuration === opt.value
+                        ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        : "hover:bg-secondary"
+                    }`}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Date Picker */}
+            {suspensionDuration === "custom" && (
+              <div className="space-y-1.5 animate-fadeIn">
+                <Label htmlFor="customDate" className="text-xs font-semibold text-muted-foreground">Fecha y Hora de Finalización</Label>
+                <Input
+                  id="customDate"
+                  type="datetime-local"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
+                />
+              </div>
+            )}
+
+            {/* Reason */}
+            <div className="space-y-1.5">
+              <Label htmlFor="suspensionReason" className="text-xs font-semibold text-muted-foreground">Motivo de la Suspensión</Label>
+              <textarea
+                id="suspensionReason"
+                rows={3}
+                value={suspensionReason}
+                onChange={(e) => setSuspensionReason(e.target.value)}
+                placeholder="Escriba el motivo detallado de la suspensión (obligatorio)..."
+                className="w-full text-xs p-2 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-border pt-3 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSuspensionDialogOpen(false);
+                setSelectedUsuarioForSuspension(null);
+              }}
+              className="h-8 text-xs font-semibold px-3 border-border hover:bg-secondary shadow-none"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSuspenderUser}
+              disabled={submittingSuspension || !suspensionReason.trim() || (suspensionDuration === "custom" && !customDate)}
+              className="h-8 text-xs font-semibold px-3 shadow-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {submittingSuspension ? <Spinner size="sm" /> : "Suspender"}
             </Button>
           </DialogFooter>
         </DialogContent>

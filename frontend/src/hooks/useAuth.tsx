@@ -9,6 +9,8 @@ interface User {
   permissions: string[];
   username?: string;
   numeroCamiseta?: number;
+  fechaFinSuspension?: string | null;
+  motivoSuspension?: string | null;
 }
 
 interface AuthState {

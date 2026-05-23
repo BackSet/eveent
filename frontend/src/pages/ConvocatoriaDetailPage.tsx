@@ -345,6 +345,11 @@ export default function ConvocatoriaDetailPage() {
 
   const isOrganizador = hasPermission("crear_convocatorias") || hasPermission("editar_convocatorias") || hasPermission("dividir_equipos");
 
+  const isUserSuspended = useMemo(() => {
+    if (!user?.fechaFinSuspension) return false;
+    return new Date(user.fechaFinSuspension).getTime() > Date.now();
+  }, [user]);
+
   const isInProgressOrDone = useMemo(() => {
     if (!convocatoria) return false;
     const isStateProgress = convocatoria.estado === 'EN_PROGRESO' || 
@@ -529,72 +534,94 @@ export default function ConvocatoriaDetailPage() {
           </div>
         )}
 
-        {/* RSVP Responsive Action Panel */}
-        <div className="notion-callout border-primary/20 bg-primary/[0.03] dark:bg-primary/[0.06] mb-8 items-center justify-between flex-col md:flex-row gap-4">
-          <div className="flex items-center gap-3">
-            <div className="notion-callout-icon">📝</div>
-            <div className="space-y-0.5">
-              <div className="font-bold text-sm">Registro de Asistencia</div>
-              <p className="text-xs text-muted-foreground">
-                {convocatoria.estado === "ABIERTA" 
-                  ? "¿Vas a participar en esta convocatoria? Confirma tu asistencia."
-                  : "Las inscripciones para esta convocatoria se encuentran cerradas."}
+        {/* RSVP Responsive Action Panel or Suspension Banner */}
+        {isUserSuspended ? (
+          <div className="notion-callout border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive p-5 flex flex-col md:flex-row items-center gap-4 mb-8">
+            <div className="text-3xl select-none shrink-0">🚫</div>
+            <div className="space-y-1.5 flex-1 text-left">
+              <div className="font-extrabold text-base tracking-tight">Acceso Restringido - Cuenta Suspendida</div>
+              <p className="text-xs text-foreground/80 leading-normal">
+                Te encuentras temporalmente suspendido hasta el{" "}
+                <span className="font-bold underline">
+                  {new Date(user!.fechaFinSuspension!).toLocaleString()}
+                </span>{" "}
+                por el siguiente motivo:{" "}
+                <span className="font-bold font-mono bg-destructive/15 px-1.5 py-0.5 rounded border border-destructive/25 text-destructive dark:text-destructive">
+                  {user!.motivoSuspension}
+                </span>
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                No tienes permitido confirmar asistencia ni registrar reservas en las convocatorias del sistema durante este período.
               </p>
             </div>
           </div>
-
-          {convocatoria.estado === "ABIERTA" && !isInProgressOrDone ? (
-            <div className="flex gap-2 w-full md:w-auto">
-              <Button 
-                disabled={responderLoading}
-                onClick={() => handleRespondedAsistencia("ASISTIRE")}
-                className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
-                  miAsistencia?.estado === "ASISTIRE" 
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" 
-                    : miAsistencia?.estado === "LISTA_ESPERA"
-                      ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                      : "bg-background text-foreground hover:bg-muted border-border"
-                }`}
-              >
-                {responderLoading && miAsistencia?.estado !== "ASISTIRE" && miAsistencia?.estado !== "LISTA_ESPERA" ? (
-                  <Spinner size="sm" className="mr-1.5" />
-                ) : (
-                  <CheckCircle2 size={13} className="mr-1.5" />
-                )}
-                {miAsistencia?.estado === "LISTA_ESPERA" ? "En Espera" : "Asistiré"}
-              </Button>
-
-              <Button 
-                disabled={responderLoading}
-                onClick={() => handleRespondedAsistencia("NO_ASISTIRE")}
-                className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
-                  miAsistencia?.estado === "NO_ASISTIRE" 
-                    ? "bg-destructive hover:bg-destructive/90 text-white border-destructive" 
-                    : "bg-background text-foreground hover:bg-muted border-border"
-                }`}
-              >
-                {responderLoading && miAsistencia?.estado !== "NO_ASISTIRE" ? (
-                  <Spinner size="sm" className="mr-1.5" />
-                ) : (
-                  <XCircle size={13} className="mr-1.5" />
-                )}
-                No asistiré
-              </Button>
-
-              <Button 
-                onClick={openInvitadoDialog}
-                className="flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all bg-background text-foreground hover:bg-muted border-border"
-              >
-                <Plus size={13} className="mr-1.5" />
-                Llevar un invitado
-              </Button>
+        ) : (
+          <div className="notion-callout border-primary/20 bg-primary/[0.03] dark:bg-primary/[0.06] mb-8 items-center justify-between flex-col md:flex-row gap-4">
+            <div className="flex items-center gap-3">
+              <div className="notion-callout-icon">📝</div>
+              <div className="space-y-0.5">
+                <div className="font-bold text-sm">Registro de Asistencia</div>
+                <p className="text-xs text-muted-foreground">
+                  {convocatoria.estado === "ABIERTA" 
+                    ? "¿Vas a participar en esta convocatoria? Confirma tu asistencia."
+                    : "Las inscripciones para esta convocatoria se encuentran cerradas."}
+                </p>
+              </div>
             </div>
-          ) : (
-            <Badge variant="secondary" className="px-2.5 py-0.5 font-bold text-xs">
-              Inscripciones Cerradas
-            </Badge>
-          )}
-        </div>
+
+            {convocatoria.estado === "ABIERTA" && !isInProgressOrDone ? (
+              <div className="flex gap-2 w-full md:w-auto">
+                <Button 
+                  disabled={responderLoading}
+                  onClick={() => handleRespondedAsistencia("ASISTIRE")}
+                  className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
+                    miAsistencia?.estado === "ASISTIRE" 
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" 
+                      : miAsistencia?.estado === "LISTA_ESPERA"
+                        ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                        : "bg-background text-foreground hover:bg-muted border-border"
+                  }`}
+                >
+                  {responderLoading && miAsistencia?.estado !== "ASISTIRE" && miAsistencia?.estado !== "LISTA_ESPERA" ? (
+                    <Spinner size="sm" className="mr-1.5" />
+                  ) : (
+                    <CheckCircle2 size={13} className="mr-1.5" />
+                  )}
+                  {miAsistencia?.estado === "LISTA_ESPERA" ? "En Espera" : "Asistiré"}
+                </Button>
+
+                <Button 
+                  disabled={responderLoading}
+                  onClick={() => handleRespondedAsistencia("NO_ASISTIRE")}
+                  className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
+                    miAsistencia?.estado === "NO_ASISTIRE" 
+                      ? "bg-destructive hover:bg-destructive/90 text-white border-destructive" 
+                      : "bg-background text-foreground hover:bg-muted border-border"
+                  }`}
+                >
+                  {responderLoading && miAsistencia?.estado !== "NO_ASISTIRE" ? (
+                    <Spinner size="sm" className="mr-1.5" />
+                  ) : (
+                    <XCircle size={13} className="mr-1.5" />
+                  )}
+                  No asistiré
+                </Button>
+
+                <Button 
+                  onClick={openInvitadoDialog}
+                  className="flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all bg-background text-foreground hover:bg-muted border-border"
+                >
+                  <Plus size={13} className="mr-1.5" />
+                  Llevar un invitado
+                </Button>
+              </div>
+            ) : (
+              <Badge variant="secondary" className="px-2.5 py-0.5 font-bold text-xs">
+                Inscripciones Cerradas
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Main Content Area (Alineaciones, Roster, etc) */}
         <div className="space-y-8">
