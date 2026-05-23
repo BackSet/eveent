@@ -3,6 +3,7 @@ package com.event.backend.dto.grupo;
 import com.event.backend.dto.usuario.UsuarioPosicionDto;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -15,4 +16,6 @@ public class GrupoMiembroResponse {
     private String email;
     private Integer numeroCamiseta;
     private List<UsuarioPosicionDto> posiciones;
+    private LocalDateTime fechaFinSuspension;
+    private String motivoSuspension;
 }

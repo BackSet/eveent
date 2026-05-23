@@ -138,6 +138,8 @@ public class GrupoService {
                             .email(u.getEmail())
                             .numeroCamiseta(u.getNumeroCamiseta())
                             .posiciones(userPosDtos)
+                            .fechaFinSuspension(u.getFechaFinSuspension())
+                            .motivoSuspension(u.getMotivoSuspension())
                             .build();
                 })
                 .toList();
