@@ -553,7 +553,7 @@ export default function Dashboard() {
                   {/* Roles Property */}
                   <span className="notion-property-label">
                     <Layers size={13} />
-                    <span>Suscripciones</span>
+                    <span>Roles de Usuario</span>
                   </span>
                   <span className="notion-property-value">
                     <div className="flex flex-wrap gap-1">

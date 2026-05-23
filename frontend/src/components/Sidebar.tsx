@@ -97,7 +97,7 @@ export const Sidebar = memo(function Sidebar() {
               </div>
               <div className="overflow-hidden text-left">
                 <p className="text-xs font-semibold text-muted-foreground/80 leading-none">Espacio de Trabajo</p>
-                <p className="text-sm font-bold truncate text-foreground leading-tight mt-0.5">Event Premium</p>
+                <p className="text-sm font-bold truncate text-foreground leading-tight mt-0.5">Event</p>
               </div>
             </div>
             <ChevronDown size={14} className="text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />

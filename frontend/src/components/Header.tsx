@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { Moon, Sun, Laptop, ChevronRight, Share2, Star } from "lucide-react";
+import { Moon, Sun, Laptop, ChevronRight } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "react-router-dom";
@@ -68,22 +68,7 @@ export const Header = memo(function Header() {
 
       {/* Notion actions: Share, Favorite, Theme Switch */}
       <div className="flex items-center gap-1 shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs text-muted-foreground hover:text-foreground hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] h-7.5 px-2 rounded-md font-medium"
-        >
-          <Share2 size={12} className="mr-1" />
-          Compartir
-        </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs text-muted-foreground hover:text-foreground hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] h-7.5 w-7.5 p-0 rounded-md"
-        >
-          <Star size={12} />
-        </Button>
 
         <Button
           variant="ghost"
