@@ -8,6 +8,8 @@ import com.event.backend.repository.UsuarioRepository;
 import com.event.backend.repository.UsuarioRolRepository;
 import com.event.backend.repository.RolesSistemaRepository;
 import com.event.backend.repository.RolPermisoRepository;
+import com.event.backend.repository.UsuarioPosicionRepository;
+import com.event.backend.repository.PosicionesDeporteRepository;
 import com.event.backend.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,6 +29,8 @@ public class AuthService {
     private final RolesSistemaRepository rolesSistemaRepository;
     private final UsuarioRolRepository usuarioRolRepository;
     private final RolPermisoRepository rolPermisoRepository;
+    private final UsuarioPosicionRepository usuarioPosicionRepository;
+    private final PosicionesDeporteRepository posicionesDeporteRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
@@ -36,13 +40,37 @@ public class AuthService {
         if (usuarioRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("El email ya esta registrado");
         }
+        if (usuarioRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("El nombre de usuario ya esta registrado");
+        }
 
         Usuario usuario = Usuario.builder()
                 .nombre(request.getNombre())
                 .email(request.getEmail())
+                .username(request.getUsername())
+                .numeroCamiseta(request.getNumeroCamiseta())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .activo(true)
                 .build();
         usuario = usuarioRepository.save(usuario);
+
+        final Usuario savedUsuario = usuario;
+        if (request.getPosicionIds() != null && !request.getPosicionIds().isEmpty()) {
+            java.util.concurrent.atomic.AtomicInteger priority = new java.util.concurrent.atomic.AtomicInteger(1);
+            List<UsuarioPosicion> userPositions = request.getPosicionIds().stream()
+                    .map(posId -> {
+                        PosicionesDeporte posicion = posicionesDeporteRepository.findById(posId)
+                                .orElseThrow(() -> new RuntimeException("Posicion no encontrada con id: " + posId));
+                        return UsuarioPosicion.builder()
+                                .id(new UsuarioPosicionId(savedUsuario.getId(), posicion.getId()))
+                                .usuario(savedUsuario)
+                                .posicion(posicion)
+                                .prioridad(priority.getAndIncrement())
+                                .build();
+                    })
+                    .toList();
+            usuarioPosicionRepository.saveAll(userPositions);
+        }
 
         RolesSistema rolJugador = rolesSistemaRepository.findByNombre("Jugador")
                 .orElseGet(() -> rolesSistemaRepository.save(

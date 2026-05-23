@@ -21,7 +21,14 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  register: (nombre: string, email: string, password: string) => Promise<void>;
+  register: (
+    nombre: string,
+    email: string,
+    password: string,
+    username: string,
+    numeroCamiseta: number,
+    posicionIds?: number[]
+  ) => Promise<void>;
   logout: () => void;
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
@@ -59,13 +66,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (nombre: string, email: string, password: string) => {
+  const register = useCallback(async (
+    nombre: string,
+    email: string,
+    password: string,
+    username: string,
+    numeroCamiseta: number,
+    posicionIds?: number[]
+  ) => {
     setIsLoading(true);
     try {
       const { data } = await api.post("/api/auth/register", {
         nombre,
         email,
         password,
+        username,
+        numeroCamiseta,
+        posicionIds,
       });
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data));

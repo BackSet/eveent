@@ -19,7 +19,6 @@ public class PosicionController {
     private final PosicionService posicionService;
 
     @GetMapping("/api/deportes/{deporteId}/posiciones")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<PosicionResponse>> findByDeporte(@PathVariable Long deporteId) {
         return ResponseEntity.ok(posicionService.findByDeporteId(deporteId));
     }
@@ -31,7 +30,6 @@ public class PosicionController {
     }
 
     @GetMapping("/api/posiciones/{id}")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<PosicionResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(posicionService.findById(id));
     }

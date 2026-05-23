@@ -20,13 +20,11 @@ public class DeporteController {
     private final DeporteService deporteService;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<DeporteResponse>> findAll() {
         return ResponseEntity.ok(deporteService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DeporteResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(deporteService.findById(id));
     }
