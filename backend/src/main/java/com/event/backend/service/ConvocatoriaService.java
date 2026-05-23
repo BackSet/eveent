@@ -32,6 +32,12 @@ public class ConvocatoriaService {
 
     @Transactional(readOnly = true)
     public List<ConvocatoriaResponse> findAll() {
+        if (!securityService.isSuperAdmin()) {
+            Long userId = securityService.getCurrentUserId();
+            return convocatoriaRepository.findByCreadoPorId(userId).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
         return convocatoriaRepository.findAll().stream()
                 .map(this::toResponse)
                 .toList();

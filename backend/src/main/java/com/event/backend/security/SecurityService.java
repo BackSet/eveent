@@ -35,13 +35,18 @@ public class SecurityService {
         throw new ForbiddenException("Usuario no autenticado");
     }
 
-    public boolean isOwnerOrAdmin(Long ownerId) {
-        Long currentId = getCurrentUserId();
-        if (currentId.equals(ownerId)) return true;
+    public boolean isSuperAdmin() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return false;
         return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("gestionar_convocatorias")
+                .anyMatch(a -> a.getAuthority().equals("gestionar_usuarios")
+                        || a.getAuthority().equals("gestionar_roles")
                         || a.getAuthority().equals("ROLE_SUPERADMIN"));
+    }
+
+    public boolean isOwnerOrAdmin(Long ownerId) {
+        Long currentId = getCurrentUserId();
+        if (currentId.equals(ownerId)) return true;
+        return isSuperAdmin();
     }
 }

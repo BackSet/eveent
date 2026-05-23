@@ -34,6 +34,12 @@ public class ConfiguracionRecurrenteService {
 
     @Transactional(readOnly = true)
     public List<ConfiguracionRecurrenteResponse> findAll() {
+        if (!securityService.isSuperAdmin()) {
+            Long userId = securityService.getCurrentUserId();
+            return configuracionRepository.findByCreadoPorId(userId).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
         return configuracionRepository.findAll().stream()
                 .map(this::toResponse)
                 .toList();
@@ -41,9 +47,12 @@ public class ConfiguracionRecurrenteService {
 
     @Transactional(readOnly = true)
     public ConfiguracionRecurrenteResponse findById(Long id) {
-        return configuracionRepository.findById(id)
-                .map(this::toResponse)
+        ConfiguracionRecurrente config = configuracionRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Configuracion recurrente no encontrada con id: " + id));
+        if (!securityService.isOwnerOrAdmin(config.getCreadoPor().getId())) {
+            throw new ForbiddenException("No tienes permiso para ver esta configuracion");
+        }
+        return toResponse(config);
     }
 
     public ConfiguracionRecurrenteResponse create(ConfiguracionRecurrenteRequest request) {
