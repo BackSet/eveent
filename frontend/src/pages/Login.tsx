@@ -357,8 +357,10 @@ export default function Login() {
                       Tus Posiciones Seleccionadas ({selectedPositions.length})
                     </label>
                     <div className="flex flex-wrap gap-1 max-h-[85px] overflow-y-auto border border-border/60 p-2 rounded bg-secondary/5">
-                      {selectedPositions.map((pos, index) => {
-                        const isPrimary = index === 0;
+                      {selectedPositions.map((pos) => {
+                        const sportPositions = selectedPositions.filter(p => p.deporteNombre === pos.deporteNombre);
+                        const sportIndex = sportPositions.findIndex(p => p.id === pos.id);
+                        const isPrimary = sportIndex === 0;
                         return (
                           <Badge
                             key={pos.id}
@@ -370,7 +372,7 @@ export default function Login() {
                             }`}
                           >
                             <span className="truncate">
-                              {isPrimary ? "⭐ 1ª: " : `${index + 1}ª: `}
+                              {isPrimary ? "⭐ 1ª: " : `${sportIndex + 1}ª: `}
                               {pos.nombre} ({pos.deporteNombre})
                             </span>
                             <button

@@ -56,16 +56,21 @@ public class AuthService {
 
         final Usuario savedUsuario = usuario;
         if (request.getPosicionIds() != null && !request.getPosicionIds().isEmpty()) {
-            java.util.concurrent.atomic.AtomicInteger priority = new java.util.concurrent.atomic.AtomicInteger(1);
+            java.util.Map<Long, Integer> deportePriorityMap = new java.util.HashMap<>();
             List<UsuarioPosicion> userPositions = request.getPosicionIds().stream()
                     .map(posId -> {
                         PosicionesDeporte posicion = posicionesDeporteRepository.findById(posId)
                                 .orElseThrow(() -> new RuntimeException("Posicion no encontrada con id: " + posId));
+                        
+                        Long sportId = posicion.getDeporte().getId();
+                        int currentPriority = deportePriorityMap.getOrDefault(sportId, 1);
+                        deportePriorityMap.put(sportId, currentPriority + 1);
+
                         return UsuarioPosicion.builder()
                                 .id(new UsuarioPosicionId(savedUsuario.getId(), posicion.getId()))
                                 .usuario(savedUsuario)
                                 .posicion(posicion)
-                                .prioridad(priority.getAndIncrement())
+                                .prioridad(currentPriority)
                                 .build();
                     })
                     .toList();
