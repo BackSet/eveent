@@ -77,6 +77,8 @@ export default function ConvocatoriaDetailPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [editingInvitado, setEditingInvitado] = useState<Asistencia | null>(null);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [userPosiciones, setUserPosiciones] = useState<any[]>([]);
+  const [positionsDialogOpen, setPositionsDialogOpen] = useState(false);
 
   const handleShareLineup = () => {
     if (!convocatoria) return;
@@ -141,14 +143,16 @@ export default function ConvocatoriaDetailPage() {
     if (!user) return;
     setError("");
     try {
-      const [convRes, asisRes, equipRes] = await Promise.all([
+      const [convRes, asisRes, equipRes, posRes] = await Promise.all([
         api.get(`/api/convocatorias/${id}`),
         api.get(`/api/convocatorias/${id}/asistencias`),
         api.get(`/api/convocatorias/${id}/bandos`),
+        api.get(`/api/usuarios/me/posiciones`),
       ]);
       setConvocatoria(convRes.data);
       setAsistencias(asisRes.data);
       setBandos(equipRes.data);
+      setUserPosiciones(posRes.data || []);
       if (equipRes.data && equipRes.data.length > 0) {
         setNumEquipos(equipRes.data.length);
       } else {
@@ -183,6 +187,13 @@ export default function ConvocatoriaDetailPage() {
   };
 
   const handleRespondedAsistencia = async (estado: string) => {
+    if (estado === "ASISTIRE" && convocatoria) {
+      const hasPositions = userPosiciones.some((up) => up.deporteId === convocatoria.deporteId);
+      if (!hasPositions) {
+        setPositionsDialogOpen(true);
+        return;
+      }
+    }
     setResponderLoading(true);
     setError("");
     try {
@@ -1516,6 +1527,44 @@ export default function ConvocatoriaDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Configure Positions Warning Dialog */}
+        <Dialog open={positionsDialogOpen} onOpenChange={setPositionsDialogOpen}>
+          <DialogContent className="max-w-[400px] border border-border bg-card text-foreground rounded-lg p-5">
+            <DialogHeader className="space-y-2 text-center">
+              <div className="text-3xl select-none mb-1">🎯</div>
+              <DialogTitle className="text-base font-extrabold tracking-tight">
+                ¡Configura tus posiciones primero!
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
+                Para confirmar tu asistencia a la convocatoria de{" "}
+                <strong>{convocatoria?.deporteNombre}</strong>, es necesario
+                que definas tus posiciones preferidas de juego en tu perfil. Esto
+                permite al sistema autobalancear los equipos de manera justa.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 pt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPositionsDialogOpen(false)}
+                className="flex-1 text-xs font-semibold h-9 rounded border border-border shadow-none"
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setPositionsDialogOpen(false);
+                  navigate("/perfil");
+                }}
+                className="flex-1 text-xs font-semibold h-9 rounded bg-primary text-primary-foreground hover:bg-primary/95 shadow-none"
+              >
+                Configurar Perfil
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Invitado Dialog */}
         <Dialog open={invitadoDialogOpen} onOpenChange={setInvitadoDialogOpen}>
