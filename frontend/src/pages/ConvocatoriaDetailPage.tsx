@@ -62,8 +62,14 @@ export default function ConvocatoriaDetailPage() {
   const [bandoDialogOpen, setbandoDialogOpen] = useState(false);
   const [editingBando, setEditingBando] = useState<BandoConvocatoria | null>(null);
   const [bandoForm, setbandoForm] = useState<bandoFormData>({ nombre: "", color: "" });
-  const [bandoSaving, setbandoSaving] = useState(false);
   const [bandoError, setbandoError] = useState("");
+  const [bandoSaving, setbandoSaving] = useState(false);
+
+  const [invitadoDialogOpen, setInvitadoDialogOpen] = useState(false);
+  const [invitadoForm, setInvitadoForm] = useState({ nombreExterno: "", posicionPreferidaId: "" });
+  const [deportePosiciones, setDeportePosiciones] = useState<any[]>([]);
+  const [invitadoSaving, setInvitadoSaving] = useState(false);
+  const [invitadoError, setInvitadoError] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -156,6 +162,54 @@ export default function ConvocatoriaDetailPage() {
     if (!confirm("¿Eliminar este bando?")) return;
     try {
       await api.delete(`/api/bandos/${bandoId}`);
+      fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err));
+    }
+  };
+
+  const openInvitadoDialog = async () => {
+    setInvitadoForm({ nombreExterno: "", posicionPreferidaId: "" });
+    setInvitadoError("");
+    setInvitadoDialogOpen(true);
+    if (convocatoria?.deporteId) {
+      try {
+        const res = await api.get(`/api/deportes/${convocatoria.deporteId}/posiciones`);
+        setDeportePosiciones(res.data);
+      } catch (err: unknown) {
+        console.error("Error al cargar posiciones", err);
+      }
+    }
+  };
+
+  const handleSaveInvitado = async () => {
+    if (!invitadoForm.nombreExterno.trim()) {
+      setInvitadoError("El nombre o apodo es obligatorio");
+      return;
+    }
+    setInvitadoSaving(true);
+    setInvitadoError("");
+    try {
+      await api.post(`/api/convocatorias/${id}/asistencias`, {
+        convocatoriaId: Number(id),
+        nombreExterno: invitadoForm.nombreExterno.trim(),
+        posicionPreferidaId: invitadoForm.posicionPreferidaId ? Number(invitadoForm.posicionPreferidaId) : null,
+        estado: "ASISTIRE"
+      });
+      setInvitadoDialogOpen(false);
+      setInvitadoForm({ nombreExterno: "", posicionPreferidaId: "" });
+      fetchData();
+    } catch (err: unknown) {
+      setInvitadoError(getApiErrorMessage(err));
+    } finally {
+      setInvitadoSaving(false);
+    }
+  };
+
+  const handleDeleteInvitado = async (asistenciaId: number) => {
+    if (!confirm("¿Cancelar la asistencia de este invitado?")) return;
+    try {
+      await api.delete(`/api/asistencias/${asistenciaId}`);
       fetchData();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err));
@@ -404,6 +458,14 @@ export default function ConvocatoriaDetailPage() {
                 )}
                 No asistiré
               </Button>
+
+              <Button 
+                onClick={openInvitadoDialog}
+                className="flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all bg-background text-foreground hover:bg-muted border-border"
+              >
+                <Plus size={13} className="mr-1.5" />
+                Llevar un invitado
+              </Button>
             </div>
           ) : (
             <Badge variant="secondary" className="px-2.5 py-0.5 font-bold text-xs">
@@ -529,12 +591,32 @@ export default function ConvocatoriaDetailPage() {
                                   players.map((asis) => (
                                     <div key={asis.id} className="notion-board-card">
                                       <div className="flex items-center justify-between gap-2 overflow-hidden">
-                                        <div className="flex items-center gap-2 overflow-hidden">
+                                        <div className="flex items-center gap-2 overflow-hidden flex-1">
                                           <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-muted rounded border shrink-0 text-muted-foreground">
                                             {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "—"}
                                           </span>
-                                          <span className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre}</span>
+                                          <div className="overflow-hidden">
+                                            <span className="text-xs font-semibold text-foreground truncate block">
+                                              {asis.usuarioNombre || asis.nombreExterno}
+                                            </span>
+                                            {asis.nombreExterno && (
+                                              <span className="text-[9px] text-muted-foreground block truncate">
+                                                Invitado de {asis.invitadoPorNombre}
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
+                                        {(asis.invitadoPorId === user?.id || isOrganizador) && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 text-destructive hover:bg-destructive/10 rounded shrink-0"
+                                            onClick={() => handleDeleteInvitado(asis.id)}
+                                            title="Cancelar asistencia"
+                                          >
+                                            <XCircle size={12} />
+                                          </Button>
+                                        )}
                                       </div>
                                       {asis.posicionPreferidaNombre && (
                                         <div className="mt-2 flex">
@@ -564,10 +646,32 @@ export default function ConvocatoriaDetailPage() {
                               <div className="space-y-2">
                                 {playerLists.comodines.map((asis) => (
                                   <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
-                                    <span className="font-semibold">{asis.usuarioNombre}</span>
-                                    {asis.posicionPreferidaNombre && (
-                                      <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
-                                    )}
+                                    <div className="overflow-hidden flex-1 mr-2">
+                                      <span className="font-semibold text-foreground truncate block">
+                                        {asis.usuarioNombre || asis.nombreExterno}
+                                      </span>
+                                      {asis.nombreExterno && (
+                                        <span className="text-[9px] text-muted-foreground block truncate">
+                                          Invitado de {asis.invitadoPorNombre}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {asis.posicionPreferidaNombre && (
+                                        <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
+                                      )}
+                                      {(asis.invitadoPorId === user?.id || isOrganizador) && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5 text-destructive hover:bg-destructive/10 rounded"
+                                          onClick={() => handleDeleteInvitado(asis.id)}
+                                          title="Cancelar asistencia"
+                                        >
+                                          <XCircle size={12} />
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -583,11 +687,33 @@ export default function ConvocatoriaDetailPage() {
                               <div className="space-y-2">
                                 {playerLists.waitlist.map((asis, idx) => (
                                   <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] text-muted-foreground font-bold">{idx + 1}.</span>
-                                      <span className="font-semibold">{asis.usuarioNombre}</span>
+                                    <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
+                                      <span className="text-[10px] text-muted-foreground font-bold shrink-0">{idx + 1}.</span>
+                                      <div className="overflow-hidden">
+                                        <span className="font-semibold text-foreground truncate block">
+                                          {asis.usuarioNombre || asis.nombreExterno}
+                                        </span>
+                                        {asis.nombreExterno && (
+                                          <span className="text-[9px] text-muted-foreground block truncate">
+                                            Invitado de {asis.invitadoPorNombre}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
-                                    <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
+                                      {(asis.invitadoPorId === user?.id || isOrganizador) && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5 text-destructive hover:bg-destructive/10 rounded"
+                                          onClick={() => handleDeleteInvitado(asis.id)}
+                                          title="Cancelar asistencia"
+                                        >
+                                          <XCircle size={12} />
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -659,10 +785,15 @@ export default function ConvocatoriaDetailPage() {
                               <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                   <div className="h-7 w-7 rounded bg-primary/10 flex items-center justify-center font-black text-primary text-xs shrink-0 select-none">
-                                    {asis.usuarioNombre ? asis.usuarioNombre.charAt(0).toUpperCase() : "?"}
+                                    {(asis.usuarioNombre || asis.nombreExterno || "?").charAt(0).toUpperCase()}
                                   </div>
                                   <div className="overflow-hidden">
                                     <p className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre || asis.nombreExterno}</p>
+                                    {asis.nombreExterno && (
+                                      <p className="text-[9px] text-muted-foreground block truncate">
+                                        Invitado de {asis.invitadoPorNombre}
+                                      </p>
+                                    )}
                                     {asis.posicionPreferidaNombre && (
                                       <p className="text-[9px] text-primary uppercase font-black tracking-widest mt-0.5">
                                         {asis.posicionPreferidaNombre}
@@ -670,7 +801,22 @@ export default function ConvocatoriaDetailPage() {
                                     )}
                                   </div>
                                 </div>
-                                <Badge variant="success" className="text-[8px] font-black uppercase shrink-0">Confirmado</Badge>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Badge variant={asis.nombreExterno ? "outline" : "success"} className="text-[8px] font-black uppercase">
+                                    {asis.nombreExterno ? "Invitado" : "Confirmado"}
+                                  </Badge>
+                                  {(asis.invitadoPorId === user?.id || isOrganizador) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:bg-destructive/10 rounded-full"
+                                      onClick={() => handleDeleteInvitado(asis.id)}
+                                      title="Cancelar asistencia"
+                                    >
+                                      <XCircle size={14} />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -684,11 +830,31 @@ export default function ConvocatoriaDetailPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {playerLists.waitlist.map((asis, idx) => (
                               <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium">
-                                <div className="flex items-center gap-3">
-                                  <span className="h-5 w-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-extrabold">{idx + 1}</span>
-                                  <span className="text-xs font-semibold text-foreground">{asis.usuarioNombre}</span>
+                                <div className="flex items-center gap-3 overflow-hidden flex-1 mr-2">
+                                  <span className="h-5 w-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-extrabold shrink-0">{idx + 1}</span>
+                                  <div className="overflow-hidden">
+                                    <p className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre || asis.nombreExterno}</p>
+                                    {asis.nombreExterno && (
+                                      <p className="text-[9px] text-muted-foreground block truncate">
+                                        Invitado de {asis.invitadoPorNombre}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                                <Badge variant="info" className="text-[8px] font-black uppercase">En Espera</Badge>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Badge variant="info" className="text-[8px] font-black uppercase">En Espera</Badge>
+                                  {(asis.invitadoPorId === user?.id || isOrganizador) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:bg-destructive/10 rounded-full"
+                                      onClick={() => handleDeleteInvitado(asis.id)}
+                                      title="Cancelar asistencia"
+                                    >
+                                      <XCircle size={14} />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -933,6 +1099,70 @@ export default function ConvocatoriaDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Invitado Dialog */}
+        <Dialog open={invitadoDialogOpen} onOpenChange={setInvitadoDialogOpen}>
+          <DialogContent className="rounded-lg border bg-card p-6 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-extrabold text-base tracking-tight">
+                Llevar un Invitado
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Ingresa el nombre o apodo de tu invitado y selecciona su posición preferida para el juego.
+              </DialogDescription>
+            </DialogHeader>
+            {invitadoError && (
+              <Alert variant="destructive" className="rounded border border-destructive/15 my-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{invitadoError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-4 py-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="invitado-nombre" className="text-xs font-bold text-muted-foreground">Nombre o Apodo</Label>
+                <Input 
+                  id="invitado-nombre" 
+                  value={invitadoForm.nombreExterno} 
+                  onChange={(e) => setInvitadoForm({ ...invitadoForm, nombreExterno: e.target.value })} 
+                  placeholder="Ej: Juan Pérez, El Toro" 
+                  className="rounded bg-background border border-border px-3 py-1.5 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="invitado-posicion" className="text-xs font-bold text-muted-foreground">Posición Preferida</Label>
+                <select
+                  id="invitado-posicion"
+                  value={invitadoForm.posicionPreferidaId}
+                  onChange={(e) => setInvitadoForm({ ...invitadoForm, posicionPreferidaId: e.target.value })}
+                  className="w-full rounded bg-background border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground dark:bg-card"
+                >
+                  <option value="">-- Seleccionar Posición (Opcional) --</option>
+                  {deportePosiciones.map((pos) => (
+                    <option key={pos.id} value={pos.id}>
+                      {pos.nombre} {pos.abreviatura ? `(${pos.abreviatura})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 border-t pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setInvitadoDialogOpen(false)} 
+                className="font-bold text-xs rounded border hover:bg-muted"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveInvitado} 
+                disabled={invitadoSaving || !invitadoForm.nombreExterno.trim()} 
+                className="font-bold text-xs rounded bg-primary text-primary-foreground hover:bg-primary/95"
+              >
+                {invitadoSaving ? <Spinner className="text-white" /> : "Confirmar Invitado"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
   );
 }
