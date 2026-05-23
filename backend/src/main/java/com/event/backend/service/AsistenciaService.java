@@ -29,6 +29,7 @@ public class AsistenciaService {
     private final BandoConvocatoriaRepository bandoRepository;
     private final SecurityService securityService;
     private final AsistenciaMapper asistenciaMapper;
+    private final UsuarioPosicionRepository usuarioPosicionRepository;
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByConvocatoriaId(Long convocatoriaId) {
@@ -63,6 +64,22 @@ public class AsistenciaService {
         Usuario usuario = securityService.getCurrentUser();
         Convocatoria convocatoria = convocatoriaRepository.findById(request.getConvocatoriaId())
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + request.getConvocatoriaId()));
+
+        // Validar si es una convocatoria abierta (categoria LIBRE), debe ser del deporte que practica el usuario
+        Deporte deporteConvocatoria = convocatoria.getDeporte();
+        if (deporteConvocatoria != null && "LIBRE".equalsIgnoreCase(convocatoria.getCategoria())) {
+            List<UsuarioPosicion> posicionesUsuario = usuarioPosicionRepository.findByUsuarioId(usuario.getId());
+            boolean practicaDeporte = posicionesUsuario.stream()
+                    .anyMatch(up -> up.getPosicion() != null 
+                            && up.getPosicion().getDeporte() != null 
+                            && up.getPosicion().getDeporte().getId().equals(deporteConvocatoria.getId()));
+            
+            if (!practicaDeporte) {
+                throw new com.event.backend.exception.ConflictException("Solo los jugadores que practican el deporte " 
+                        + deporteConvocatoria.getNombre() + " pueden inscribirse a esta convocatoria abierta. "
+                        + "Configura tus demarcaciones de " + deporteConvocatoria.getNombre() + " en tu perfil para continuar.");
+            }
+        }
 
         var existing = asistenciaRepository.findByConvocatoriaIdAndUsuarioId(request.getConvocatoriaId(), usuario.getId());
         if (existing.isPresent()) {
