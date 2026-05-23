@@ -63,6 +63,7 @@ public class AuthService {
 
         return JwtResponse.builder()
                 .token(token)
+                .id(usuario.getId())
                 .email(usuario.getEmail())
                 .nombre(usuario.getNombre())
                 .roles(roles)
@@ -81,6 +82,7 @@ public class AuthService {
 
         return JwtResponse.builder()
                 .token(token)
+                .id(userDetails.getId())
                 .email(userDetails.getEmail())
                 .nombre(userDetails.getNombre())
                 .roles(roles)

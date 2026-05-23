@@ -18,7 +18,9 @@ public class MatchmakingController {
 
     @PostMapping("/{id}/matchmaking")
     @PreAuthorize("hasAuthority('crear_convocatoria')")
-    public ResponseEntity<List<AsistenciaResponse>> runMatchmaking(@PathVariable Long id) {
-        return ResponseEntity.ok(matchmakingService.runMatchmaking(id));
+    public ResponseEntity<List<AsistenciaResponse>> runMatchmaking(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer numEquipos) {
+        return ResponseEntity.ok(matchmakingService.runMatchmaking(id, numEquipos));
     }
 }

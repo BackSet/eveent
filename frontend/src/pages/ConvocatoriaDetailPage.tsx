@@ -58,6 +58,7 @@ export default function ConvocatoriaDetailPage() {
   const [miAsistencia, setMiAsistencia] = useState<Asistencia | null>(null);
   const [responderLoading, setResponderLoading] = useState(false);
   const [matchmakingLoading, setMatchmakingLoading] = useState(false);
+  const [numEquipos, setNumEquipos] = useState<number>(2);
 
   const [bandoDialogOpen, setbandoDialogOpen] = useState(false);
   const [editingBando, setEditingBando] = useState<BandoConvocatoria | null>(null);
@@ -66,10 +67,13 @@ export default function ConvocatoriaDetailPage() {
   const [bandoSaving, setbandoSaving] = useState(false);
 
   const [invitadoDialogOpen, setInvitadoDialogOpen] = useState(false);
-  const [invitadoForm, setInvitadoForm] = useState({ nombreExterno: "", posicionPreferidaId: "" });
+  const [invitadoForm, setInvitadoForm] = useState<{ nombreExterno: string, posicionPreferidaId: string, posicionesPreferidasIds: number[] }>({ nombreExterno: "", posicionPreferidaId: "", posicionesPreferidasIds: [] });
   const [deportePosiciones, setDeportePosiciones] = useState<any[]>([]);
   const [invitadoSaving, setInvitadoSaving] = useState(false);
   const [invitadoError, setInvitadoError] = useState("");
+  const [selectedInvitados, setSelectedInvitados] = useState<number[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [editingInvitado, setEditingInvitado] = useState<Asistencia | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -83,6 +87,12 @@ export default function ConvocatoriaDetailPage() {
       setConvocatoria(convRes.data);
       setAsistencias(asisRes.data);
       setBandos(equipRes.data);
+      if (equipRes.data && equipRes.data.length > 0) {
+        setNumEquipos(equipRes.data.length);
+      } else {
+        const isEquipos = convRes.data.deporteEsPorEquipos !== false;
+        setNumEquipos(isEquipos ? 2 : 1);
+      }
       const miAsis = asisRes.data.find((a: Asistencia) => a.usuarioId === user?.id);
       setMiAsistencia(miAsis || null);
     } catch (err: unknown) {
@@ -96,11 +106,12 @@ export default function ConvocatoriaDetailPage() {
     if (user) fetchData();
   }, [id, user?.id, fetchData]);
 
-  const handleMatchmaking = async () => {
+  const handleMatchmaking = async (teamsCount?: number) => {
     setMatchmakingLoading(true);
     setError("");
     try {
-      await api.post(`/api/convocatorias/${id}/matchmaking`);
+      const url = `/api/convocatorias/${id}/matchmaking` + (teamsCount ? `?numEquipos=${teamsCount}` : "");
+      await api.post(url);
       await fetchData();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err));
@@ -169,7 +180,27 @@ export default function ConvocatoriaDetailPage() {
   };
 
   const openInvitadoDialog = async () => {
-    setInvitadoForm({ nombreExterno: "", posicionPreferidaId: "" });
+    setEditingInvitado(null);
+    setInvitadoForm({ nombreExterno: "", posicionPreferidaId: "", posicionesPreferidasIds: [] });
+    setInvitadoError("");
+    setInvitadoDialogOpen(true);
+    if (convocatoria?.deporteId) {
+      try {
+        const res = await api.get(`/api/deportes/${convocatoria.deporteId}/posiciones`);
+        setDeportePosiciones(res.data);
+      } catch (err: unknown) {
+        console.error("Error al cargar posiciones", err);
+      }
+    }
+  };
+
+  const handleEditInvitadoClick = async (asis: Asistencia) => {
+    setEditingInvitado(asis);
+    setInvitadoForm({
+      nombreExterno: asis.nombreExterno || "",
+      posicionPreferidaId: asis.posicionPreferidaId ? String(asis.posicionPreferidaId) : "",
+      posicionesPreferidasIds: asis.posicionesPreferidasIds || []
+    });
     setInvitadoError("");
     setInvitadoDialogOpen(true);
     if (convocatoria?.deporteId) {
@@ -190,14 +221,25 @@ export default function ConvocatoriaDetailPage() {
     setInvitadoSaving(true);
     setInvitadoError("");
     try {
-      await api.post(`/api/convocatorias/${id}/asistencias`, {
+      const payload = {
         convocatoriaId: Number(id),
         nombreExterno: invitadoForm.nombreExterno.trim(),
-        posicionPreferidaId: invitadoForm.posicionPreferidaId ? Number(invitadoForm.posicionPreferidaId) : null,
-        estado: "ASISTIRE"
-      });
+        posicionPreferidaId: invitadoForm.posicionesPreferidasIds && invitadoForm.posicionesPreferidasIds.length > 0 
+          ? Number(invitadoForm.posicionesPreferidasIds[0]) 
+          : null,
+        posicionesPreferidasIds: invitadoForm.posicionesPreferidasIds,
+        estado: editingInvitado ? editingInvitado.estado : "ASISTIRE"
+      };
+
+      if (editingInvitado) {
+        await api.put(`/api/asistencias/${editingInvitado.id}`, payload);
+      } else {
+        await api.post(`/api/convocatorias/${id}/asistencias`, payload);
+      }
+
       setInvitadoDialogOpen(false);
-      setInvitadoForm({ nombreExterno: "", posicionPreferidaId: "" });
+      setInvitadoForm({ nombreExterno: "", posicionPreferidaId: "", posicionesPreferidasIds: [] });
+      setEditingInvitado(null);
       fetchData();
     } catch (err: unknown) {
       setInvitadoError(getApiErrorMessage(err));
@@ -206,10 +248,61 @@ export default function ConvocatoriaDetailPage() {
     }
   };
 
+  const handleDeleteBulk = async () => {
+    if (selectedInvitados.length === 0) return;
+    if (!confirm(`¿Eliminar la asistencia de los ${selectedInvitados.length} invitados seleccionados?`)) return;
+    
+    setBulkDeleting(true);
+    try {
+      await api.delete(`/api/asistencias/bulk?ids=${selectedInvitados.join(",")}`);
+      setSelectedInvitados([]);
+      fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleUpdateInvitadoEstado = async (asistenciaId: number, estado: string) => {
+    try {
+      await api.put(`/api/asistencias/${asistenciaId}`, { estado });
+      fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err));
+    }
+  };
+
+  const handleUpdateBulkEstado = async (estado: string) => {
+    if (selectedInvitados.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(selectedInvitados.map(id => api.put(`/api/asistencias/${id}`, { estado })));
+      setSelectedInvitados([]);
+      fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleDeleteInvitado = async (asistenciaId: number) => {
     if (!confirm("¿Cancelar la asistencia de este invitado?")) return;
     try {
       await api.delete(`/api/asistencias/${asistenciaId}`);
+      fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err));
+    }
+  };
+
+  const handleMovePlayer = async (asistenciaId: number, bandoId: number) => {
+    try {
+      await api.put(`/api/asistencias/${asistenciaId}`, { 
+        bandoId: bandoId,
+        estado: "ASISTIRE"
+      });
       fetchData();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err));
@@ -251,6 +344,15 @@ export default function ConvocatoriaDetailPage() {
   }, [asistencias, bandos, matchmakerRun]);
 
   const isOrganizador = hasPermission("crear_convocatoria") || hasPermission("dividir_bandos") || hasPermission("gestionar_convocatorias");
+
+  const managedInvitados = useMemo(() => {
+    return asistencias.filter(a => 
+      isOrganizador 
+        ? (a.invitadoPorId !== null || a.nombreExterno !== null) 
+        : (a.invitadoPorId === user?.id)
+    );
+  }, [asistencias, isOrganizador, user?.id]);
+
   const slotsRemaining = (convocatoria?.cupoMaximo || 0) - playerLists.confirmadosTotales.length;
 
   // Determine sport emoji helper
@@ -431,15 +533,17 @@ export default function ConvocatoriaDetailPage() {
                 className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
                   miAsistencia?.estado === "ASISTIRE" 
                     ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" 
-                    : "bg-background text-foreground hover:bg-muted border-border"
+                    : miAsistencia?.estado === "LISTA_ESPERA"
+                      ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                      : "bg-background text-foreground hover:bg-muted border-border"
                 }`}
               >
-                {responderLoading && miAsistencia?.estado !== "ASISTIRE" ? (
+                {responderLoading && miAsistencia?.estado !== "ASISTIRE" && miAsistencia?.estado !== "LISTA_ESPERA" ? (
                   <Spinner size="sm" className="mr-1.5" />
                 ) : (
                   <CheckCircle2 size={13} className="mr-1.5" />
                 )}
-                Asistiré
+                {miAsistencia?.estado === "LISTA_ESPERA" ? "En Espera" : "Asistiré"}
               </Button>
 
               <Button 
@@ -510,23 +614,223 @@ export default function ConvocatoriaDetailPage() {
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    onClick={handleMatchmaking} 
-                    disabled={matchmakingLoading || playerLists.confirmadosTotales.length < 2}
-                    className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
-                  >
-                    {matchmakingLoading ? (
-                      <>
-                        <Spinner size="sm" className="mr-1.5" />
-                        Calculando...
-                      </>
-                    ) : (
-                      <>
-                        <Activity size={14} className="mr-1.5" />
-                        Autobalancear Equipos
-                      </>
-                    )}
-                  </Button>
+                  
+                  <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end">
+                    <div className="flex items-center gap-1.5 bg-background border border-border rounded px-2.5 py-1 h-8">
+                      <span className="text-[10px] text-muted-foreground font-black uppercase shrink-0 select-none">Equipos:</span>
+                      <select
+                        value={numEquipos}
+                        onChange={(e) => setNumEquipos(Number(e.target.value))}
+                        className="text-xs bg-transparent border-0 text-foreground cursor-pointer font-bold focus:outline-none py-0 pr-1 pl-0 shrink-0"
+                      >
+                        {Array.from({ length: 8 }, (_, i) => i + 1)
+                          .filter(n => {
+                            const isEquipos = convocatoria?.deporteEsPorEquipos !== false;
+                            return isEquipos ? n >= 2 : n >= 1;
+                          })
+                          .map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                      </select>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => handleMatchmaking(numEquipos)} 
+                      disabled={matchmakingLoading || playerLists.confirmadosTotales.length < numEquipos}
+                      className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
+                    >
+                      {matchmakingLoading ? (
+                        <>
+                          <Spinner size="sm" className="mr-1.5" />
+                          Calculando...
+                        </>
+                      ) : (
+                        <>
+                          <Activity size={14} className="mr-1.5" />
+                          Autobalancear Equipos
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Mis Invitados Panel */}
+              {managedInvitados.length > 0 && (
+                <div className="notion-callout bg-muted/20 border-border flex-col p-4 rounded-lg">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between w-full pb-3 border-b border-border/40 gap-3">
+                    <div className="flex items-center gap-2">
+                      <Users size={15} className="text-primary" />
+                      <div className="font-bold text-sm text-foreground">{isOrganizador ? "Gestión Global de Invitados" : "Mis Invitados"} ({managedInvitados.length})</div>
+                    </div>
+                    
+                    {/* Bulk actions bar */}
+                    <div className="flex flex-wrap gap-2">
+                      {selectedInvitados.length > 0 && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUpdateBulkEstado("ASISTIRE")}
+                            disabled={bulkDeleting}
+                            className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0"
+                          >
+                            <CheckCircle2 size={11} />
+                            Confirmar ({selectedInvitados.length})
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUpdateBulkEstado("NO_ASISTIRE")}
+                            disabled={bulkDeleting}
+                            className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-amber-500/20 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1 shrink-0"
+                          >
+                            <XCircle size={11} />
+                            Desconfirmar ({selectedInvitados.length})
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleDeleteBulk}
+                            disabled={bulkDeleting}
+                            className="h-7 px-2.5 text-[10px] font-black uppercase rounded shadow-sm flex items-center gap-1 shrink-0"
+                          >
+                            {bulkDeleting ? (
+                              <>
+                                <Spinner size="sm" className="mr-1" />
+                                Borrando...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 size={11} />
+                                Eliminar ({selectedInvitados.length})
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Grid of invited cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
+                    {managedInvitados.map((asis) => {
+                      const isChecked = selectedInvitados.includes(asis.id);
+                      return (
+                        <div 
+                          key={asis.id} 
+                          className={`flex flex-col p-3 rounded border transition-all ${
+                            isChecked 
+                              ? "border-primary/45 bg-primary/[0.02]" 
+                              : "border-border/60 bg-background hover:bg-muted/10"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3 overflow-hidden">
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedInvitados([...selectedInvitados, asis.id]);
+                                  } else {
+                                    setSelectedInvitados(selectedInvitados.filter(id => id !== asis.id));
+                                  }
+                                }}
+                                className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary/20 cursor-pointer animate-none"
+                              />
+                              <div className="overflow-hidden">
+                                <p className="text-xs font-semibold text-foreground truncate">{asis.nombreExterno}</p>
+                                {asis.invitadoPorNombre && (
+                                  <p className="text-[9px] text-muted-foreground truncate leading-none mt-0.5">
+                                    Por: {asis.invitadoPorNombre}
+                                  </p>
+                                )}
+                                {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                                  <div className="flex flex-wrap gap-0.5 mt-1">
+                                    {asis.posicionesPreferidasNombres.map((name: string) => (
+                                      <span key={name} className="text-[8px] font-bold text-primary uppercase bg-primary/5 px-1 py-0.2 rounded">
+                                        {name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : asis.posicionPreferidaNombre && (
+                                  <p className="text-[8px] text-primary uppercase font-black mt-1">{asis.posicionPreferidaNombre}</p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Individual status badge */}
+                            <Badge 
+                              variant={
+                                asis.estado === "ASISTIRE" 
+                                  ? "success" 
+                                  : asis.estado === "NO_ASISTIRE" 
+                                    ? "destructive" 
+                                    : asis.estado === "LISTA_ESPERA"
+                                      ? "info"
+                                      : "secondary"
+                              } 
+                              className="text-[8px] font-black uppercase shrink-0 py-0.5 px-1.5"
+                            >
+                              {asis.estado === "ASISTIRE" 
+                                ? "Confirmado" 
+                                : asis.estado === "NO_ASISTIRE" 
+                                  ? "No asistirá" 
+                                  : asis.estado === "LISTA_ESPERA"
+                                    ? "En Espera"
+                                    : "Pendiente"}
+                            </Badge>
+                          </div>
+                          
+                          {/* Individual action toggles */}
+                          <div className="mt-3 flex items-center justify-end gap-1.5 border-t border-border/40 pt-2">
+                            {asis.estado === "ASISTIRE" || asis.estado === "LISTA_ESPERA" ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[9px] font-bold text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 rounded flex items-center gap-1 transition-all"
+                                onClick={() => handleUpdateInvitadoEstado(asis.id, "NO_ASISTIRE")}
+                                title="Desconfirmar asistencia (No asistirá)"
+                              >
+                                <XCircle size={10} />
+                                Desconfirmar
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[9px] font-bold text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700 rounded flex items-center gap-1 transition-all"
+                                onClick={() => handleUpdateInvitadoEstado(asis.id, "ASISTIRE")}
+                                title="Confirmar asistencia"
+                              >
+                                <CheckCircle2 size={10} />
+                                Confirmar
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:bg-muted hover:text-foreground rounded transition-all"
+                              onClick={() => handleEditInvitadoClick(asis)}
+                              title="Editar datos de invitado"
+                            >
+                              <Edit size={11} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:bg-destructive/10 rounded transition-all"
+                              onClick={() => handleDeleteInvitado(asis.id)}
+                              title="Eliminar invitado completamente"
+                            >
+                              <Trash2 size={11} />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -606,23 +910,39 @@ export default function ConvocatoriaDetailPage() {
                                             )}
                                           </div>
                                         </div>
-                                        {(asis.invitadoPorId === user?.id || isOrganizador) && (
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-5 w-5 text-destructive hover:bg-destructive/10 rounded shrink-0"
-                                            onClick={() => handleDeleteInvitado(asis.id)}
-                                            title="Cancelar asistencia"
-                                          >
-                                            <XCircle size={12} />
-                                          </Button>
-                                        )}
                                       </div>
-                                      {asis.posicionPreferidaNombre && (
+                                      {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                          {asis.posicionesPreferidasNombres.map((name: string) => (
+                                            <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                              {name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : asis.posicionPreferidaNombre && (
                                         <div className="mt-2 flex">
                                           <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
                                             {asis.posicionPreferidaNombre}
                                           </span>
+                                        </div>
+                                      )}
+                                      
+                                      {isOrganizador && (
+                                        <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1">
+                                          <span className="text-[9px] text-muted-foreground font-medium shrink-0">Bando:</span>
+                                          <select
+                                            value={asis.bandoId || ""}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              handleMovePlayer(asis.id, val ? Number(val) : -1);
+                                            }}
+                                            className="text-[10px] bg-background border border-border rounded px-1 py-0.5 max-w-[110px] focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
+                                          >
+                                            <option value="">Comodín / Sin asignar</option>
+                                            {bandos.map((b) => (
+                                              <option key={b.id} value={b.id}>{b.nombre}</option>
+                                            ))}
+                                          </select>
                                         </div>
                                       )}
                                     </div>
@@ -645,8 +965,8 @@ export default function ConvocatoriaDetailPage() {
                               </h4>
                               <div className="space-y-2">
                                 {playerLists.comodines.map((asis) => (
-                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
-                                    <div className="overflow-hidden flex-1 mr-2">
+                                  <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs gap-3">
+                                    <div className="overflow-hidden flex-1">
                                       <span className="font-semibold text-foreground truncate block">
                                         {asis.usuarioNombre || asis.nombreExterno}
                                       </span>
@@ -656,20 +976,31 @@ export default function ConvocatoriaDetailPage() {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      {asis.posicionPreferidaNombre && (
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {asis.posicionesPreferidasNombres.map((name: string) => (
+                                            <Badge key={name} variant="outline" className="text-[9px]">{name}</Badge>
+                                          ))}
+                                        </div>
+                                      ) : asis.posicionPreferidaNombre && (
                                         <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
                                       )}
-                                      {(asis.invitadoPorId === user?.id || isOrganizador) && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-5 w-5 text-destructive hover:bg-destructive/10 rounded"
-                                          onClick={() => handleDeleteInvitado(asis.id)}
-                                          title="Cancelar asistencia"
+                                      
+                                      {isOrganizador && (
+                                        <select
+                                          value=""
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val) handleMovePlayer(asis.id, Number(val));
+                                          }}
+                                          className="text-[10px] bg-background border border-border rounded px-1 py-0.5 focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
                                         >
-                                          <XCircle size={12} />
-                                        </Button>
+                                          <option value="">Mover a...</option>
+                                          {bandos.map((b) => (
+                                            <option key={b.id} value={b.id}>{b.nombre}</option>
+                                          ))}
+                                        </select>
                                       )}
                                     </div>
                                   </div>
@@ -702,17 +1033,6 @@ export default function ConvocatoriaDetailPage() {
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0">
                                       <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
-                                      {(asis.invitadoPorId === user?.id || isOrganizador) && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-5 w-5 text-destructive hover:bg-destructive/10 rounded"
-                                          onClick={() => handleDeleteInvitado(asis.id)}
-                                          title="Cancelar asistencia"
-                                        >
-                                          <XCircle size={12} />
-                                        </Button>
-                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -794,7 +1114,15 @@ export default function ConvocatoriaDetailPage() {
                                         Invitado de {asis.invitadoPorNombre}
                                       </p>
                                     )}
-                                    {asis.posicionPreferidaNombre && (
+                                    {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {asis.posicionesPreferidasNombres.map((name: string) => (
+                                          <span key={name} className="text-[9px] text-primary uppercase font-black tracking-widest bg-primary/5 px-1 rounded">
+                                            {name}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : asis.posicionPreferidaNombre && (
                                       <p className="text-[9px] text-primary uppercase font-black tracking-widest mt-0.5">
                                         {asis.posicionPreferidaNombre}
                                       </p>
@@ -805,17 +1133,6 @@ export default function ConvocatoriaDetailPage() {
                                   <Badge variant={asis.nombreExterno ? "outline" : "success"} className="text-[8px] font-black uppercase">
                                     {asis.nombreExterno ? "Invitado" : "Confirmado"}
                                   </Badge>
-                                  {(asis.invitadoPorId === user?.id || isOrganizador) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive hover:bg-destructive/10 rounded-full"
-                                      onClick={() => handleDeleteInvitado(asis.id)}
-                                      title="Cancelar asistencia"
-                                    >
-                                      <XCircle size={14} />
-                                    </Button>
-                                  )}
                                 </div>
                               </div>
                             ))}
@@ -843,17 +1160,6 @@ export default function ConvocatoriaDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <Badge variant="info" className="text-[8px] font-black uppercase">En Espera</Badge>
-                                  {(asis.invitadoPorId === user?.id || isOrganizador) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive hover:bg-destructive/10 rounded-full"
-                                      onClick={() => handleDeleteInvitado(asis.id)}
-                                      title="Cancelar asistencia"
-                                    >
-                                      <XCircle size={14} />
-                                    </Button>
-                                  )}
                                 </div>
                               </div>
                             ))}
@@ -896,80 +1202,14 @@ export default function ConvocatoriaDetailPage() {
                 </div>
                 
                 {isOrganizador && (
-                  <Dialog open={bandoDialogOpen} onOpenChange={setbandoDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        onClick={() => openBandoDialog()} 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-8 gap-1 font-bold text-xs rounded border border-border hover:bg-muted"
-                      >
-                        <Plus size={13} /> Nuevo Bando
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="rounded-lg border bg-card p-6 max-w-md">
-                      <DialogHeader>
-                        <DialogTitle className="font-extrabold text-base tracking-tight">
-                          {editingBando ? "Editar Bando" : "Nuevo Bando"}
-                        </DialogTitle>
-                        <DialogDescription className="text-xs text-muted-foreground">
-                          Define el nombre y color táctico que identificará a este equipo.
-                        </DialogDescription>
-                      </DialogHeader>
-                      {bandoError && (
-                        <Alert variant="destructive" className="rounded border border-destructive/15 my-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertDescription>{bandoError}</AlertDescription>
-                        </Alert>
-                      )}
-                      <div className="space-y-4 py-3">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="equipo-nombre" className="text-xs font-bold text-muted-foreground">Nombre del Bando</Label>
-                          <Input 
-                            id="equipo-nombre" 
-                            value={bandoForm.nombre} 
-                            onChange={(e) => setbandoForm({ ...bandoForm, nombre: e.target.value })} 
-                            placeholder="Ej: Bando Rojo, Los Leones" 
-                            className="rounded bg-background border border-border px-3 py-1.5 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-muted-foreground">Color Táctico</Label>
-                          <div className="flex gap-2.5 flex-wrap pt-1">
-                            {TEAM_COLORS.map((c) => (
-                              <button 
-                                key={c} 
-                                type="button" 
-                                onClick={() => setbandoForm({ ...bandoForm, color: c })}
-                                className={`w-7 h-7 rounded-full border-2 transition-all cursor-pointer ${
-                                  bandoForm.color === c 
-                                    ? "border-foreground scale-110 ring-2 ring-primary/20" 
-                                    : "border-transparent"
-                                }`}
-                                style={{ backgroundColor: c }} 
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter className="gap-2 border-t pt-4">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setbandoDialogOpen(false)} 
-                          className="font-bold text-xs rounded border hover:bg-muted"
-                        >
-                          Cancelar
-                        </Button>
-                        <Button 
-                          onClick={handleSaveBando} 
-                          disabled={bandoSaving || !bandoForm.nombre} 
-                          className="font-bold text-xs rounded bg-primary text-primary-foreground hover:bg-primary/95"
-                        >
-                          {bandoSaving ? <Spinner className="text-white" /> : editingBando ? "Actualizar" : "Crear Bando"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <Button 
+                    onClick={() => openBandoDialog()} 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 gap-1 font-bold text-xs rounded border border-border hover:bg-muted"
+                  >
+                    <Plus size={13} /> Nuevo Bando
+                  </Button>
                 )}
               </div>
 
@@ -1105,10 +1345,12 @@ export default function ConvocatoriaDetailPage() {
           <DialogContent className="rounded-lg border bg-card p-6 max-w-md">
             <DialogHeader>
               <DialogTitle className="font-extrabold text-base tracking-tight">
-                Llevar un Invitado
+                {editingInvitado ? `Editar Datos de ${editingInvitado.nombreExterno}` : "Llevar un Invitado"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Ingresa el nombre o apodo de tu invitado y selecciona su posición preferida para el juego.
+                {editingInvitado 
+                  ? "Modifica el nombre o apodo de tu invitado y actualiza sus posiciones preferidas y prioridades." 
+                  : "Ingresa el nombre o apodo de tu invitado y selecciona su posición preferida para el juego."}
               </DialogDescription>
             </DialogHeader>
             {invitadoError && (
@@ -1129,20 +1371,50 @@ export default function ConvocatoriaDetailPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="invitado-posicion" className="text-xs font-bold text-muted-foreground">Posición Preferida</Label>
-                <select
-                  id="invitado-posicion"
-                  value={invitadoForm.posicionPreferidaId}
-                  onChange={(e) => setInvitadoForm({ ...invitadoForm, posicionPreferidaId: e.target.value })}
-                  className="w-full rounded bg-background border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground dark:bg-card"
-                >
-                  <option value="">-- Seleccionar Posición (Opcional) --</option>
-                  {deportePosiciones.map((pos) => (
-                    <option key={pos.id} value={pos.id}>
-                      {pos.nombre} {pos.abreviatura ? `(${pos.abreviatura})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <Label className="text-xs font-bold text-muted-foreground block mb-1">Posiciones Preferidas (Selecciona en orden de prioridad)</Label>
+                {deportePosiciones.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No hay posiciones configuradas para este deporte.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {deportePosiciones.map((pos) => {
+                      const isSelected = (invitadoForm.posicionesPreferidasIds || []).includes(pos.id);
+                      const priorityIndex = (invitadoForm.posicionesPreferidasIds || []).indexOf(pos.id);
+                      return (
+                        <button
+                          key={pos.id}
+                          type="button"
+                          onClick={() => {
+                            const currentIds = invitadoForm.posicionesPreferidasIds || [];
+                            const alreadySelected = currentIds.includes(pos.id);
+                            let nextIds = [];
+                            if (alreadySelected) {
+                              nextIds = currentIds.filter(id => id !== pos.id);
+                            } else {
+                              nextIds = [...currentIds, pos.id];
+                            }
+                            setInvitadoForm({
+                              ...invitadoForm,
+                              posicionesPreferidasIds: nextIds,
+                              posicionPreferidaId: nextIds.length > 0 ? String(nextIds[0]) : ""
+                            });
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded border font-bold transition-all select-none cursor-pointer flex items-center gap-1.5 ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm hover:bg-primary/90"
+                              : "bg-background text-foreground border-border hover:bg-muted"
+                          }`}
+                        >
+                          <span>{pos.nombre} {pos.abreviatura ? `(${pos.abreviatura})` : ''}</span>
+                          {isSelected && (
+                            <span className="h-4 w-4 rounded-full bg-primary-foreground text-primary text-[9px] flex items-center justify-center font-extrabold shadow-sm shrink-0">
+                              {priorityIndex + 1}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter className="gap-2 border-t pt-4">
@@ -1158,7 +1430,73 @@ export default function ConvocatoriaDetailPage() {
                 disabled={invitadoSaving || !invitadoForm.nombreExterno.trim()} 
                 className="font-bold text-xs rounded bg-primary text-primary-foreground hover:bg-primary/95"
               >
-                {invitadoSaving ? <Spinner className="text-white" /> : "Confirmar Invitado"}
+                {invitadoSaving ? <Spinner className="text-white" /> : editingInvitado ? "Guardar Cambios" : "Confirmar Invitado"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bando Dialog */}
+        <Dialog open={bandoDialogOpen} onOpenChange={setbandoDialogOpen}>
+          <DialogContent className="rounded-lg border bg-card p-6 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-extrabold text-base tracking-tight">
+                {editingBando ? "Editar Bando" : "Nuevo Bando"}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Define el nombre y color táctico que identificará a este equipo.
+              </DialogDescription>
+            </DialogHeader>
+            {bandoError && (
+              <Alert variant="destructive" className="rounded border border-destructive/15 my-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{bandoError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-4 py-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="equipo-nombre" className="text-xs font-bold text-muted-foreground">Nombre del Bando</Label>
+                <Input 
+                  id="equipo-nombre" 
+                  value={bandoForm.nombre} 
+                  onChange={(e) => setbandoForm({ ...bandoForm, nombre: e.target.value })} 
+                  placeholder="Ej: Bando Rojo, Los Leones" 
+                  className="rounded bg-background border border-border px-3 py-1.5 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">Color Táctico</Label>
+                <div className="flex gap-2.5 flex-wrap pt-1">
+                  {TEAM_COLORS.map((c) => (
+                    <button 
+                      key={c} 
+                      type="button" 
+                      onClick={() => setbandoForm({ ...bandoForm, color: c })}
+                      className={`w-7 h-7 rounded-full border-2 transition-all cursor-pointer ${
+                        bandoForm.color === c 
+                          ? "border-foreground scale-110 ring-2 ring-primary/20" 
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: c }} 
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 border-t pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setbandoDialogOpen(false)} 
+                className="font-bold text-xs rounded border hover:bg-muted"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveBando} 
+                disabled={bandoSaving || !bandoForm.nombre} 
+                className="font-bold text-xs rounded bg-primary text-primary-foreground hover:bg-primary/95"
+              >
+                {bandoSaving ? <Spinner className="text-white" /> : editingBando ? "Actualizar" : "Crear Bando"}
               </Button>
             </DialogFooter>
           </DialogContent>

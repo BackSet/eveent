@@ -8,6 +8,8 @@ import lombok.*;
 public class AsistenciaUpdateRequest {
     @NotNull(message = "El estado es obligatorio")
     private EstadoAsistencia estado;
+    private String nombreExterno;
     private Long posicionPreferidaId;
     private Long bandoId;
+    private java.util.List<Long> posicionesPreferidasIds;
 }

@@ -100,6 +100,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return authState.user?.permissions?.some(p => p.toLowerCase() === permission.toLowerCase()) || false;
   }, [authState.user]);
 
+  useEffect(() => {
+    if (authState.isAuthenticated && authState.token) {
+      api.get("/api/usuarios/me")
+        .then(({ data }) => {
+          setAuthState(prev => {
+            if (!prev.user) return prev;
+            const updated = { ...prev.user, ...data };
+            localStorage.setItem("user", JSON.stringify(updated));
+            return { ...prev, user: updated };
+          });
+        })
+        .catch(err => {
+          console.error("Error al sincronizar el perfil del usuario:", err);
+          if (err.response?.status === 401) {
+            logout();
+          }
+        });
+    }
+  }, [authState.token, authState.isAuthenticated, logout]);
+
   const contextValue = useMemo(() => ({
     ...authState,
     login,

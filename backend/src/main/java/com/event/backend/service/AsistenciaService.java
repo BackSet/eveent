@@ -33,31 +33,86 @@ public class AsistenciaService {
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByConvocatoriaId(Long convocatoriaId) {
-        return asistenciaRepository.findByConvocatoriaId(convocatoriaId).stream()
+        List<Asistencia> asistencias = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
+        List<AsistenciaResponse> responses = asistencias.stream()
                 .map(asistenciaMapper::toResponse)
-                .toList();
+                .collect(Collectors.toList());
+        if (!asistencias.isEmpty()) {
+            Convocatoria conv = asistencias.get(0).getConvocatoria();
+            Long deporteId = conv.getDeporte() != null ? conv.getDeporte().getId() : null;
+            populateUserPositions(responses, deporteId);
+        }
+        return responses;
     }
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByUsuarioId(Long usuarioId) {
-        return asistenciaRepository.findByUsuarioId(usuarioId).stream()
+        Long idToUse = usuarioId != null ? usuarioId : securityService.getCurrentUserId();
+        List<Asistencia> asistencias = asistenciaRepository.findByUsuarioId(idToUse);
+        List<AsistenciaResponse> responses = asistencias.stream()
                 .map(asistenciaMapper::toResponse)
-                .toList();
+                .collect(Collectors.toList());
+        
+        List<UsuarioPosicion> upList = usuarioPosicionRepository.findByUsuarioId(idToUse);
+        for (int i = 0; i < asistencias.size(); i++) {
+            Asistencia a = asistencias.get(i);
+            AsistenciaResponse res = responses.get(i);
+            if (res.getPosicionPreferidaNombre() == null && a.getUsuario() != null) {
+                Convocatoria conv = a.getConvocatoria();
+                Long depId = conv.getDeporte() != null ? conv.getDeporte().getId() : null;
+                if (depId != null) {
+                    List<UsuarioPosicion> filtered = upList.stream()
+                            .filter(up -> up.getPosicion() != null && up.getPosicion().getDeporte() != null && up.getPosicion().getDeporte().getId().equals(depId))
+                            .sorted(java.util.Comparator.comparing(UsuarioPosicion::getPrioridad))
+                            .toList();
+                    if (!filtered.isEmpty()) {
+                        res.setPosicionPreferidaNombre(filtered.get(0).getPosicion().getNombre());
+                    }
+                }
+            }
+        }
+        return responses;
     }
 
     @Transactional(readOnly = true)
     public AsistenciaResponse findById(Long id) {
-        return asistenciaRepository.findById(id)
-                .map(asistenciaMapper::toResponse)
+        Asistencia asistencia = asistenciaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
+        AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
+        if (asistencia.getConvocatoria().getDeporte() != null) {
+            List<AsistenciaResponse> list = new java.util.ArrayList<>(List.of(response));
+            populateUserPositions(list, asistencia.getConvocatoria().getDeporte().getId());
+            response = list.get(0);
+        }
+        return response;
     }
 
     @Transactional(readOnly = true)
     public AsistenciaResponse findByConvocatoriaAndUsuario(Long convocatoriaId) {
         Long usuarioId = securityService.getCurrentUserId();
-        return asistenciaRepository.findByConvocatoriaIdAndUsuarioId(convocatoriaId, usuarioId)
-                .map(asistenciaMapper::toResponse)
+        Asistencia asistencia = asistenciaRepository.findByConvocatoriaIdAndUsuarioId(convocatoriaId, usuarioId)
                 .orElseThrow(() -> new NotFoundException("No tienes registro de asistencia para esta convocatoria"));
+        AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
+        if (asistencia.getConvocatoria().getDeporte() != null) {
+            List<AsistenciaResponse> list = new java.util.ArrayList<>(List.of(response));
+            populateUserPositions(list, asistencia.getConvocatoria().getDeporte().getId());
+            response = list.get(0);
+        }
+        return response;
+    }
+
+    private EstadoAsistencia evaluateEstadoWithCupo(Convocatoria conv, EstadoAsistencia requestedEstado) {
+        if (requestedEstado == EstadoAsistencia.ASISTIRE) {
+            if (conv.getCupoMaximo() != null && conv.getCupoMaximo() > 0) {
+                long countAsistire = asistenciaRepository.countByConvocatoriaIdAndEstado(conv.getId(), EstadoAsistencia.ASISTIRE);
+                if (countAsistire >= conv.getCupoMaximo()) {
+                    if ("LISTA_ESPERA".equals(conv.getManejoExcedente())) {
+                        return EstadoAsistencia.LISTA_ESPERA;
+                    }
+                }
+            }
+        }
+        return requestedEstado;
     }
 
     public AsistenciaResponse create(AsistenciaRequest request) {
@@ -83,12 +138,17 @@ public class AsistenciaService {
 
         // Si es un jugador externo (invitado por el usuario actual)
         if (request.getNombreExterno() != null && !request.getNombreExterno().trim().isEmpty()) {
+            EstadoAsistencia requestedEstado = request.getEstado() != null 
+                    ? EstadoAsistencia.valueOf(request.getEstado()) 
+                    : EstadoAsistencia.ASISTIRE;
+            EstadoAsistencia finalEstado = evaluateEstadoWithCupo(convocatoria, requestedEstado);
+
             Asistencia.AsistenciaBuilder builder = Asistencia.builder()
                     .convocatoria(convocatoria)
                     .usuario(null)
                     .nombreExterno(request.getNombreExterno().trim())
                     .invitadoPor(usuario)
-                    .estado(request.getEstado() != null ? EstadoAsistencia.valueOf(request.getEstado()) : EstadoAsistencia.ASISTIRE)
+                    .estado(finalEstado)
                     .fechaRespuesta(LocalDateTime.now());
 
             if (request.getPosicionPreferidaId() != null) {
@@ -104,25 +164,67 @@ public class AsistenciaService {
             }
 
             Asistencia asistencia = builder.build();
+            java.util.List<PosicionesDeporte> selectedPos = new java.util.ArrayList<>();
+            if (request.getPosicionesPreferidasIds() != null && !request.getPosicionesPreferidasIds().isEmpty()) {
+                List<PosicionesDeporte> found = posicionRepository.findAllById(request.getPosicionesPreferidasIds());
+                for (Long id : request.getPosicionesPreferidasIds()) {
+                    found.stream().filter(p -> p.getId().equals(id)).findFirst().ifPresent(selectedPos::add);
+                }
+            }
+            if (asistencia.getPosicionPreferida() != null && !selectedPos.contains(asistencia.getPosicionPreferida())) {
+                selectedPos.add(asistencia.getPosicionPreferida());
+            }
+            asistencia.setPosicionesPreferidas(selectedPos);
             asistencia = asistenciaRepository.save(asistencia);
-            return asistenciaMapper.toResponse(asistencia);
+            
+            AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
+            if (convocatoria.getDeporte() != null) {
+                List<AsistenciaResponse> list = new java.util.ArrayList<>(List.of(response));
+                populateUserPositions(list, convocatoria.getDeporte().getId());
+                response = list.get(0);
+            }
+            return response;
         }
 
         var existing = asistenciaRepository.findByConvocatoriaIdAndUsuarioId(request.getConvocatoriaId(), usuario.getId());
         if (existing.isPresent()) {
             Asistencia asistencia = existing.get();
             if (request.getEstado() != null) {
-                asistencia.setEstado(EstadoAsistencia.valueOf(request.getEstado()));
+                EstadoAsistencia requestedEstado = EstadoAsistencia.valueOf(request.getEstado());
+                if (requestedEstado == EstadoAsistencia.ASISTIRE && asistencia.getEstado() != EstadoAsistencia.ASISTIRE) {
+                    asistencia.setEstado(evaluateEstadoWithCupo(asistencia.getConvocatoria(), requestedEstado));
+                } else {
+                    asistencia.setEstado(requestedEstado);
+                }
             }
             asistencia.setFechaRespuesta(LocalDateTime.now());
+            
+            java.util.List<PosicionesDeporte> selectedPos = new java.util.ArrayList<>();
+            if (request.getPosicionesPreferidasIds() != null && !request.getPosicionesPreferidasIds().isEmpty()) {
+                List<PosicionesDeporte> found = posicionRepository.findAllById(request.getPosicionesPreferidasIds());
+                for (Long id : request.getPosicionesPreferidasIds()) {
+                    found.stream().filter(p -> p.getId().equals(id)).findFirst().ifPresent(selectedPos::add);
+                }
+            }
+            asistencia.setPosicionesPreferidas(selectedPos);
             asistencia = asistenciaRepository.save(asistencia);
-            return asistenciaMapper.toResponse(asistencia);
+            
+            AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
+            if (asistencia.getConvocatoria().getDeporte() != null) {
+                List<AsistenciaResponse> list = new java.util.ArrayList<>(List.of(response));
+                populateUserPositions(list, asistencia.getConvocatoria().getDeporte().getId());
+                response = list.get(0);
+            }
+            return response;
         }
+
+        EstadoAsistencia requestedEstado = request.getEstado() != null ? EstadoAsistencia.valueOf(request.getEstado()) : EstadoAsistencia.PENDIENTE;
+        EstadoAsistencia finalEstado = evaluateEstadoWithCupo(convocatoria, requestedEstado);
 
         Asistencia.AsistenciaBuilder builder = Asistencia.builder()
                 .convocatoria(convocatoria)
                 .usuario(usuario)
-                .estado(request.getEstado() != null ? EstadoAsistencia.valueOf(request.getEstado()) : EstadoAsistencia.PENDIENTE);
+                .estado(finalEstado);
 
         if (request.getPosicionPreferidaId() != null) {
             PosicionesDeporte posicion = posicionRepository.findById(request.getPosicionPreferidaId())
@@ -137,8 +239,26 @@ public class AsistenciaService {
         }
 
         Asistencia asistencia = builder.build();
+        java.util.List<PosicionesDeporte> selectedPos = new java.util.ArrayList<>();
+        if (request.getPosicionesPreferidasIds() != null && !request.getPosicionesPreferidasIds().isEmpty()) {
+            List<PosicionesDeporte> found = posicionRepository.findAllById(request.getPosicionesPreferidasIds());
+            for (Long id : request.getPosicionesPreferidasIds()) {
+                found.stream().filter(p -> p.getId().equals(id)).findFirst().ifPresent(selectedPos::add);
+            }
+        }
+        if (asistencia.getPosicionPreferida() != null && !selectedPos.contains(asistencia.getPosicionPreferida())) {
+            selectedPos.add(asistencia.getPosicionPreferida());
+        }
+        asistencia.setPosicionesPreferidas(selectedPos);
         asistencia = asistenciaRepository.save(asistencia);
-        return asistenciaMapper.toResponse(asistencia);
+        
+        AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
+        if (convocatoria.getDeporte() != null) {
+            List<AsistenciaResponse> list = new java.util.ArrayList<>(List.of(response));
+            populateUserPositions(list, convocatoria.getDeporte().getId());
+            response = list.get(0);
+        }
+        return response;
     }
 
     public AsistenciaResponse update(Long id, AsistenciaUpdateRequest request) {
@@ -156,32 +276,57 @@ public class AsistenciaService {
         EstadoAsistencia oldEstado = asistencia.getEstado();
         EstadoAsistencia newEstado = request.getEstado();
 
+        if (request.getNombreExterno() != null) {
+            asistencia.setNombreExterno(request.getNombreExterno().trim().isEmpty() ? null : request.getNombreExterno().trim());
+        }
+
         if (newEstado != null) {
-            if (newEstado == EstadoAsistencia.ASISTIRE && oldEstado != EstadoAsistencia.ASISTIRE) {
+            boolean isOldAttending = (oldEstado == EstadoAsistencia.ASISTIRE || oldEstado == EstadoAsistencia.LISTA_ESPERA);
+            boolean isNewAttending = (newEstado == EstadoAsistencia.ASISTIRE || newEstado == EstadoAsistencia.LISTA_ESPERA);
+
+            if (isNewAttending && isOldAttending) {
+                newEstado = oldEstado;
+            } else if (newEstado == EstadoAsistencia.ASISTIRE && !isOldAttending) {
                 Convocatoria conv = asistencia.getConvocatoria();
-                if (conv.getCupoMaximo() != null && conv.getCupoMaximo() > 0) {
-                    long countAsistire = asistenciaRepository.countByConvocatoriaIdAndEstado(conv.getId(), EstadoAsistencia.ASISTIRE);
-                    if (countAsistire >= conv.getCupoMaximo()) {
-                        if ("LISTA_ESPERA".equals(conv.getManejoExcedente())) {
-                            newEstado = EstadoAsistencia.LISTA_ESPERA;
-                        }
-                    }
-                }
+                newEstado = evaluateEstadoWithCupo(conv, newEstado);
+                asistencia.setFechaRespuesta(LocalDateTime.now());
+            } else if (newEstado != oldEstado) {
+                asistencia.setFechaRespuesta(LocalDateTime.now());
             }
             asistencia.setEstado(newEstado);
-            asistencia.setFechaRespuesta(LocalDateTime.now());
         }
 
         if (request.getPosicionPreferidaId() != null) {
             PosicionesDeporte posicion = posicionRepository.findById(request.getPosicionPreferidaId())
                     .orElseThrow(() -> new NotFoundException("Posicion no encontrada con id: " + request.getPosicionPreferidaId()));
             asistencia.setPosicionPreferida(posicion);
+            if (!asistencia.getPosicionesPreferidas().contains(posicion)) {
+                asistencia.getPosicionesPreferidas().add(posicion);
+            }
+        }
+
+        if (request.getPosicionesPreferidasIds() != null) {
+            java.util.List<PosicionesDeporte> selectedPos = new java.util.ArrayList<>();
+            if (!request.getPosicionesPreferidasIds().isEmpty()) {
+                List<PosicionesDeporte> found = posicionRepository.findAllById(request.getPosicionesPreferidasIds());
+                for (Long posId : request.getPosicionesPreferidasIds()) {
+                    found.stream().filter(p -> p.getId().equals(posId)).findFirst().ifPresent(selectedPos::add);
+                }
+            }
+            if (asistencia.getPosicionPreferida() != null && !selectedPos.contains(asistencia.getPosicionPreferida())) {
+                selectedPos.add(asistencia.getPosicionPreferida());
+            }
+            asistencia.setPosicionesPreferidas(selectedPos);
         }
 
         if (request.getBandoId() != null) {
-            BandoConvocatoria bando = bandoRepository.findById(request.getBandoId())
-                    .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + request.getBandoId()));
-            asistencia.setBando(bando);
+            if (request.getBandoId() <= 0) {
+                asistencia.setBando(null);
+            } else {
+                BandoConvocatoria bando = bandoRepository.findById(request.getBandoId())
+                        .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + request.getBandoId()));
+                asistencia.setBando(bando);
+            }
         }
 
         asistencia = asistenciaRepository.save(asistencia);
@@ -190,7 +335,13 @@ public class AsistenciaService {
             promoteFromWaitlist(asistencia.getConvocatoria().getId());
         }
 
-        return asistenciaMapper.toResponse(asistencia);
+        AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
+        if (asistencia.getConvocatoria().getDeporte() != null) {
+            List<AsistenciaResponse> list = new java.util.ArrayList<>(List.of(response));
+            populateUserPositions(list, asistencia.getConvocatoria().getDeporte().getId());
+            response = list.get(0);
+        }
+        return response;
     }
 
     public void delete(Long id) {
@@ -258,8 +409,78 @@ public class AsistenciaService {
 
         asistenciaRepository.saveAll(newAsistencias);
 
-        return asistenciaRepository.findByConvocatoriaId(convocatoriaId).stream()
+        List<Asistencia> all = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
+        List<AsistenciaResponse> responses = all.stream()
                 .map(asistenciaMapper::toResponse)
+                .collect(Collectors.toList());
+        if (!all.isEmpty()) {
+            Convocatoria conv = all.get(0).getConvocatoria();
+            Long deporteId = conv.getDeporte() != null ? conv.getDeporte().getId() : null;
+            populateUserPositions(responses, deporteId);
+        }
+        return responses;
+    }
+
+    public void deleteBulk(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        List<Asistencia> asistencias = asistenciaRepository.findAllById(ids);
+        Long currentUserId = securityService.getCurrentUserId();
+        
+        for (Asistencia a : asistencias) {
+            boolean isOwner = a.getUsuario() != null && a.getUsuario().getId().equals(currentUserId);
+            boolean isHost = a.getInvitadoPor() != null && a.getInvitadoPor().getId().equals(currentUserId);
+            if (!isOwner && !isHost && !hasAdminPermission()) {
+                throw new ForbiddenException("No tienes permiso para eliminar esta asistencia: " + a.getId());
+            }
+        }
+        
+        asistenciaRepository.deleteAll(asistencias);
+        
+        for (Asistencia a : asistencias) {
+            if (a.getEstado() == EstadoAsistencia.ASISTIRE) {
+                promoteFromWaitlist(a.getConvocatoria().getId());
+            }
+        }
+    }
+
+    public void populateUserPositions(List<AsistenciaResponse> responses, Long deporteId) {
+        if (responses == null || responses.isEmpty() || deporteId == null) return;
+        
+        List<Long> usuarioIds = responses.stream()
+                .filter(res -> res.getUsuarioId() != null && (res.getPosicionesPreferidasNombres() == null || res.getPosicionesPreferidasNombres().isEmpty()))
+                .map(AsistenciaResponse::getUsuarioId)
+                .distinct()
                 .toList();
+                
+        if (usuarioIds.isEmpty()) return;
+        
+        List<UsuarioPosicion> upList = usuarioPosicionRepository.findByUsuarioIdIn(usuarioIds);
+        
+        java.util.Map<Long, List<String>> userPositionsMap = new java.util.HashMap<>();
+        java.util.Map<Long, String> userPrimaryPositionMap = new java.util.HashMap<>();
+        
+        java.util.Map<Long, List<UsuarioPosicion>> upGrouped = upList.stream()
+                .filter(up -> up.getPosicion() != null && up.getPosicion().getDeporte() != null && up.getPosicion().getDeporte().getId().equals(deporteId))
+                .collect(Collectors.groupingBy(up -> up.getUsuario().getId()));
+                
+        upGrouped.forEach((userId, positions) -> {
+            if (!positions.isEmpty()) {
+                positions.sort(java.util.Comparator.comparing(UsuarioPosicion::getPrioridad));
+                List<String> posNames = positions.stream().map(up -> up.getPosicion().getNombre()).collect(Collectors.toList());
+                userPositionsMap.put(userId, posNames);
+                userPrimaryPositionMap.put(userId, positions.get(0).getPosicion().getNombre());
+            }
+        });
+        
+        for (AsistenciaResponse res : responses) {
+            if (res.getUsuarioId() != null) {
+                if (res.getPosicionPreferidaNombre() == null) {
+                    res.setPosicionPreferidaNombre(userPrimaryPositionMap.get(res.getUsuarioId()));
+                }
+                if (res.getPosicionesPreferidasNombres() == null || res.getPosicionesPreferidasNombres().isEmpty()) {
+                    res.setPosicionesPreferidasNombres(userPositionsMap.getOrDefault(res.getUsuarioId(), java.util.List.of()));
+                }
+            }
+        }
     }
 }

@@ -57,6 +57,13 @@ public class AsistenciaController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/api/asistencias/bulk")
+    @PreAuthorize("hasAnyAuthority('responder_asistencia', 'crear_convocatoria')")
+    public ResponseEntity<Void> deleteBulk(@RequestParam List<Long> ids) {
+        asistenciaService.deleteBulk(ids);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/api/asistencias/mis-asistencias")
     @PreAuthorize("hasAuthority('responder_asistencia')")
     public ResponseEntity<List<AsistenciaResponse>> findMisAsistencias() {

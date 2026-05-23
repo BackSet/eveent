@@ -19,6 +19,8 @@ public class AsistenciaResponse {
     private String posicionPreferidaNombre;
     private Long posicionAsignadaId;
     private String posicionAsignadaNombre;
+    private java.util.List<Long> posicionesPreferidasIds;
+    private java.util.List<String> posicionesPreferidasNombres;
     private Long bandoId;
     private String bandoNombre;
     private Integer numeroCamiseta;

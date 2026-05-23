@@ -67,6 +67,7 @@ export interface Convocatoria {
   duracionEstimadaMinutos?: number;
   configuracionRecurrenteId?: number;
   manejoExcedente?: string;
+  deporteEsPorEquipos?: boolean;
 }
 
 export interface BandoConvocatoria {
@@ -101,6 +102,8 @@ export interface Asistencia {
   bandoNombre?: string | null;
   numeroCamiseta?: number | null;
   fechaRespuesta: string;
+  posicionesPreferidasIds?: number[];
+  posicionesPreferidasNombres?: string[];
 }
 
 export interface AuthState {

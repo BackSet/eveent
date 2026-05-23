@@ -56,6 +56,13 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("No se pudieron alterar los campos deporte_id (ya podrían ser nullables): {}", e.getMessage());
         }
 
+        try {
+            entityManager.createNativeQuery("ALTER TABLE asistencias_posiciones_preferidas ADD COLUMN IF NOT EXISTS prioridad INTEGER NOT NULL DEFAULT 0").executeUpdate();
+            log.info("Columna prioridad en asistencias_posiciones_preferidas agregada/verificada con éxito.");
+        } catch (Exception e) {
+            log.warn("No se pudo agregar la columna prioridad a asistencias_posiciones_preferidas: {}", e.getMessage());
+        }
+
         if (!bootstrapEnabled) return;
         if (!environment.matchesProfiles("dev", "test", "default")) return;
         seedRolesIfEmpty();

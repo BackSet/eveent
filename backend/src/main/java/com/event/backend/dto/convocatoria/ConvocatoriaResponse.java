@@ -25,4 +25,5 @@ public class ConvocatoriaResponse {
     private LocalDateTime fechaLimiteInscripcion;
     private String manejoExcedente;
     private Long configuracionRecurrenteId;
+    private Boolean deporteEsPorEquipos;
 }

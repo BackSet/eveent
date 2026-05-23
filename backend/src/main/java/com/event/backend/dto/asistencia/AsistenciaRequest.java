@@ -11,4 +11,5 @@ public class AsistenciaRequest {
     private Long bandoId;
     private String estado;
     private String nombreExterno;
+    private java.util.List<Long> posicionesPreferidasIds;
 }

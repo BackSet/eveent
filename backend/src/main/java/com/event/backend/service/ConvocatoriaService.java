@@ -232,6 +232,7 @@ public class ConvocatoriaService {
                 .fechaLimiteInscripcion(c.getFechaLimiteInscripcion())
                 .manejoExcedente(c.getManejoExcedente())
                 .configuracionRecurrenteId(c.getConfiguracionRecurrente() != null ? c.getConfiguracionRecurrente().getId() : null)
+                .deporteEsPorEquipos(c.getDeporte() != null ? c.getDeporte().getEsPorEquipos() : true)
                 .build();
     }
 }

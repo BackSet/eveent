@@ -50,6 +50,16 @@ public class Asistencia {
     @JoinColumn(name = "posicion_preferida_id")
     private PosicionesDeporte posicionPreferida;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "asistencias_posiciones_preferidas",
+        joinColumns = @JoinColumn(name = "asistencia_id"),
+        inverseJoinColumns = @JoinColumn(name = "posicion_id")
+    )
+    @OrderColumn(name = "prioridad")
+    @Builder.Default
+    private java.util.List<PosicionesDeporte> posicionesPreferidas = new java.util.ArrayList<>();
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "posicion_asignada_id")
     private PosicionesDeporte posicionAsignada;

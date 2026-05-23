@@ -22,6 +22,12 @@ public class AsistenciaMapper {
                 .posicionPreferidaNombre(a.getPosicionPreferida() != null ? a.getPosicionPreferida().getNombre() : null)
                 .posicionAsignadaId(a.getPosicionAsignada() != null ? a.getPosicionAsignada().getId() : null)
                 .posicionAsignadaNombre(a.getPosicionAsignada() != null ? a.getPosicionAsignada().getNombre() : null)
+                .posicionesPreferidasIds(a.getPosicionesPreferidas() != null 
+                        ? a.getPosicionesPreferidas().stream().map(com.event.backend.model.PosicionesDeporte::getId).collect(java.util.stream.Collectors.toList()) 
+                        : java.util.List.of())
+                .posicionesPreferidasNombres(a.getPosicionesPreferidas() != null 
+                        ? a.getPosicionesPreferidas().stream().map(com.event.backend.model.PosicionesDeporte::getNombre).collect(java.util.stream.Collectors.toList()) 
+                        : java.util.List.of())
                 .bandoId(a.getBando() != null ? a.getBando().getId() : null)
                 .bandoNombre(a.getBando() != null ? a.getBando().getNombre() : null)
                 .numeroCamiseta(a.getUsuario() != null ? a.getUsuario().getNumeroCamiseta() : null)
