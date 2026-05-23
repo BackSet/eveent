@@ -36,7 +36,9 @@ import {
   Activity,
   AlertTriangle,
   Shirt,
-  Compass
+  Compass,
+  Share2,
+  Check
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { Convocatoria, Asistencia, BandoConvocatoria } from "@/types";
@@ -74,6 +76,64 @@ export default function ConvocatoriaDetailPage() {
   const [selectedInvitados, setSelectedInvitados] = useState<number[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [editingInvitado, setEditingInvitado] = useState<Asistencia | null>(null);
+  const [shareSuccess, setShareSuccess] = useState(false);
+
+  const handleShareLineup = () => {
+    if (!convocatoria) return;
+
+    let shareText = `🏆 *Alineación: ${convocatoria.titulo}* 🏆\n`;
+    if (convocatoria.fechaHora) {
+      const date = new Date(convocatoria.fechaHora);
+      const formattedDate = date.toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      shareText += `📅 *Fecha:* ${formattedDate}\n`;
+    }
+    shareText += `📍 *Lugar:* ${convocatoria.lugar || "Por definir"}\n\n`;
+
+    playerLists.teamPlayersMap.forEach(({ team, players }) => {
+      const teamColor = team.color ? team.color.toUpperCase() : "";
+      const teamEmoji = teamColor === "BLANCO" ? "⚪" : teamColor === "NEGRO" ? "⚫" : teamColor === "ROJO" ? "🔴" : teamColor === "AZUL" ? "🔵" : teamColor === "VERDE" ? "🟢" : teamColor === "AMARILLO" ? "🟡" : "👥";
+      
+      shareText += `${teamEmoji} *${team.nombre.toUpperCase()}* (${players.length} jugadores):\n`;
+      if (players.length === 0) {
+        shareText += `  _Sin jugadores asignados_\n`;
+      } else {
+        players.forEach((p) => {
+          const name = p.nombreExterno || p.usuarioNombre || "Invitado";
+          const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "";
+          const pos = p.posicionAsignadaNombre ? ` - ${p.posicionAsignadaNombre}` : p.posicionPreferidaNombre ? ` - ${p.posicionPreferidaNombre}` : "";
+          shareText += `  • ${number} ${name}${pos}\n`;
+        });
+      }
+      shareText += `\n`;
+    });
+
+    if (playerLists.comodines.length > 0) {
+      shareText += `🌟 *RESERVAS / COMODINES* (${playerLists.comodines.length}):\n`;
+      playerLists.comodines.forEach((p) => {
+        const name = p.nombreExterno || p.usuarioNombre || "Invitado";
+        const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "";
+        shareText += `  • ${number} ${name}\n`;
+      });
+      shareText += `\n`;
+    }
+
+    shareText += `⚡ _Generado por Event App_`;
+
+    navigator.clipboard.writeText(shareText)
+      .then(() => {
+        setShareSuccess(true);
+        setTimeout(() => setShareSuccess(false), 3000);
+      })
+      .catch((err) => {
+        console.error("Error al copiar al portapapeles", err);
+      });
+  };
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -627,9 +687,31 @@ export default function ConvocatoriaDetailPage() {
         <div className="space-y-8">
           <div className="space-y-6">
             <div className="notion-db-header border-b pb-1 mb-2">
-              <div className="flex items-center gap-2 py-1">
-                <Shirt size={16} className="text-primary" />
-                <h2 className="font-extrabold text-sm text-foreground tracking-tight">Alineación / Roster</h2>
+              <div className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-2">
+                  <Shirt size={16} className="text-primary" />
+                  <h2 className="font-extrabold text-sm text-foreground tracking-tight">Alineación / Roster</h2>
+                </div>
+                {/* SHARE LINEUP BUTTON */}
+                {matchmakerRun && bandos.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {shareSuccess && (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold animate-fadeIn flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        <Check size={10} />
+                        Copiado al portapapeles
+                      </span>
+                    )}
+                    <Button
+                      onClick={handleShareLineup}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px] font-bold gap-1 px-2.5 rounded border border-border bg-background text-foreground hover:bg-muted"
+                    >
+                      <Share2 size={11} />
+                      Compartir Alineación
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 
