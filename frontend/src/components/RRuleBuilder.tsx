@@ -202,21 +202,29 @@ export function RRuleBuilder({ value, horariosPorDia, onRruleChange, onHorariosC
           <Label className="text-xs font-medium text-muted-foreground">Horarios por día</Label>
           {getDaysForHorarios().map((dayKey) => {
             const h = horariosPorDia[dayKey] || DEFAULT_HORARIO;
+            const hasError = h.horaApertura && h.horaEvento && h.horaApertura >= h.horaEvento;
             return (
-              <div key={dayKey} className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center border rounded-lg p-2">
-                <span className="text-xs font-semibold text-primary min-w-[2rem]">{getDayLabel(dayKey)}</span>
-                <div className="space-y-0.5">
-                  <Label className="text-[9px] text-muted-foreground">Apertura</Label>
-                  <Input type="time" value={h.horaApertura} onChange={(e) => updateHorario(dayKey, "horaApertura", e.target.value)} className="h-7 text-[11px] px-1.5" />
+              <div key={dayKey} className="space-y-1 animate-fadeIn">
+                <div className={`grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center border rounded-lg p-2 transition-colors ${hasError ? 'border-destructive bg-destructive/[0.02]' : ''}`}>
+                  <span className="text-xs font-semibold text-primary min-w-[2rem]">{getDayLabel(dayKey)}</span>
+                  <div className="space-y-0.5">
+                    <Label className="text-[9px] text-muted-foreground">Apertura</Label>
+                    <Input type="time" value={h.horaApertura} onChange={(e) => updateHorario(dayKey, "horaApertura", e.target.value)} className="h-7 text-[11px] px-1.5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-[9px] text-muted-foreground">Evento</Label>
+                    <Input type="time" value={h.horaEvento} onChange={(e) => updateHorario(dayKey, "horaEvento", e.target.value)} className="h-7 text-[11px] px-1.5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-[9px] text-muted-foreground">Duración (min)</Label>
+                    <Input type="number" min={1} value={h.duracionMinutos} onChange={(e) => updateHorario(dayKey, "duracionMinutos", parseInt(e.target.value) || 60)} className="h-7 text-[11px] px-1.5 w-16" />
+                  </div>
                 </div>
-                <div className="space-y-0.5">
-                  <Label className="text-[9px] text-muted-foreground">Evento</Label>
-                  <Input type="time" value={h.horaEvento} onChange={(e) => updateHorario(dayKey, "horaEvento", e.target.value)} className="h-7 text-[11px] px-1.5" />
-                </div>
-                <div className="space-y-0.5">
-                  <Label className="text-[9px] text-muted-foreground">Duración (min)</Label>
-                  <Input type="number" min={1} value={h.duracionMinutos} onChange={(e) => updateHorario(dayKey, "duracionMinutos", parseInt(e.target.value) || 60)} className="h-7 text-[11px] px-1.5 w-16" />
-                </div>
+                {hasError && (
+                  <p className="text-[10px] text-destructive font-medium pl-1.5">
+                    ⚠️ La hora de apertura debe ser estrictamente anterior a la hora del evento.
+                  </p>
+                )}
               </div>
             );
           })}

@@ -39,7 +39,6 @@ import {
   Compass
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/useToast";
 import type { Convocatoria, Asistencia, BandoConvocatoria } from "@/types";
 
 interface bandoFormData {
@@ -49,7 +48,6 @@ interface bandoFormData {
 
 export default function ConvocatoriaDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
   const [convocatoria, setConvocatoria] = useState<Convocatoria | null>(null);
@@ -97,12 +95,9 @@ export default function ConvocatoriaDetailPage() {
     setError("");
     try {
       await api.post(`/api/convocatorias/${id}/matchmaking`);
-      toast.success("Equipos balanceados y generados con éxito");
       await fetchData();
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err);
-      setError(errMsg);
-      toast.error(errMsg || "Error al balancear equipos");
+      setError(getApiErrorMessage(err));
     } finally {
       setMatchmakingLoading(false);
     }
@@ -117,13 +112,9 @@ export default function ConvocatoriaDetailPage() {
       } else {
         await api.post(`/api/convocatorias/${id}/asistencias`, { convocatoriaId: Number(id), estado });
       }
-      const estadoLabel = estado === "CONFIRMADO" ? "Confirmado" : estado === "RECHAZADO" ? "Rechazado" : "En espera";
-      toast.success(`Asistencia guardada: ${estadoLabel}`);
       fetchData();
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err);
-      setError(errMsg);
-      toast.error(errMsg || "Error al registrar asistencia");
+      setError(getApiErrorMessage(err));
     } finally {
       setResponderLoading(false);
     }
@@ -147,19 +138,15 @@ export default function ConvocatoriaDetailPage() {
     try {
       if (editingBando) {
         await api.put(`/api/bandos/${editingBando.id}`, bandoForm);
-        toast.success("Bando actualizado con éxito");
       } else {
         await api.post(`/api/convocatorias/${id}/bandos`, bandoForm);
-        toast.success("Bando creado con éxito");
       }
       setbandoDialogOpen(false);
       setbandoForm({ nombre: "", color: "" });
       setEditingBando(null);
       fetchData();
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err);
-      setbandoError(errMsg);
-      toast.error(errMsg || "Error al guardar el bando");
+      setbandoError(getApiErrorMessage(err));
     } finally {
       setbandoSaving(false);
     }
@@ -169,12 +156,9 @@ export default function ConvocatoriaDetailPage() {
     if (!confirm("¿Eliminar este bando?")) return;
     try {
       await api.delete(`/api/bandos/${bandoId}`);
-      toast.success("Bando eliminado con éxito");
       fetchData();
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err);
-      setError(errMsg);
-      toast.error(errMsg || "Error al eliminar el bando");
+      setError(getApiErrorMessage(err));
     }
   };
 
@@ -380,7 +364,7 @@ export default function ConvocatoriaDetailPage() {
               <p className="text-xs text-muted-foreground">
                 {convocatoria.estado === "ABIERTA" 
                   ? "¿Vas a participar en esta convocatoria? Confirma tu asistencia."
-                  : "Las inscripciones para este partido se encuentran cerradas."}
+                  : "Las inscripciones para esta convocatoria se encuentran cerradas."}
               </p>
             </div>
           </div>
@@ -883,12 +867,9 @@ export default function ConvocatoriaDetailPage() {
                     onClick={async () => {
                       try {
                         await api.put(`/api/convocatorias/${id}/abrir`);
-                        toast.success("La convocatoria se ha abierto al público");
                         fetchData();
                       } catch (err: unknown) {
-                        const errMsg = getApiErrorMessage(err);
-                        setError(errMsg);
-                        toast.error(errMsg || "Error al abrir la convocatoria");
+                        setError(getApiErrorMessage(err));
                       }
                     }}
                     className="h-8 px-3 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-premium cursor-pointer border border-emerald-600"
@@ -905,19 +886,16 @@ export default function ConvocatoriaDetailPage() {
                       if (confirm("¿Estás seguro de cancelar esta convocatoria?")) {
                         try {
                           await api.put(`/api/convocatorias/${id}/cancelar`);
-                          toast.warning("La convocatoria ha sido cancelada");
                           fetchData();
                         } catch (err: unknown) {
-                          const errMsg = getApiErrorMessage(err);
-                          setError(errMsg);
-                          toast.error(errMsg || "Error al cancelar la convocatoria");
+                          setError(getApiErrorMessage(err));
                         }
                       }
                     }}
                     className="h-8 px-3 font-semibold text-xs rounded border border-destructive/20 hover:bg-destructive/10 bg-background text-destructive cursor-pointer"
                   >
                     <XCircle size={13} className="mr-1.5" />
-                    Cancelar Partido
+                    Cancelar Convocatoria
                   </Button>
                 )}
 
@@ -939,12 +917,9 @@ export default function ConvocatoriaDetailPage() {
                       if (confirm("¿Estás seguro de eliminar completamente esta convocatoria?")) {
                         try {
                           await api.delete(`/api/convocatorias/${id}`);
-                          toast.success("Convocatoria eliminada con éxito");
                           navigate("/convocatorias");
                         } catch (err: unknown) {
-                          const errMsg = getApiErrorMessage(err);
-                          setError(errMsg);
-                          toast.error(errMsg || "Error al eliminar la convocatoria");
+                          setError(getApiErrorMessage(err));
                         }
                       }
                     }}

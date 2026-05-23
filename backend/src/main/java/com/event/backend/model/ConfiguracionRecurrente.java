@@ -22,8 +22,8 @@ public class ConfiguracionRecurrente {
     @Column(length = 500)
     private String descripcion;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "deporte_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deporte_id")
     private Deporte deporte;
 
     @Column(length = 200)

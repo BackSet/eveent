@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -23,66 +21,53 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --radius: var(--radius);
-  --font-sans: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --color-sidebar: hsl(var(--sidebar-background));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-card: hsl(var(--sidebar-card-bg));
-  --color-sidebar-hover: hsl(var(--sidebar-hover));
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Sora', 'Outfit', sans-serif;
 }
 
 :root {
-  --background: 40 10% 98.4%;
-  --foreground: 20 15% 12%;
+  --background: 40 6% 98.5%;
+  --foreground: 240 10% 4%;
   --card: 0 0% 100%;
-  --card-foreground: 20 15% 12%;
+  --card-foreground: 240 10% 4%;
   --popover: 0 0% 100%;
-  --popover-foreground: 20 15% 12%;
-  --primary: 20 15% 12%;
-  --primary-foreground: 40 10% 98.4%;
-  --secondary: 35 6% 95%;
-  --secondary-foreground: 20 15% 12%;
-  --muted: 35 6% 95%;
-  --muted-foreground: 25 8% 45%;
-  --accent: 35 8% 92.5%;
-  --accent-foreground: 20 15% 12%;
+  --popover-foreground: 240 10% 4%;
+  --primary: 240 10% 4%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 40 6% 94%;
+  --secondary-foreground: 240 10% 4%;
+  --muted: 40 6% 94%;
+  --muted-foreground: 240 4% 45%;
+  --accent: 40 6% 90%;
+  --accent-foreground: 240 10% 4%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 20% 98%;
-  --border: 35 6% 91%;
-  --input: 35 6% 91%;
-  --ring: 20 15% 12%;
+  --border: 30 4% 90%;
+  --input: 30 4% 90%;
+  --ring: 240 10% 4%;
   --radius: 0.375rem;
-
-  --sidebar-background: 45 10% 96%;
-  --sidebar-border: 35 6% 91%;
-  --sidebar-card-bg: 40 8% 93.5%;
-  --sidebar-hover: 35 8% 91.5%;
 }
 
 .dark {
-  --background: 20 6% 8.5%;
-  --foreground: 30 10% 88%;
-  --card: 20 5% 11.5%;
-  --card-foreground: 30 10% 88%;
-  --popover: 20 5% 11.5%;
-  --popover-foreground: 30 10% 88%;
-  --primary: 30 10% 95%;
-  --primary-foreground: 20 6% 8.5%;
-  --secondary: 20 5% 14%;
-  --secondary-foreground: 30 10% 88%;
-  --muted: 20 5% 14%;
-  --muted-foreground: 25 6% 62%;
-  --accent: 20 5% 17%;
-  --accent-foreground: 30 10% 95%;
+  --background: 240 10% 3.9%;
+  --foreground: 240 10% 92%;
+  --card: 240 10% 7.5%;
+  --card-foreground: 240 10% 92%;
+  --popover: 240 10% 6.5%;
+  --popover-foreground: 240 10% 92%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 10% 3.9%;
+  --secondary: 240 10% 12%;
+  --secondary-foreground: 240 10% 92%;
+  --muted: 240 10% 12%;
+  --muted-foreground: 240 4% 65%;
+  --accent: 240 10% 16%;
+  --accent-foreground: 240 10% 92%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 20% 98%;
-  --border: 20 5% 15%;
-  --input: 20 5% 15%;
-  --ring: 30 10% 95%;
-
-  --sidebar-background: 20 6% 6.5%;
-  --sidebar-border: 20 5% 11.5%;
-  --sidebar-card-bg: 20 5% 10%;
-  --sidebar-hover: 20 5% 12.5%;
+  --border: 240 10% 12.5%;
+  --input: 240 10% 12.5%;
+  --ring: 0 0% 98%;
 }
 
 * {
@@ -96,6 +81,19 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-display, 'Sora', sans-serif);
+  letter-spacing: -0.02em;
+}
+
+/* Butter-Smooth Theme Transitions */
+body, header, aside, .bg-card, .border, input, select, textarea, button, .notion-callout, .notion-cover, .badge {
+  transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 ::-webkit-scrollbar {
@@ -120,13 +118,13 @@ body {
   position: relative;
   height: 160px;
   width: 100%;
-  background: linear-gradient(135deg, hsl(35 6% 91%) 0%, hsl(45 10% 96%) 100%);
+  background: linear-gradient(135deg, #e3e2e0 0%, #d5d4d0 100%);
   overflow: hidden;
   transition: height 0.3s;
 }
 
 .dark .notion-cover {
-  background: linear-gradient(135deg, hsl(20 5% 15%) 0%, hsl(20 6% 8.5%) 100%);
+  background: linear-gradient(135deg, #2e2e2e 0%, #1e1e1e 100%);
 }
 
 .notion-cover-sports {
@@ -291,13 +289,4 @@ body {
 
 .notion-animate-fade {
   animation: notionFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(12px) scale(0.95); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.animate-slideIn {
-  animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

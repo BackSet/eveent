@@ -70,8 +70,22 @@ public class ConvocatoriaService {
         Deporte deporte = deporteRepository.findById(request.getDeporteId())
                 .orElseThrow(() -> new NotFoundException("Deporte no encontrado con id: " + request.getDeporteId()));
 
-        if (request.getEstado() != null && request.getEstado() != EstadoConvocatoria.BORRADOR) {
-            throw new BusinessException("Las convocatorias nuevas siempre se crean como BORRADOR. Usa /abrir para abrirla.");
+        if (request.getFechaHora() != null) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime eventTime = request.getFechaHora();
+            if (eventTime.toLocalDate().isEqual(now.toLocalDate())) {
+                if (eventTime.isBefore(now.plusHours(1))) {
+                    throw new BusinessException("Para convocatorias del mismo día, la hora del evento debe ser al menos una hora posterior a la hora actual.");
+                }
+            } else if (eventTime.isBefore(now)) {
+                throw new BusinessException("La fecha y hora de la convocatoria no puede ser en el pasado.");
+            }
+        }
+
+        EstadoConvocatoria estado = request.getEstado() != null ? request.getEstado() : EstadoConvocatoria.BORRADOR;
+        LocalDateTime fechaApertura = request.getFechaAperturaInscripcion();
+        if (estado == EstadoConvocatoria.ABIERTA && fechaApertura == null) {
+            fechaApertura = LocalDateTime.now();
         }
 
         Convocatoria convocatoria = Convocatoria.builder()
@@ -83,10 +97,10 @@ public class ConvocatoriaService {
                 .duracionEstimadaMinutos(request.getDuracionEstimadaMinutos() != null ? request.getDuracionEstimadaMinutos() : 60)
                 .lugar(request.getLugar())
                 .creadoPor(creador)
-                .estado(EstadoConvocatoria.BORRADOR)
+                .estado(estado)
                 .cupoMaximo(request.getCupoMaximo() != null ? request.getCupoMaximo() : 0)
                 .categoria(request.getCategoria())
-                .fechaAperturaInscripcion(request.getFechaAperturaInscripcion())
+                .fechaAperturaInscripcion(fechaApertura)
                 .fechaLimiteInscripcion(request.getFechaLimiteInscripcion())
                 .manejoExcedente(request.getManejoExcedente() != null ? request.getManejoExcedente() : "LISTA_ESPERA")
                 .build();
@@ -107,6 +121,18 @@ public class ConvocatoriaService {
             throw new ForbiddenException("No tienes permiso para editar esta convocatoria");
         }
 
+        if (request.getFechaHora() != null) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime eventTime = request.getFechaHora();
+            if (eventTime.toLocalDate().isEqual(now.toLocalDate())) {
+                if (eventTime.isBefore(now.plusHours(1))) {
+                    throw new BusinessException("Para convocatorias del mismo día, la hora del evento debe ser al menos una hora posterior a la hora actual.");
+                }
+            } else if (eventTime.isBefore(now)) {
+                throw new BusinessException("La fecha y hora de la convocatoria no puede ser en el pasado.");
+            }
+        }
+
         if (request.getTitulo() != null) convocatoria.setTitulo(request.getTitulo());
         if (request.getDescripcion() != null) convocatoria.setDescripcion(request.getDescripcion());
         if (request.getFechaHora() != null) convocatoria.setFechaHora(request.getFechaHora());
@@ -119,7 +145,7 @@ public class ConvocatoriaService {
         if (request.getFechaLimiteInscripcion() != null) convocatoria.setFechaLimiteInscripcion(request.getFechaLimiteInscripcion());
         if (request.getManejoExcedente() != null) convocatoria.setManejoExcedente(request.getManejoExcedente());
 
-        if (request.getDeporteId() != null && !request.getDeporteId().equals(convocatoria.getDeporte().getId())) {
+        if (request.getDeporteId() != null && (convocatoria.getDeporte() == null || !request.getDeporteId().equals(convocatoria.getDeporte().getId()))) {
             Deporte deporte = deporteRepository.findById(request.getDeporteId())
                     .orElseThrow(() -> new NotFoundException("Deporte no encontrado con id: " + request.getDeporteId()));
             convocatoria.setDeporte(deporte);
@@ -184,8 +210,8 @@ public class ConvocatoriaService {
                 .id(c.getId())
                 .titulo(c.getTitulo())
                 .descripcion(c.getDescripcion())
-                .deporteId(c.getDeporte().getId())
-                .deporteNombre(c.getDeporte().getNombre())
+                .deporteId(c.getDeporte() != null ? c.getDeporte().getId() : null)
+                .deporteNombre(c.getDeporte() != null ? c.getDeporte().getNombre() : "Sin deporte")
                 .fechaHora(c.getFechaHora())
                 .fechaHoraFin(c.getFechaHoraFin())
                 .duracionEstimadaMinutos(c.getDuracionEstimadaMinutos())

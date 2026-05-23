@@ -94,7 +94,7 @@ public class ConfiguracionRecurrenteService {
         if (request.getHorariosPorDia() != null) config.setHorariosPorDia(convertHorarios(request.getHorariosPorDia()));
         if (request.getActivo() != null) config.setActivo(request.getActivo());
 
-        if (request.getDeporteId() != null && !request.getDeporteId().equals(config.getDeporte().getId())) {
+        if (request.getDeporteId() != null && (config.getDeporte() == null || !request.getDeporteId().equals(config.getDeporte().getId()))) {
             Deporte deporte = deporteRepository.findById(request.getDeporteId())
                     .orElseThrow(() -> new NotFoundException("Deporte no encontrado"));
             config.setDeporte(deporte);
@@ -128,6 +128,10 @@ public class ConfiguracionRecurrenteService {
         Map<String, HorarioDia> result = new HashMap<>();
         requestMap.forEach((key, value) -> {
             if (value != null) {
+                if (value.getHoraApertura() != null && value.getHoraEvento() != null &&
+                    value.getHoraApertura().compareTo(value.getHoraEvento()) >= 0) {
+                    throw new com.event.backend.exception.BusinessException("La hora de apertura debe ser estrictamente anterior a la hora del evento para el día " + key + ".");
+                }
                 result.put(key, new HorarioDia(value.getHoraApertura(), value.getHoraEvento(), value.getDuracionMinutos()));
             }
         });
@@ -150,8 +154,8 @@ public class ConfiguracionRecurrenteService {
                 .id(config.getId())
                 .titulo(config.getTitulo())
                 .descripcion(config.getDescripcion())
-                .deporteId(config.getDeporte().getId())
-                .deporteNombre(config.getDeporte().getNombre())
+                .deporteId(config.getDeporte() != null ? config.getDeporte().getId() : null)
+                .deporteNombre(config.getDeporte() != null ? config.getDeporte().getNombre() : "Sin deporte")
                 .lugar(config.getLugar())
                 .cupoMaximo(config.getCupoMaximo())
                 .categoria(config.getCategoria())

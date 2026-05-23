@@ -1,31 +1,16 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Event - Gestión Deportiva</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- Google Fonts - Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- Theme initialization script to prevent theme flash -->
-    <script>
-      (function() {
-        try {
-          var theme = localStorage.getItem('theme');
-          var darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
-          if (theme === 'dark' || (!theme && darkQuery.matches)) {
-            document.documentElement.classList.add('dark');
-            document.documentElement.classList.remove('light');
-          } else {
-            document.documentElement.classList.add('light');
-            document.documentElement.classList.remove('dark');
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="min-h-screen antialiased transition-colors duration-200">
+  <body class="bg-zinc-950 text-zinc-100 min-h-screen antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

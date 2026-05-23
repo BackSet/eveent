@@ -29,6 +29,9 @@ public class DataInitializer implements CommandLineRunner {
     private final UsuarioRolRepository usuarioRolRepo;
     private final PasswordEncoder passwordEncoder;
     private final Environment environment;
+    private final DeporteRepository deporteRepo;
+    private final PosicionesDeporteRepository posicionesDeporteRepo;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Value("${app.admin.email}")
     private String adminEmail;
@@ -45,12 +48,21 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
+        try {
+            entityManager.createNativeQuery("ALTER TABLE convocatorias ALTER COLUMN deporte_id DROP NOT NULL").executeUpdate();
+            entityManager.createNativeQuery("ALTER TABLE configuraciones_recurrentes ALTER COLUMN deporte_id DROP NOT NULL").executeUpdate();
+            log.info("Restricciones NOT NULL para deporte_id removidas con éxito.");
+        } catch (Exception e) {
+            log.warn("No se pudieron alterar los campos deporte_id (ya podrían ser nullables): {}", e.getMessage());
+        }
+
         if (!bootstrapEnabled) return;
         if (!environment.matchesProfiles("dev", "test", "default")) return;
         seedRolesIfEmpty();
         seedAdminIfNoUsers();
         seedJugadoresIfEmpty();
-        log.info("Seed completado: {} roles, {} permisos", rolesRepo.count(), permisosRepo.count());
+        seedDeportesYPosicionesIfEmpty();
+        log.info("Seed completado: {} roles, {} permisos, {} deportes", rolesRepo.count(), permisosRepo.count(), deporteRepo.count());
     }
 
     private void seedRolesIfEmpty() {
@@ -216,5 +228,137 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         log.info("Jugadores creados: {} | Contraseña: Jugador123!", savedJugadores.size());
+    }
+
+    private record PosData(String nombre, String abreviatura) {}
+
+    private void seedDeportesYPosicionesIfEmpty() {
+
+        // 1. Fútbol
+        Deporte futbol = deporteRepo.findByNombreIgnoreCase("Fútbol")
+                .orElseGet(() -> deporteRepo.save(Deporte.builder()
+                        .nombre("Fútbol")
+                        .esPorEquipos(true)
+                        .minJugadoresPorBando(7)
+                        .maxJugadoresPorBando(11)
+                        .build()));
+
+        List<PosData> futbolPos = List.of(
+                new PosData("Portero", "POR"),
+                new PosData("Defensa Central", "DFC"),
+                new PosData("Lateral Izquierdo", "LI"),
+                new PosData("Lateral Derecho", "LD"),
+                new PosData("Mediocentro Defensivo", "MCD"),
+                new PosData("Mediocentro Organizador", "MC"),
+                new PosData("Mediapunta", "MCO"),
+                new PosData("Extremo Izquierdo", "EI"),
+                new PosData("Extremo Derecho", "ED"),
+                new PosData("Delantero Centro", "DC")
+        );
+        seedPosicionesParaDeporte(futbol, futbolPos);
+
+        // 2. Baloncesto
+        Deporte baloncesto = deporteRepo.findByNombreIgnoreCase("Baloncesto")
+                .orElseGet(() -> deporteRepo.save(Deporte.builder()
+                        .nombre("Baloncesto")
+                        .esPorEquipos(true)
+                        .minJugadoresPorBando(5)
+                        .maxJugadoresPorBando(5)
+                        .build()));
+
+        List<PosData> baloncestoPos = List.of(
+                new PosData("Base", "B"),
+                new PosData("Escolta", "E"),
+                new PosData("Alero", "A"),
+                new PosData("Ala-Pívot", "AP"),
+                new PosData("Pívot", "P")
+        );
+        seedPosicionesParaDeporte(baloncesto, baloncestoPos);
+
+        // 3. Vóleibol
+        Deporte voleibol = deporteRepo.findByNombreIgnoreCase("Vóleibol")
+                .orElseGet(() -> deporteRepo.save(Deporte.builder()
+                        .nombre("Vóleibol")
+                        .esPorEquipos(true)
+                        .minJugadoresPorBando(6)
+                        .maxJugadoresPorBando(6)
+                        .build()));
+
+        List<PosData> voleibolPos = List.of(
+                new PosData("Colocador / Armador", "COL"),
+                new PosData("Rematador / Punta", "PUN"),
+                new PosData("Central", "CEN"),
+                new PosData("Opuesto", "OPU"),
+                new PosData("Líbero", "LIB")
+        );
+        seedPosicionesParaDeporte(voleibol, voleibolPos);
+
+        // 4. Tenis
+        Deporte tenis = deporteRepo.findByNombreIgnoreCase("Tenis")
+                .orElseGet(() -> deporteRepo.save(Deporte.builder()
+                        .nombre("Tenis")
+                        .esPorEquipos(false)
+                        .minJugadoresPorBando(1)
+                        .maxJugadoresPorBando(2)
+                        .build()));
+
+        List<PosData> tenisPos = List.of(
+                new PosData("Singles", "SGL"),
+                new PosData("Dobles", "DBL")
+        );
+        seedPosicionesParaDeporte(tenis, tenisPos);
+
+        // 5. Trotar / Running
+        Deporte trotar = deporteRepo.findByNombreIgnoreCase("Trotar / Running")
+                .orElseGet(() -> deporteRepo.save(Deporte.builder()
+                        .nombre("Trotar / Running")
+                        .esPorEquipos(false)
+                        .minJugadoresPorBando(1)
+                        .maxJugadoresPorBando(1)
+                        .build()));
+
+        List<PosData> trotarPos = List.of(
+                new PosData("Corredor Recreativo", "REC"),
+                new PosData("Velocista", "VEL"),
+                new PosData("Fondista / Maratonista", "FON"),
+                new PosData("Trail Runner", "TRL")
+        );
+        seedPosicionesParaDeporte(trotar, trotarPos);
+
+        // 6. Ciclismo
+        Deporte ciclismo = deporteRepo.findByNombreIgnoreCase("Ciclismo")
+                .orElseGet(() -> deporteRepo.save(Deporte.builder()
+                        .nombre("Ciclismo")
+                        .esPorEquipos(false)
+                        .minJugadoresPorBando(1)
+                        .maxJugadoresPorBando(1)
+                        .build()));
+
+        List<PosData> ciclismoPos = List.of(
+                new PosData("Ciclista de Ruta", "RUT"),
+                new PosData("Escalador", "ESC"),
+                new PosData("Sprinter", "SPR"),
+                new PosData("Mountain Biker", "MTB")
+        );
+        seedPosicionesParaDeporte(ciclismo, ciclismoPos);
+
+        log.info("Seed de deportes y posiciones oficiales completado de forma auto-reparable.");
+    }
+
+    private void seedPosicionesParaDeporte(Deporte deporte, List<PosData> posicionesRequeridas) {
+        List<PosicionesDeporte> posicionesExistentes = posicionesDeporteRepo.findByDeporteId(deporte.getId());
+        var nombresExistentes = posicionesExistentes.stream()
+                .map(p -> p.getNombre().toLowerCase().trim())
+                .collect(Collectors.toSet());
+
+        for (PosData pd : posicionesRequeridas) {
+            if (!nombresExistentes.contains(pd.nombre().toLowerCase().trim())) {
+                posicionesDeporteRepo.save(PosicionesDeporte.builder()
+                        .nombre(pd.nombre())
+                        .abreviatura(pd.abreviatura())
+                        .deporte(deporte)
+                        .build());
+            }
+        }
     }
 }

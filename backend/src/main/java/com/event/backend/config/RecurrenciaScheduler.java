@@ -108,6 +108,10 @@ public class RecurrenciaScheduler {
                     newConv.setFechaAperturaInscripcion(LocalDateTime.of(today, horaApertura));
                 }
 
+                if (newConv.getFechaAperturaInscripcion() == null && newConv.getEstado() == EstadoConvocatoria.ABIERTA) {
+                    newConv.setFechaAperturaInscripcion(LocalDateTime.now());
+                }
+
                 newConv = convocatoriaRepository.save(newConv);
 
                 if (rule.getGrupoDestino() != null) {

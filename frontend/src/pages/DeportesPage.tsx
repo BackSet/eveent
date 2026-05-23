@@ -19,8 +19,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Trash2, Edit, Trophy, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/useToast";
-import { Checkbox } from "@/components/ui/checkbox";
 import type { Deporte } from "@/types";
 
 interface Posicion {
@@ -37,7 +35,6 @@ interface PosicionFormData {
 
 export default function DeportesPage() {
   const { hasPermission } = useAuth();
-  const { toast } = useToast();
   const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [selectedDeporte, setSelectedDeporte] = useState<Deporte | null>(null);
   const [posiciones, setPosiciones] = useState<Posicion[]>([]);
@@ -97,19 +94,15 @@ export default function DeportesPage() {
     try {
       if (editingDeporte) {
         await api.put(`/api/deportes/${editingDeporte.id}`, deporteForm);
-        toast.success("Deporte actualizado con éxito");
       } else {
         await api.post("/api/deportes", deporteForm);
-        toast.success("Deporte creado con éxito");
       }
       setDeporteDialogOpen(false);
       setEditingDeporte(null);
       setDeporteForm({ nombre: "", esPorEquipos: true, minJugadoresPorBando: 1, maxJugadoresPorBando: 11 });
       fetchDeportes();
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err) || "Error al guardar deporte";
-      setDeporteError(errMsg);
-      toast.error(errMsg);
+      setDeporteError(getApiErrorMessage(err) || "Error al guardar deporte");
     } finally {
       setDeporteSaving(false);
     }
@@ -119,15 +112,12 @@ export default function DeportesPage() {
     if (!confirm("¿Eliminar este deporte?")) return;
     try {
       await api.delete(`/api/deportes/${id}`);
-      toast.success("Deporte eliminado con éxito");
       if (selectedDeporte?.id === id) {
         setSelectedDeporte(null);
       }
       fetchDeportes();
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err) || "Error al eliminar deporte";
-      setError(errMsg);
-      toast.error(errMsg);
+      setError(getApiErrorMessage(err) || "Error al eliminar deporte");
     }
   };
 
@@ -141,22 +131,18 @@ export default function DeportesPage() {
           nombre: posicionForm.nombre,
           abreviatura: posicionForm.abreviatura,
         });
-        toast.success("Posición de juego actualizada");
       } else {
         await api.post(`/api/deportes/${selectedDeporte.id}/posiciones`, {
           nombre: posicionForm.nombre,
           abreviatura: posicionForm.abreviatura,
         });
-        toast.success("Posición de juego agregada");
       }
       setPosicionDialogOpen(false);
       setEditingPosicion(null);
       setPosicionForm({ nombre: "", abreviatura: "" });
       fetchPosiciones(selectedDeporte.id);
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err) || "Error al guardar posicion";
-      setPosicionError(errMsg);
-      toast.error(errMsg);
+      setPosicionError(getApiErrorMessage(err) || "Error al guardar posicion");
     } finally {
       setPosicionSaving(false);
     }
@@ -167,12 +153,9 @@ export default function DeportesPage() {
     if (!selectedDeporte) return;
     try {
       await api.delete(`/api/posiciones/${id}`);
-      toast.success("Posición eliminada con éxito");
       fetchPosiciones(selectedDeporte.id);
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err) || "Error al eliminar posicion";
-      setError(errMsg);
-      toast.error(errMsg);
+      setError(getApiErrorMessage(err) || "Error al eliminar posicion");
     }
   };
 
@@ -219,7 +202,7 @@ export default function DeportesPage() {
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Disciplinas y Posiciones</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Deportes & Posiciones</h1>
               <p className="text-muted-foreground text-xs mt-1">Configura las disciplinas deportivas y posiciones oficiales en el workspace.</p>
             </div>
             {canManage && (
@@ -258,13 +241,14 @@ export default function DeportesPage() {
                     
                     <div className="flex items-center justify-between p-3 bg-muted/40 rounded border border-border">
                       <div className="space-y-0.5">
-                        <Label htmlFor="esPorEquipos" className="text-xs font-semibold cursor-pointer">Juego por Equipos</Label>
+                        <Label className="text-xs font-semibold">Juego por Equipos</Label>
                         <p className="text-[10px] text-muted-foreground">Matchmaking en grupos divididos</p>
                       </div>
-                      <Checkbox 
-                        id="esPorEquipos" 
+                      <input 
+                        type="checkbox" 
                         checked={deporteForm.esPorEquipos} 
-                        onCheckedChange={(checked) => setDeporteForm({ ...deporteForm, esPorEquipos: !!checked })} 
+                        onChange={(e) => setDeporteForm({ ...deporteForm, esPorEquipos: e.target.checked })} 
+                        className="h-4 w-4 accent-primary cursor-pointer border-border rounded" 
                       />
                     </div>
 
@@ -398,35 +382,38 @@ export default function DeportesPage() {
                 <p className="text-xs text-muted-foreground font-medium">Sin posiciones oficiales definidas para {selectedDeporte.nombre}</p>
               </div>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
                 {posiciones.map((pos) => (
                   <div
                     key={pos.id}
-                    className="flex items-center justify-between px-3 py-2 border border-border/80 rounded hover:border-border hover:bg-muted/10 transition-colors"
+                    className="flex items-center justify-between px-4 py-3 border border-border/60 rounded-xl hover:border-border hover:bg-muted/20 transition-all shadow-sm bg-card hover:-translate-y-[1px]"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border border-primary/20 bg-primary/5 text-primary shrink-0 select-none">
-                        {pos.abreviatura || "P"}
-                      </span>
-                      <span className="text-xs font-semibold truncate">{pos.nombre}</span>
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="h-7 w-12 flex items-center justify-center text-[10px] font-extrabold uppercase rounded-lg border border-primary/20 bg-primary/[0.04] text-primary shrink-0 select-none tracking-wide">
+                        {pos.abreviatura || "POS"}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-foreground truncate block">{pos.nombre}</span>
+                        <span className="text-[9px] text-muted-foreground block">Demarcación Oficial</span>
+                      </div>
                     </div>
                     {canManage && (
                       <div className="flex gap-0.5 items-center shrink-0">
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-6 w-6 rounded hover:bg-muted" 
+                          className="h-7 w-7 rounded-lg hover:bg-muted" 
                           onClick={() => openPosicionDialog(pos)}
                         >
-                          <Edit size={11} className="text-muted-foreground hover:text-foreground" />
+                          <Edit size={12} className="text-muted-foreground hover:text-foreground" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-6 w-6 rounded hover:bg-destructive/10" 
+                          className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive" 
                           onClick={() => handleDeletePosicion(pos.id)}
                         >
-                          <Trash2 size={11} className="text-destructive" />
+                          <Trash2 size={12} className="text-destructive" />
                         </Button>
                       </div>
                     )}

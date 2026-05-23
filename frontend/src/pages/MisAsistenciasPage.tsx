@@ -5,7 +5,7 @@ import { ESTADO_COLORS, ESTADO_LABELS } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { CalendarCheck, Calendar, ArrowRight } from "lucide-react";
+import { Calendar, ArrowRight } from "lucide-react";
 import type { Asistencia } from "@/types";
 
 export default function MisAsistenciasPage() {
@@ -13,17 +13,11 @@ export default function MisAsistenciasPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-fadeIn pb-12 px-4 sm:px-6">
-      {/* Cover/Header area */}
-      <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
-        <div className="flex items-center gap-3">
-          <span className="text-3xl select-none">⚽</span>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Mis Partidos</h1>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              Historial de convocatorias deportivas y partidos confirmados.
-            </p>
-          </div>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Mis Asistencias</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          Historial de respuestas a convocatorias
+        </p>
       </div>
 
       {loading ? (
@@ -56,7 +50,7 @@ export default function MisAsistenciasPage() {
                     </p>
                   )}
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CalendarCheck size={12} />
+                    <Calendar size={12} />
                     <span>{formatDateTime(asis.fechaRespuesta)}</span>
                   </div>
                 </CardContent>

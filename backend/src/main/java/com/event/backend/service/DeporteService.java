@@ -5,7 +5,8 @@ import com.event.backend.dto.deporte.DeporteResponse;
 import com.event.backend.exception.ConflictException;
 import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.Deporte;
-import com.event.backend.repository.DeporteRepository;
+import com.event.backend.model.PosicionesDeporte;
+import com.event.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -20,6 +21,12 @@ import java.util.List;
 public class DeporteService {
 
     private final DeporteRepository deporteRepository;
+    private final PosicionesDeporteRepository posicionesDeporteRepository;
+    private final UsuarioPosicionRepository usuarioPosicionRepository;
+    private final AsistenciaRepository asistenciaRepository;
+    private final ConvocatoriaRepository convocatoriaRepository;
+    private final ConfiguracionRecurrenteRepository configuracionRecurrenteRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Transactional(readOnly = true)
     @Cacheable("deportes")
@@ -76,6 +83,38 @@ public class DeporteService {
         if (!deporteRepository.existsById(id)) {
             throw new NotFoundException("Deporte no encontrado con id: " + id);
         }
+
+        // 1. Quitar la relación en Convocatorias
+        convocatoriaRepository.nullifyDeporte(id);
+
+        // 2. Quitar la relación en Configuraciones Recurrentes
+        configuracionRecurrenteRepository.nullifyDeporte(id);
+
+        // 3. Obtener todas las posiciones asociadas a este deporte
+        List<PosicionesDeporte> posiciones = posicionesDeporteRepository.findByDeporteId(id);
+        if (posiciones != null && !posiciones.isEmpty()) {
+            List<Long> posIds = posiciones.stream().map(PosicionesDeporte::getId).toList();
+
+            // 4. Eliminar las preferencias de los usuarios para estas posiciones
+            usuarioPosicionRepository.deleteByPosicionIdIn(posIds);
+
+            // 5. Quitar la relación en las asistencias (preferida y asignada)
+            asistenciaRepository.nullifyPosicionPreferida(posIds);
+            asistenciaRepository.nullifyPosicionAsignada(posIds);
+
+            // Force session flush and clear so that all foreign key constraints referencing
+            // positions are physically cleared in PostgreSQL first
+            entityManager.flush();
+            entityManager.clear();
+
+            // 6. Eliminar las posiciones físicas de la base de datos
+            posicionesDeporteRepository.deleteAllInBatch(posiciones);
+        } else {
+            entityManager.flush();
+            entityManager.clear();
+        }
+
+        // 7. Finalmente eliminar el deporte
         deporteRepository.deleteById(id);
     }
 

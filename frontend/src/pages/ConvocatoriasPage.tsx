@@ -8,22 +8,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Calendar, MapPin, Users, Clock, Tag, ArrowRight, Repeat, Trash2, Edit, CheckCircle, XCircle, KanbanSquare, Search, FileText } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Clock, Tag, ArrowRight, Repeat, Play, Trash2, Edit, CheckCircle, XCircle, KanbanSquare, Search, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/useToast";
 import { Convocatoria, ConfiguracionRecurrente } from "@/types";
+import { humanizeRRule } from "@/lib/rruleHumanizer";
 
 const ESTADOS = ["TODOS", "BORRADOR", "ABIERTA", "EN_PROGRESO", "FINALIZADA", "CANCELADA"];
 
 export default function ConvocatoriasPage() {
-  const { toast } = useToast();
   const [convocatorias, setConvocatorias] = useState<Convocatoria[]>([]);
   const [recurrentes, setRecurrentes] = useState<ConfiguracionRecurrente[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingRecurrentes, setLoadingRecurrentes] = useState(false);
   const [estadoFilter, setEstadoFilter] = useState("TODOS");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"PARTIDOS" | "PLANTILLAS">("PARTIDOS");
+  const [activeTab, setActiveTab] = useState<"CONVOCATORIAS" | "PLANTILLAS">("CONVOCATORIAS");
+  const [schedulerMessage, setSchedulerMessage] = useState("");
+  const [runningScheduler, setRunningScheduler] = useState(false);
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
 
@@ -45,10 +46,9 @@ export default function ConvocatoriasPage() {
     if (!confirm("¿Eliminar esta convocatoria?")) return;
     try {
       await api.delete(`/api/convocatorias/${id}`);
-      toast.success("Convocatoria eliminada con éxito");
       fetchConvocatorias();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Error al eliminar la convocatoria");
+      console.error("Error al eliminar convocatoria", err);
     }
   };
 
@@ -56,10 +56,19 @@ export default function ConvocatoriasPage() {
     e.stopPropagation();
     try {
       await api.put(`/api/convocatorias/${id}/abrir`);
-      toast.success("La convocatoria se ha abierto al público");
       fetchConvocatorias();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Error al abrir la convocatoria");
+      console.error("Error al abrir convocatoria", err);
+    }
+  };
+
+  const handleToggleActivoRecurrente = async (e: React.MouseEvent, id: number, currentActivo: boolean) => {
+    e.stopPropagation();
+    try {
+      await api.put(`/api/configuraciones-recurrentes/${id}`, { activo: !currentActivo });
+      fetchRecurrentes();
+    } catch (err: unknown) {
+      console.error("Error al cambiar estado de la regla", err);
     }
   };
 
@@ -68,10 +77,9 @@ export default function ConvocatoriasPage() {
     if (!confirm("¿Cancelar esta convocatoria?")) return;
     try {
       await api.put(`/api/convocatorias/${id}/cancelar`);
-      toast.warning("La convocatoria ha sido cancelada");
       fetchConvocatorias();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Error al cancelar la convocatoria");
+      console.error("Error al cancelar convocatoria", err);
     }
   };
 
@@ -101,18 +109,20 @@ export default function ConvocatoriasPage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "PARTIDOS") { fetchConvocatorias(); } else { fetchRecurrentes(); }
-  }, [activeTab, fetchConvocatorias, fetchRecurrentes]);
+    fetchConvocatorias();
+    if (isOrganizer) {
+      fetchRecurrentes();
+    }
+  }, [fetchConvocatorias, fetchRecurrentes, isOrganizer]);
+
+
 
   const handleDeleteRecurrencia = async (id: number) => {
     if (!confirm("¿Eliminar esta regla recurrente?")) return;
     try {
       await api.delete(`/api/convocatorias/recurrentes/${id}`);
-      toast.success("Regla recurrente eliminada con éxito");
       fetchRecurrentes();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err) || "Error al eliminar la regla recurrente");
-    }
+    } catch (err) { console.error("Error", err); }
   };
 
   // Filter convocatorias/recurrentes locally based on search query
@@ -135,25 +145,36 @@ export default function ConvocatoriasPage() {
         <div className="h-28 notion-cover notion-cover-sports" />
         <div className="p-6 relative pt-10">
           <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
-            🧭
+            📅
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Explorar Partidos</h1>
-            <p className="text-muted-foreground text-xs mt-1">Base de datos de partidos programados y configuraciones recurrentes en el workspace.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Convocatorias</h1>
+            <p className="text-muted-foreground text-xs mt-1">Base de datos de convocatorias programadas y configuraciones recurrentes en el workspace.</p>
           </div>
         </div>
       </div>
+
+      {schedulerMessage && (
+        <div className={`notion-callout ${
+          schedulerMessage.includes("Error") ? "border-destructive bg-destructive/5 text-destructive" : "border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+        }`}>
+          <div className="notion-callout-icon">
+            {schedulerMessage.includes("Error") ? <XCircle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+          </div>
+          <div className="text-sm font-medium">{schedulerMessage}</div>
+        </div>
+      )}
 
       {/* Notion Database Toolbar & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
         {/* Database tabs */}
         <div className="flex notion-db-header border-none m-0 p-0">
           <button
-            onClick={() => { setActiveTab("PARTIDOS"); setSearchQuery(""); }}
-            className={`notion-db-header-item px-3 py-1.5 text-xs font-semibold ${activeTab === "PARTIDOS" ? "active" : ""}`}
+            onClick={() => { setActiveTab("CONVOCATORIAS"); setSearchQuery(""); }}
+            className={`notion-db-header-item px-3 py-1.5 text-xs font-semibold ${activeTab === "CONVOCATORIAS" ? "active" : ""}`}
           >
             <Calendar size={13} className="opacity-70" />
-            <span>Todos los Partidos</span>
+            <span>Todas las Convocatorias</span>
             <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded-full font-medium ml-1">
               {convocatorias.length}
             </span>
@@ -187,7 +208,7 @@ export default function ConvocatoriasPage() {
             />
           </div>
 
-          {activeTab === "PARTIDOS" && (
+          {activeTab === "CONVOCATORIAS" && (
             <Select value={estadoFilter} onValueChange={setEstadoFilter}>
               <SelectTrigger className="w-[125px] h-9 text-xs font-medium border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -198,6 +219,7 @@ export default function ConvocatoriasPage() {
             </Select>
           )}
           
+
           
           {user && isOrganizer && (
             <Link to={activeTab === "PLANTILLAS" ? "/convocatorias/recurrentes/new" : "/convocatorias/new"}>
@@ -211,14 +233,14 @@ export default function ConvocatoriasPage() {
       </div>
 
       {/* Main Database Content Grid/List */}
-      {activeTab === "PARTIDOS" ? (
+      {activeTab === "CONVOCATORIAS" ? (
         loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : (
           <div className="border border-border rounded-lg bg-card overflow-hidden">
             {/* Database header row */}
             <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-              <div className="col-span-5 flex items-center gap-2">Título / Partido</div>
+              <div className="col-span-5 flex items-center gap-2">Título / Convocatoria</div>
               <div className="col-span-2">Deporte / Categoría</div>
               <div className="col-span-3">Fecha y Lugar</div>
               <div className="col-span-2 text-right">Estado / Acciones</div>
@@ -381,7 +403,7 @@ export default function ConvocatoriasPage() {
                   <div className="col-span-1 md:col-span-3 space-y-1 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1.5">
                       <Repeat size={12} className="opacity-70 shrink-0" />
-                      <span className="font-semibold">{rec.rruleExpression}</span>
+                      <span className="font-semibold">{humanizeRRule(rec.rruleExpression)}</span>
                     </div>
                     {rec.lugar && (
                       <div className="flex items-center gap-1.5">
@@ -393,11 +415,24 @@ export default function ConvocatoriasPage() {
 
                   {/* Badges & Actions */}
                   <div className="col-span-1 md:col-span-2 flex items-center justify-between md:justify-end gap-2 md:text-right">
-                    <Badge variant={rec.activo ? "success" : "secondary"} className="text-[9px] px-1.5 py-0.5 uppercase tracking-wide font-bold">
-                      {rec.activo ? "Activo" : "Pausado"}
+                    <Badge variant={rec.activo ? "success" : "default"} className="text-[9px] px-1.5 py-0.5 uppercase tracking-wide font-bold">
+                      {rec.activo ? "Activa" : "Borrador"}
                     </Badge>
 
                     <div className="flex items-center gap-1.5">
+                      {isOrganizer && (
+                        <button
+                          onClick={(e) => handleToggleActivoRecurrente(e, rec.id, rec.activo)}
+                          className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
+                            rec.activo
+                              ? "hover:bg-amber-500/10 text-amber-600 hover:text-amber-700"
+                              : "hover:bg-green-500/10 text-green-600 hover:text-green-700"
+                          }`}
+                          title={rec.activo ? "Desactivar regla" : "Activar regla"}
+                        >
+                          {rec.activo ? <XCircle size={13} /> : <CheckCircle size={13} />}
+                        </button>
+                      )}
                       <Link to={`/convocatorias/recurrentes/${rec.id}/edit`}>
                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-muted" title="Editar">
                           <Edit size={13} className="text-muted-foreground hover:text-foreground" />

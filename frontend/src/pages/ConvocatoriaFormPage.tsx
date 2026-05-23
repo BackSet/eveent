@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "@/services/api";
-import { getApiErrorMessage } from "@/lib/constants";
+import { getApiErrorMessage, parseRrule, RRULE_DAYS } from "@/lib/constants";
 import { RRuleBuilder } from "@/components/RRuleBuilder";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,26 +10,27 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Calendar, Clock, MapPin, Users, Repeat, UserPlus, Check, X, Search } from "lucide-react";
 import { Deporte, Grupo, Usuario, HorarioDia } from "@/types";
-import { useToast } from "@/hooks/useToast";
 
 const CATEGORIAS = [
   { value: "LIBRE", label: "Libre" },
   { value: "COMPETITIVO", label: "Competitivo" },
   { value: "AMISTOSO", label: "Amistoso" },
   { value: "ENTRENAMIENTO", label: "Entrenamiento" },
-  { value: "TORNEO", label: "Torneo" },
 ];
 
 const DEFAULT_HORARIO: HorarioDia = { horaApertura: "08:00", horaEvento: "20:00", duracionMinutos: 90 };
+
+const getDayLabel = (key: string): string => {
+  if (key === "DEFAULT") return "Cada ocurrencia";
+  return RRULE_DAYS.find(d => d.value === key)?.label ?? key;
+};
 
 export default function ConvocatoriaFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
 
   const isEditing = Boolean(id);
   const isRecurrentRoute = location.pathname.includes("recurrentes");
@@ -52,7 +53,7 @@ export default function ConvocatoriaFormPage() {
   const [recurrenteData, setRecurrenteData] = useState({
     titulo: "", descripcion: "", deporteId: 0, lugar: "", cupoMaximo: 0, categoria: "",
     rruleExpression: "FREQ=WEEKLY;BYDAY=MO", horariosPorDia: { MO: { ...DEFAULT_HORARIO } } as Record<string, HorarioDia>,
-    grupoDestinoId: "0", activo: true,
+    grupoDestinoId: "0", estado: "ABIERTA",
   });
 
   const [invitationMode, setInvitationMode] = useState<"NONE" | "GROUP" | "MANUAL">("NONE");
@@ -87,7 +88,7 @@ export default function ConvocatoriaFormPage() {
               titulo: data.titulo, descripcion: data.descripcion || "", deporteId: data.deporteId, lugar: data.lugar || "",
               cupoMaximo: data.cupoMaximo || 0, categoria: data.categoria || "", rruleExpression: data.rruleExpression || "FREQ=WEEKLY;BYDAY=MO",
               horariosPorDia: horarios,
-              grupoDestinoId: data.grupoDestinoId || "", activo: data.activo,
+              grupoDestinoId: data.grupoDestinoId || "", estado: data.activo ? "ABIERTA" : "BORRADOR",
             });
             setIsRecurrent(true);
           } else {
@@ -126,47 +127,68 @@ export default function ConvocatoriaFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     setError("");
+
+    if (isRecurrent) {
+      const parsedRrule = parseRrule(recurrenteData.rruleExpression || "FREQ=WEEKLY");
+      const activeKeys: string[] = [];
+      if (parsedRrule.freq === "WEEKLY") {
+        activeKeys.push(...parsedRrule.byday);
+      } else if (parsedRrule.freq === "DAILY") {
+        activeKeys.push(...RRULE_DAYS.map(d => d.value));
+      } else {
+        activeKeys.push("DEFAULT");
+      }
+
+      for (const key of activeKeys) {
+        const hor = recurrenteData.horariosPorDia[key] || DEFAULT_HORARIO;
+        if (hor.horaApertura && hor.horaEvento && hor.horaApertura >= hor.horaEvento) {
+          setError(`La hora de apertura para el día "${getDayLabel(key)}" debe ser estrictamente anterior a la hora del evento.`);
+          return;
+        }
+      }
+    } else {
+      const eventDate = new Date(formData.fechaHora);
+      const now = new Date();
+      
+      const eventDateOnly = formData.fechaHora.split("T")[0];
+      const todayDateOnly = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split("T")[0];
+      
+      if (eventDateOnly === todayDateOnly) {
+        const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+        if (eventDate < oneHourFromNow) {
+          setError("Para convocatorias del mismo día, la hora del evento debe ser al menos una hora posterior a la hora actual.");
+          return;
+        }
+      } else if (eventDate < now) {
+        setError("La fecha y hora del evento no puede ser en el pasado.");
+        return;
+      }
+    }
+
+    setSaving(true);
     try {
       if (isRecurrent) {
-        const payload = { ...recurrenteData, grupoDestinoId: recurrenteData.grupoDestinoId ? Number(recurrenteData.grupoDestinoId) : null };
-        if (isEditing) {
-          await api.put(`/api/configuraciones-recurrentes/${id}`, payload);
-          toast.success("Configuración recurrente actualizada correctamente");
-        } else {
-          await api.post("/api/configuraciones-recurrentes", payload);
-          toast.success("Configuración recurrente creada con éxito");
-        }
+        const { estado, ...rest } = recurrenteData;
+        const payload = { ...rest, activo: estado === "ABIERTA", grupoDestinoId: recurrenteData.grupoDestinoId && recurrenteData.grupoDestinoId !== "0" ? Number(recurrenteData.grupoDestinoId) : null };
+        if (isEditing) { await api.put(`/api/configuraciones-recurrentes/${id}`, payload); } else { await api.post("/api/configuraciones-recurrentes", payload); }
       } else {
         const payload = { ...formData, fechaHora: formData.fechaHora + ":00", fechaLimiteInscripcion: formData.fechaLimiteInscripcion ? formData.fechaLimiteInscripcion + ":00" : null };
         let createdId: number;
-        if (isEditing) {
-          const { data } = await api.put(`/api/convocatorias/${id}`, payload);
-          createdId = data.id;
-          toast.success("Convocatoria actualizada con éxito");
-        } else {
-          const { data } = await api.post("/api/convocatorias", payload);
-          createdId = data.id;
-          toast.success("Convocatoria creada con éxito");
-        }
+        if (isEditing) { const { data } = await api.put(`/api/convocatorias/${id}`, payload); createdId = data.id; }
+        else { const { data } = await api.post("/api/convocatorias", payload); createdId = data.id; }
         if (!isEditing && createdId) {
           let userIdsToInvite: number[] = [];
           if (invitationMode === "GROUP" && selectedGrupoId) {
             const targetGrp = grupos.find(g => g.id === Number(selectedGrupoId));
             if (targetGrp && targetGrp.miembroIds) userIdsToInvite = targetGrp.miembroIds;
           } else if (invitationMode === "MANUAL" && selectedUserIds.length > 0) { userIdsToInvite = selectedUserIds; }
-          if (userIdsToInvite.length > 0) {
-            await api.post(`/api/convocatorias/${createdId}/asistencias/bulk`, userIdsToInvite);
-            toast.info(`Se han enviado invitaciones a ${userIdsToInvite.length} jugadores`);
-          }
+          if (userIdsToInvite.length > 0) { await api.post(`/api/convocatorias/${createdId}/asistencias/bulk`, userIdsToInvite); }
         }
       }
       navigate("/convocatorias");
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err) || "Error al guardar";
-      setError(errMsg);
-      toast.error(errMsg);
+      setError(getApiErrorMessage(err) || "Error al guardar");
     } finally {
       setSaving(false);
     }
@@ -175,6 +197,28 @@ export default function ConvocatoriaFormPage() {
   const filteredUsers = usuarios.filter(u => u.nombre.toLowerCase().includes(userSearchQuery.toLowerCase()) || u.email.toLowerCase().includes(userSearchQuery.toLowerCase()));
 
   if (loading) { return <div className="flex justify-center items-center py-20 min-h-[60vh]"><Spinner /></div>; }
+
+  const nowForValidation = new Date();
+  const todayDateStr = new Date(nowForValidation.getTime() - nowForValidation.getTimezoneOffset() * 60000).toISOString().split("T")[0];
+  
+  const oneHourLater = new Date(nowForValidation.getTime() + 60 * 60 * 1000);
+  const oneHourLaterDateStr = new Date(oneHourLater.getTime() - oneHourLater.getTimezoneOffset() * 60000).toISOString().split("T")[0];
+  
+  const minDateStr = todayDateStr === oneHourLaterDateStr ? todayDateStr : oneHourLaterDateStr;
+  const isToday = formData.fechaHora?.split("T")[0] === todayDateStr;
+  const minTimeForToday = isToday ? new Date(oneHourLater.getTime() - oneHourLater.getTimezoneOffset() * 60000).toISOString().split("T")[1].slice(0, 5) : undefined;
+
+  let singleMatchError = "";
+  if (formData.fechaHora) {
+    const eventDate = new Date(formData.fechaHora);
+    if (isToday) {
+      if (eventDate < oneHourLater) {
+        singleMatchError = "La hora del evento debe ser al menos una hora posterior a la hora actual.";
+      }
+    } else if (eventDate < nowForValidation) {
+      singleMatchError = "La fecha y hora no pueden ser en el pasado.";
+    }
+  }
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto animate-fadeIn pb-12 px-4 sm:px-6">
@@ -185,14 +229,14 @@ export default function ConvocatoriaFormPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{isEditing ? "Editar Convocatoria" : "Nueva Convocatoria"}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          {isEditing ? "Edita los detalles del evento" : "Define un partido o programa un ciclo recurrente"}
+          {isEditing ? "Edita los detalles del evento" : "Define una convocatoria o programa un ciclo recurrente"}
         </p>
       </div>
 
       {!isEditing && (
         <div className="grid grid-cols-2 p-1 bg-muted rounded-lg">
           <button type="button" onClick={() => setIsRecurrent(false)} className={`py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${!isRecurrent ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
-            <Calendar size={13} /> Partido Único
+            <Calendar size={13} /> Convocatoria Única
           </button>
           <button type="button" onClick={() => setIsRecurrent(true)} className={`py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${isRecurrent ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
             <Repeat size={13} /> Ciclo Recurrente
@@ -205,12 +249,12 @@ export default function ConvocatoriaFormPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">{isRecurrent ? "Plantilla Recurrente" : "Partido Único"}</CardTitle>
+            <CardTitle className="text-sm font-semibold">{isRecurrent ? "Plantilla Recurrente" : "Convocatoria Única"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="titulo" className="text-xs font-medium text-muted-foreground">Título</Label>
-              <Input id="titulo" placeholder="Ej: Partido Amistoso" value={isRecurrent ? recurrenteData.titulo : formData.titulo} onChange={(e) => isRecurrent ? setRecurrenteData({ ...recurrenteData, titulo: e.target.value }) : setFormData({ ...formData, titulo: e.target.value })} required />
+              <Input id="titulo" placeholder="Ej: Encuentro Amistoso" value={isRecurrent ? recurrenteData.titulo : formData.titulo} onChange={(e) => isRecurrent ? setRecurrenteData({ ...recurrenteData, titulo: e.target.value }) : setFormData({ ...formData, titulo: e.target.value })} required />
             </div>
 
             <div className="space-y-1.5">
@@ -264,17 +308,58 @@ export default function ConvocatoriaFormPage() {
             </div>
 
             {!isRecurrent && (
+              <div className="space-y-1.5 pt-3 border-t">
+                <Label className="text-xs font-medium text-muted-foreground">Estado de la Convocatoria</Label>
+                <Select value={formData.estado} onValueChange={(v) => setFormData({ ...formData, estado: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BORRADOR">Borrador (Oculto)</SelectItem>
+                    <SelectItem value="ABIERTA">Activo (Publicado)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+                  {formData.estado === "BORRADOR"
+                    ? "Borrador: La convocatoria se guarda como borrador de forma privada. No es visible en la lista pública, no permite inscripciones y no se notificará a los jugadores."
+                    : "Activo: La convocatoria se publica inmediatamente con inscripciones abiertas. Si seleccionaste invitaciones, los jugadores serán notificados al instante."}
+                </p>
+              </div>
+            )}
+
+            {isRecurrent && (
+              <div className="space-y-1.5 pt-3 border-t animate-fadeIn">
+                <Label className="text-xs font-medium text-muted-foreground">Estado de la Programación</Label>
+                <Select value={recurrenteData.estado} onValueChange={(v) => setRecurrenteData({ ...recurrenteData, estado: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BORRADOR">Borrador (Inactivo)</SelectItem>
+                    <SelectItem value="ABIERTA">Activo (Programado)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+                  {recurrenteData.estado === "BORRADOR"
+                    ? "Borrador (Inactivo): El ciclo recurrente se guarda como borrador. No se generarán convocatorias de forma automática hasta que decidas activar la programación."
+                    : "Activo (Programado): El ciclo recurrente está activo e iniciará la generación automática de convocatorias en las fechas del calendario definidas."}
+                </p>
+              </div>
+            )}
+
+            {!isRecurrent && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
                   <div className="space-y-1.5">
                     <Label htmlFor="fechaDate" className="text-xs font-medium text-muted-foreground">Fecha</Label>
-                    <Input id="fechaDate" type="date" value={formData.fechaHora ? formData.fechaHora.split("T")[0] : ""} onChange={(e) => { const date = e.target.value; const time = formData.fechaHora?.split("T")[1] || "20:00"; setFormData({ ...formData, fechaHora: date + "T" + time }); }} required />
+                    <Input id="fechaDate" type="date" min={minDateStr} value={formData.fechaHora ? formData.fechaHora.split("T")[0] : ""} onChange={(e) => { const date = e.target.value; const time = formData.fechaHora?.split("T")[1] || "20:00"; setFormData({ ...formData, fechaHora: date + "T" + time }); }} required />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="fechaTime" className="text-xs font-medium text-muted-foreground">Hora del evento</Label>
-                    <Input id="fechaTime" type="time" value={formData.fechaHora ? formData.fechaHora.split("T")[1] : ""} onChange={(e) => { const date = formData.fechaHora?.split("T")[0] || ""; setFormData({ ...formData, fechaHora: date + "T" + e.target.value }); }} required />
+                    <Input id="fechaTime" type="time" min={minTimeForToday} value={formData.fechaHora ? formData.fechaHora.split("T")[1] : ""} onChange={(e) => { const date = formData.fechaHora?.split("T")[0] || ""; setFormData({ ...formData, fechaHora: date + "T" + e.target.value }); }} required />
                   </div>
                 </div>
+                {singleMatchError && (
+                  <p className="text-[10px] text-destructive font-medium pl-1.5 animate-fadeIn">
+                    ⚠️ {singleMatchError}
+                  </p>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="duracion" className="text-xs font-medium text-muted-foreground">Duración (min)</Label>
@@ -292,6 +377,11 @@ export default function ConvocatoriaFormPage() {
                         <SelectItem value="COMODIN">Comodín Neutral</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+                      {formData.manejoExcedente === "LISTA_ESPERA"
+                        ? "Lista de Espera: Los jugadores excedentes entran en una cola ordenada y pasan automáticamente a confirmados si alguien se da de baja."
+                        : "Comodín Neutral: Los excedentes se registran como comodines sustitutos, ideales para balancear equipos el día del juego."}
+                    </p>
                   </div>
                 </div>
               </>
@@ -306,14 +396,6 @@ export default function ConvocatoriaFormPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <RRuleBuilder value={recurrenteData.rruleExpression} horariosPorDia={recurrenteData.horariosPorDia} onRruleChange={handleRruleChange} onHorariosChange={handleHorariosChange} />
-
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
-                <div>
-                  <Label htmlFor="activo" className="text-xs font-semibold cursor-pointer">Regla Activa</Label>
-                  <p className="text-[10px] text-muted-foreground">Auto-genera convocatorias en BORRADOR</p>
-                </div>
-                <Checkbox id="activo" checked={recurrenteData.activo} onCheckedChange={(checked) => setRecurrenteData({ ...recurrenteData, activo: !!checked })} />
-              </div>
             </CardContent>
           </Card>
         )}

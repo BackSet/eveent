@@ -29,9 +29,7 @@ import {
   Map,
   Hash,
   TableProperties,
-  KanbanSquare,
-  Compass,
-  CalendarCheck
+  KanbanSquare
 } from "lucide-react";
 import type { Convocatoria, Asistencia, Deporte, UsuarioPosicionDto } from "@/types";
 
@@ -202,14 +200,14 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               {isOrganizer && (
                 <Link to="/convocatorias/new">
-                  <Button variant="outline" className="border-border hover:bg-accent hover:text-accent-foreground h-8.5 rounded-md text-[13px] font-bold">
+                  <Button variant="outline" className="border-border hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] h-8.5 rounded-md text-[13px] font-bold">
                     <Plus size={14} className="mr-1" />
                     Crear Convocatoria
                   </Button>
                 </Link>
               )}
               <Link to="/perfil">
-                <Button variant="ghost" className="hover:bg-accent hover:text-accent-foreground h-8.5 rounded-md text-[13px] font-semibold text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" className="hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] h-8.5 rounded-md text-[13px] font-semibold text-muted-foreground hover:text-foreground">
                   Configurar Ficha
                 </Button>
               </Link>
@@ -224,16 +222,16 @@ export default function Dashboard() {
         <div>
           <p className="font-semibold text-foreground">Acceso Directo al Centro Deportivo</p>
           <p className="text-muted-foreground mt-0.5 leading-relaxed text-[13.5px]">
-            Este es tu panel deportivo Notion-style. Aquí puedes visualizar estadísticas clave en tiempo real, confirmar tu asistencia con un solo clic utilizando la base de datos inteligente de partidos, y ver la alineación balanceada automáticamente según tu posición.
+            Este es tu panel deportivo Notion-style. Aquí puedes visualizar estadísticas clave en tiempo real, confirmar tu asistencia con un solo clic utilizando la base de datos inteligente de convocatorias, y ver la alineación balanceada automáticamente según tu posición.
           </p>
         </div>
       </div>
 
         {/* Flat Stat Properties Panel */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 border-t border-b border-border py-4 text-sm font-medium">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 border-t border-b border-[#ededeb] dark:border-[#2e2e2e] py-4 text-sm font-medium">
           <div className="flex items-center gap-3 px-2">
             <div className="h-8 w-8 rounded bg-[#e3f2fd] dark:bg-[#0d47a1]/25 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-              <Compass size={16} />
+              <Calendar size={16} />
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold leading-none">Abiertas</p>
@@ -241,17 +239,17 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 px-2 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-4">
+          <div className="flex items-center gap-3 px-2 border-t sm:border-t-0 sm:border-l border-[#ededeb] dark:border-[#2e2e2e] pt-3 sm:pt-0 sm:pl-4">
             <div className="h-8 w-8 rounded bg-[#e8f5e9] dark:bg-[#1b5e20]/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-              <CalendarCheck size={16} />
+              <Users size={16} />
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold leading-none">Confirmado</p>
-              <p className="text-base font-extrabold mt-0.5 text-foreground">{answeredMisAsistencias.length} partidos</p>
+              <p className="text-base font-extrabold mt-0.5 text-foreground">{answeredMisAsistencias.length} eventos</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 px-2 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-4">
+          <div className="flex items-center gap-3 px-2 border-t sm:border-t-0 sm:border-l border-[#ededeb] dark:border-[#2e2e2e] pt-3 sm:pt-0 sm:pl-4">
             <div className="h-8 w-8 rounded bg-[#fff8e1] dark:bg-[#f57f17]/20 flex items-center justify-center text-amber-600 dark:text-amber-500 shrink-0">
               <Trophy size={16} />
             </div>
@@ -298,11 +296,11 @@ export default function Dashboard() {
 
             {/* TABULAR VIEW (Default Notion Database style) */}
             {dbView === "TABLE" ? (
-              <div className="border border-border rounded-lg overflow-hidden bg-card text-[13px]">
+              <div className="border border-[#ededeb] dark:border-[#2e2e2e] rounded-lg overflow-hidden bg-card text-[13px]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-secondary/40 border-b border-border text-muted-foreground font-semibold">
+                      <tr className="bg-secondary/40 border-b border-[#ededeb] dark:border-[#2e2e2e] text-muted-foreground font-semibold">
                         <th className="p-3 pl-4 font-semibold w-[40%]">Nombre</th>
                         <th className="p-3 font-semibold w-[15%]">Deporte</th>
                         <th className="p-3 font-semibold w-[20%]">Fecha y Hora</th>
@@ -310,7 +308,7 @@ export default function Dashboard() {
                         <th className="p-3 pr-4 font-semibold w-[10%] text-right">Confirmar</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-[#ededeb] dark:divide-[#2e2e2e]">
                       {activeConvs.slice(0, 8).map((conv) => {
                         const rsvp = getUserRsvpStatus(conv.id);
                         const list = convocatoriaAsistencias[conv.id] || [];
@@ -323,7 +321,7 @@ export default function Dashboard() {
                           <tr 
                             key={conv.id} 
                             onClick={() => navigate(`/convocatorias/${conv.id}`)}
-                            className="hover:bg-accent/40 cursor-pointer transition-colors group"
+                            className="hover:bg-[#f7f7f5]/50 dark:hover:bg-[#1e1e1e]/50 cursor-pointer transition-colors group"
                           >
                             {/* Title with Emoji */}
                             <td className="p-3 pl-4 font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-2">
@@ -474,7 +472,7 @@ export default function Dashboard() {
                   <div className="notion-board-column-header">
                     <span className="flex items-center gap-1.5 font-bold text-foreground">
                       <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      Partidos En Juego
+                      Eventos En Juego
                     </span>
                     <span className="text-[11px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
                       {activeConvs.filter(c => c.estado === "EN_PROGRESO").length}
@@ -518,9 +516,9 @@ export default function Dashboard() {
 
           {/* RIGHT: Notion Player Ficha & Properties (1/3 width) */}
           <div className="space-y-6">
-            <h2 className="text-lg font-bold text-foreground tracking-tight border-b pb-2 border-border">Ficha de Jugador</h2>
+            <h2 className="text-lg font-bold text-foreground tracking-tight border-b pb-2 border-[#ededeb] dark:border-[#2e2e2e]">Ficha de Jugador</h2>
             
-            <Card className="border border-border bg-card/60 backdrop-blur-md rounded-lg shadow-none">
+            <Card className="border border-[#ededeb] dark:border-[#2e2e2e] bg-card/60 backdrop-blur-md rounded-lg shadow-none">
               <div className="p-5 space-y-6">
                 
                 {/* Username Header */}
@@ -535,7 +533,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Notion Property grid */}
-                <div className="notion-property-grid border-t pt-4 border-dashed border-border">
+                <div className="notion-property-grid border-t pt-4 border-dashed border-[#ededeb] dark:border-[#2e2e2e]">
                   
                   {/* Jersey Property */}
                   <span className="notion-property-label">
@@ -578,7 +576,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Preferred Positions */}
-                <div className="space-y-2 border-t pt-4 border-dashed border-border">
+                <div className="space-y-2 border-t pt-4 border-dashed border-[#ededeb] dark:border-[#2e2e2e]">
                   <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                     <Trophy size={11} className="text-primary" />
                     <span>Posiciones de Juego Preferidas</span>
@@ -611,12 +609,12 @@ export default function Dashboard() {
             </Card>
 
             {/* Quick shortcuts in Notion styled Callout block */}
-            <div className="border border-border bg-muted/40 rounded-lg p-4 space-y-3">
+            <div className="border border-[#ededeb] dark:border-[#2e2e2e] bg-[#f7f7f5]/40 rounded-lg p-4 space-y-3">
               <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Navegación del Workspace</h5>
               <div className="space-y-1 text-xs">
                 <Link 
                   to="/mis-asistencias" 
-                  className="flex items-center justify-between p-2 hover:bg-accent hover:text-accent-foreground transition-colors rounded-md text-foreground group"
+                  className="flex items-center justify-between p-2 hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] transition-colors rounded-md text-foreground group"
                 >
                   <span className="flex items-center gap-2">
                     <Users size={12} className="text-muted-foreground" />
@@ -627,7 +625,7 @@ export default function Dashboard() {
 
                 <Link 
                   to="/perfil" 
-                  className="flex items-center justify-between p-2 hover:bg-accent hover:text-accent-foreground transition-colors rounded-md text-foreground group"
+                  className="flex items-center justify-between p-2 hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] transition-colors rounded-md text-foreground group"
                 >
                   <span className="flex items-center gap-2">
                     <Shirt size={12} className="text-muted-foreground" />

@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { Shield, Plus, Pencil, Trash2, Key, Info, Calendar, Users, User, Trophy, Settings, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/useToast";
 
 interface Permiso {
   id: number;
@@ -64,7 +63,6 @@ const getModulo = (clave: string): string => {
 
 export default function PermisosPage() {
   const { hasPermission } = useAuth();
-  const { toast } = useToast();
   const [permisos, setPermisos] = useState<Permiso[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -110,16 +108,13 @@ export default function PermisosPage() {
     try {
       if (editingPermiso) {
         await api.put(`/api/permisos/${editingPermiso.id}`, formData);
-        toast.success("Permiso actualizado correctamente");
       } else {
         await api.post("/api/permisos", formData);
-        toast.success("Permiso creado correctamente");
       }
       setDialogOpen(false);
       fetchPermisos();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err) || "Error al guardar el permiso. Verifique que no exista un duplicado.");
-      toast.error(getApiErrorMessage(err) || "Error al guardar el permiso.");
     } finally {
       setSaving(false);
     }
@@ -129,10 +124,9 @@ export default function PermisosPage() {
     if (!confirm(`¿Está seguro que desea eliminar el permiso "${clave}"?`)) return;
     try {
       await api.delete(`/api/permisos/${id}`);
-      toast.success("Permiso eliminado correctamente");
       fetchPermisos();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Error al eliminar el permiso");
+      alert(getApiErrorMessage(err) || "Error al eliminar el permiso");
     }
   };
 
@@ -249,7 +243,7 @@ export default function PermisosPage() {
                   id="descripcion"
                   value={formData.descripcion}
                   onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  placeholder="Ej: Permite actualizar el resultado de un partido"
+                  placeholder="Ej: Permite registrar el resultado de un evento"
                   className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
                 />
               </div>

@@ -8,6 +8,7 @@ export interface Usuario {
   permissions?: string[];
   activo?: boolean;
   fechaCreacion?: string;
+  posiciones?: UsuarioPosicionDto[];
 }
 
 export interface RolesSistema {
@@ -138,14 +139,15 @@ export interface ConfiguracionRecurrente {
   rruleExpression: string;
   horariosPorDia: Record<string, HorarioDia>;
   grupoDestinoId?: number | null;
-  grupoDestinoNombre?: string | null;
+  grupoDestinoNombre?: string;
   activo: boolean;
-  fechaCreacion: string;
+  fechaCreacion?: string;
 }
 
 export interface UsuarioPosicionDto {
   posicionId: number;
   posicionNombre: string;
+  posicionAbreviatura?: string;
   deporteId: number;
   deporteNombre: string;
   prioridad: number;

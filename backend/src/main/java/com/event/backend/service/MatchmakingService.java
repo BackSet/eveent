@@ -71,6 +71,9 @@ public class MatchmakingService {
         }
 
         Deporte deporte = convocatoria.getDeporte();
+        if (deporte == null) {
+            throw new com.event.backend.exception.ConflictException("No se puede realizar el emparejamiento porque la convocatoria no tiene un deporte asociado.");
+        }
         boolean esPorEquipos = deporte.getEsPorEquipos() != null ? deporte.getEsPorEquipos() : true;
 
         if (esPorEquipos) {

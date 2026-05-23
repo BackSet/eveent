@@ -34,4 +34,8 @@ public interface ConvocatoriaRepository extends JpaRepository<Convocatoria, Long
 
     @Query("SELECT c FROM Convocatoria c WHERE c.configuracionRecurrente.id = :configuracionId")
     List<Convocatoria> findByConfiguracionRecurrenteId(@Param("configuracionId") Long configuracionId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Convocatoria c SET c.deporte = null WHERE c.deporte.id = :deporteId")
+    void nullifyDeporte(@Param("deporteId") Long deporteId);
 }

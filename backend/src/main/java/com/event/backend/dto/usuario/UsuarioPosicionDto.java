@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class UsuarioPosicionDto {
     private Long posicionId;
     private String posicionNombre;
+    private String posicionAbreviatura;
     private Long deporteId;
     private String deporteNombre;
     private Integer prioridad;

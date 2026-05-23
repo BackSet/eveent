@@ -9,4 +9,12 @@ public interface UsuarioPosicionRepository extends JpaRepository<UsuarioPosicion
     List<UsuarioPosicion> findByUsuarioId(Long usuarioId);
     List<UsuarioPosicion> findByUsuarioIdIn(List<Long> usuarioIds);
     void deleteByUsuarioId(Long usuarioId);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("DELETE FROM UsuarioPosicion up WHERE up.posicion.id = :posicionId")
+    void deleteByPosicionId(@org.springframework.data.repository.query.Param("posicionId") Long posicionId);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("DELETE FROM UsuarioPosicion up WHERE up.posicion.id IN :posicionIds")
+    void deleteByPosicionIdIn(@org.springframework.data.repository.query.Param("posicionIds") List<Long> posicionIds);
 }

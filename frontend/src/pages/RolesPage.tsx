@@ -17,7 +17,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Shield, Plus, Pencil, Trash2, Key } from "lucide-react";
-import { useToast } from "@/hooks/useToast";
 
 interface Permiso {
   id: number;
@@ -39,7 +38,6 @@ interface RolFormData {
 const PROTECTED_ROLES = ["SuperAdmin", "Organizador", "Jugador"];
 
 export default function RolesPage() {
-  const { toast } = useToast();
   const [roles, setRoles] = useState<Rol[]>([]);
   const [permisos, setPermisos] = useState<Permiso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,16 +89,13 @@ export default function RolesPage() {
     try {
       if (editingRol) {
         await api.put(`/api/roles/${editingRol.id}`, formData);
-        toast.success("Rol actualizado correctamente");
       } else {
         await api.post("/api/roles", formData);
-        toast.success("Rol creado correctamente");
       }
       setDialogOpen(false);
       fetchData();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err) || "Error al guardar rol");
-      toast.error(getApiErrorMessage(err) || "Error al guardar rol");
     } finally {
       setSaving(false);
     }
@@ -110,10 +105,9 @@ export default function RolesPage() {
     if (!confirm(`¿Eliminar el rol "${nombre}"?`)) return;
     try {
       await api.delete(`/api/roles/${id}`);
-      toast.success("Rol eliminado correctamente");
       fetchData();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Error al eliminar rol");
+      alert(getApiErrorMessage(err) || "Error al eliminar rol");
     }
   };
 
@@ -133,7 +127,7 @@ export default function RolesPage() {
         <div className="flex items-center gap-3">
           <span className="text-3xl select-none">🛡️</span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Roles y Privilegios</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Roles del Sistema</h1>
             <p className="text-muted-foreground text-xs mt-0.5">
               Administración de roles y permisos de acceso para miembros del workspace.
             </p>

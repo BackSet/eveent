@@ -20,6 +20,7 @@ public class UsuarioResponse {
     private Integer numeroCamiseta;
     private List<String> roles;
     private List<String> permissions;
+    private List<UsuarioPosicionDto> posiciones;
     private Boolean activo;
     private LocalDateTime fechaCreacion;
 }

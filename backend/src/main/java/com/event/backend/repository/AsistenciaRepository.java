@@ -22,4 +22,12 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, Long> {
     List<Asistencia> findByConvocatoriaIdAndEstado(Long convocatoriaId, EstadoAsistencia estado);
 
     long countByConvocatoriaIdAndEstado(Long convocatoriaId, EstadoAsistencia estado);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE Asistencia a SET a.posicionPreferida = null WHERE a.posicionPreferida.id IN :posIds")
+    void nullifyPosicionPreferida(@org.springframework.data.repository.query.Param("posIds") List<Long> posIds);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE Asistencia a SET a.posicionAsignada = null WHERE a.posicionAsignada.id IN :posIds")
+    void nullifyPosicionAsignada(@org.springframework.data.repository.query.Param("posIds") List<Long> posIds);
 }

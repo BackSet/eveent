@@ -67,16 +67,34 @@ public class UsuarioService {
                                 Collectors.mapping(rp -> rp.getPermiso().getClave(), Collectors.toList())
                         ));
 
+        List<UsuarioPosicion> allPosiciones = usuarioPosicionRepository.findByUsuarioIdIn(userIds);
+        Map<Long, List<UsuarioPosicion>> posicionesByUser = allPosiciones.stream()
+                .collect(Collectors.groupingBy(up -> up.getId().getUsuarioId()));
+
         return usuarios.stream().map(u -> {
             List<UsuarioRol> userRoles = rolesByUser.getOrDefault(u.getId(), List.of());
             List<String> roleNames = userRoles.stream().map(ur -> ur.getRol().getNombre()).toList();
             List<String> permNames = userRoles.stream()
                     .flatMap(ur -> permsByRol.getOrDefault(ur.getRol().getId(), List.of()).stream())
                     .distinct().toList();
+
+            List<UsuarioPosicion> userPositions = posicionesByUser.getOrDefault(u.getId(), List.of());
+            List<UsuarioPosicionDto> userPosDtos = userPositions.stream()
+                    .map(up -> UsuarioPosicionDto.builder()
+                            .posicionId(up.getPosicion().getId())
+                            .posicionNombre(up.getPosicion().getNombre())
+                            .posicionAbreviatura(up.getPosicion().getAbreviatura())
+                            .deporteId(up.getPosicion().getDeporte().getId())
+                            .deporteNombre(up.getPosicion().getDeporte().getNombre())
+                            .prioridad(up.getPrioridad())
+                            .build())
+                    .toList();
+
             return UsuarioResponse.builder()
                     .id(u.getId()).nombre(u.getNombre()).email(u.getEmail())
                     .username(u.getUsername()).numeroCamiseta(u.getNumeroCamiseta())
                     .roles(roleNames).permissions(permNames)
+                    .posiciones(userPosDtos)
                     .activo(u.getActivo()).fechaCreacion(u.getFechaCreacion())
                     .build();
         }).toList();
@@ -255,6 +273,18 @@ public class UsuarioService {
                         .distinct()
                         .toList();
 
+        List<UsuarioPosicionDto> posiciones = usuarioPosicionRepository.findByUsuarioId(usuario.getId())
+                .stream()
+                .map(up -> UsuarioPosicionDto.builder()
+                        .posicionId(up.getPosicion().getId())
+                        .posicionNombre(up.getPosicion().getNombre())
+                        .posicionAbreviatura(up.getPosicion().getAbreviatura())
+                        .deporteId(up.getPosicion().getDeporte().getId())
+                        .deporteNombre(up.getPosicion().getDeporte().getNombre())
+                        .prioridad(up.getPrioridad())
+                        .build())
+                .toList();
+
         return UsuarioResponse.builder()
                 .id(usuario.getId())
                 .nombre(usuario.getNombre())
@@ -263,6 +293,7 @@ public class UsuarioService {
                 .numeroCamiseta(usuario.getNumeroCamiseta())
                 .roles(roles)
                 .permissions(permissions)
+                .posiciones(posiciones)
                 .activo(usuario.getActivo())
                 .fechaCreacion(usuario.getFechaCreacion())
                 .build();
