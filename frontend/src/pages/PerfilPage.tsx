@@ -113,6 +113,8 @@ export default function PerfilPage() {
     .filter(up => up.deporteId === selectedDeporteId)
     .sort((a, b) => a.prioridad - b.prioridad);
 
+  const otherSportsPositions = userPosiciones.filter(up => up.deporteId !== selectedDeporteId);
+
   const filteredPositions = posiciones.filter(p =>
     !positionSearch ||
     p.nombre.toLowerCase().includes(positionSearch.toLowerCase()) ||
@@ -549,7 +551,7 @@ export default function PerfilPage() {
 
                   {prioritizedPositions.length === 0 ? (
                     <div className="text-center py-12 border border-dashed border-border rounded-lg bg-secondary/10 flex flex-col items-center justify-center space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">No has seleccionado posiciones</p>
+                      <p className="text-xs text-muted-foreground font-medium">No has seleccionado posiciones en este deporte</p>
                       <p className="text-[11px] text-muted-foreground/75">Usa el panel de la izquierda para agregar.</p>
                     </div>
                   ) : (
@@ -573,6 +575,7 @@ export default function PerfilPage() {
                               <Button 
                                 size="icon" 
                                 variant="ghost" 
+                                type="button"
                                 disabled={isFirst} 
                                 onClick={() => handleMoveUp(index)} 
                                 className="h-5.5 w-5.5 rounded hover:bg-secondary disabled:opacity-25"
@@ -582,6 +585,7 @@ export default function PerfilPage() {
                               <Button 
                                 size="icon" 
                                 variant="ghost" 
+                                type="button"
                                 disabled={isLast} 
                                 onClick={() => handleMoveDown(index)} 
                                 className="h-5.5 w-5.5 rounded hover:bg-secondary disabled:opacity-25"
@@ -591,6 +595,7 @@ export default function PerfilPage() {
                               <Button 
                                 size="icon" 
                                 variant="ghost" 
+                                type="button"
                                 onClick={() => handleRemovePosition(up.posicionId)} 
                                 className="h-5.5 w-5.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                               >
@@ -602,10 +607,43 @@ export default function PerfilPage() {
                       })}
                     </div>
                   )}
+
+                  {/* Summary of selections in other sports */}
+                  {otherSportsPositions.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-border/60 space-y-2">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block select-none">
+                        Seleccionadas en otros deportes
+                      </span>
+                      <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1">
+                        {Object.entries(
+                          otherSportsPositions.reduce((acc: any, up) => {
+                            if (!acc[up.deporteNombre]) {
+                              acc[up.deporteNombre] = [];
+                            }
+                            acc[up.deporteNombre].push(up);
+                            return acc;
+                          }, {})
+                        ).map(([depNombre, positions]: [string, any]) => (
+                          <div key={depNombre} className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-lg border border-border bg-secondary/5">
+                            <span className="text-[9px] font-extrabold uppercase bg-primary/10 text-primary px-1.5 py-0.2 rounded shrink-0 select-none">
+                              {depNombre}
+                            </span>
+                            <div className="flex flex-wrap gap-1 flex-1">
+                              {positions.map((up: any) => (
+                                <Badge key={up.posicionId} variant="outline" className="text-[8px] font-semibold bg-background border-border text-foreground px-1 py-0.2 rounded-sm shadow-3xs">
+                                  {up.posicionNombre}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {prioritizedPositions.length > 0 && (
+              {userPosiciones.length > 0 && (
                 <div className="pt-3 border-t border-border flex justify-end">
                   <Button
                     onClick={handleSavePositions}
