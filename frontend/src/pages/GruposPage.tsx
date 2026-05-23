@@ -205,7 +205,7 @@ export default function GruposPage() {
     );
   }
 
-  if (!hasPermission("gestionar_usuarios")) {
+  if (!hasPermission("ver_convocatoria")) {
     return (
       <Alert variant="destructive" className="max-w-5xl mx-auto my-6">
         <AlertDescription>No tienes permisos para acceder a esta página</AlertDescription>

@@ -27,13 +27,13 @@ public class GrupoService {
 
     @Transactional(readOnly = true)
     public List<GrupoResponse> findAll() {
-        if (!securityService.isSuperAdmin()) {
-            Long userId = securityService.getCurrentUserId();
-            return grupoRepository.findByCreadoPorId(userId).stream()
+        if (securityService.isSuperAdmin()) {
+            return grupoRepository.findAll().stream()
                     .map(this::toResponse)
                     .toList();
         }
-        return grupoRepository.findAll().stream()
+        Long userId = securityService.getCurrentUserId();
+        return grupoRepository.findByCreadoPorIdOrMiembroId(userId).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -42,7 +42,12 @@ public class GrupoService {
     public GrupoResponse findById(Long id) {
         Grupo grupo = grupoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Grupo no encontrado con id: " + id));
-        if (!securityService.isOwnerOrAdmin(grupo.getCreadoPor().getId())) {
+        
+        Long currentUserId = securityService.getCurrentUserId();
+        boolean isCreator = grupo.getCreadoPor().getId().equals(currentUserId);
+        boolean isMember = grupo.getMiembros().stream().anyMatch(m -> m.getId().equals(currentUserId));
+        
+        if (!isCreator && !isMember && !securityService.isSuperAdmin()) {
             throw new ForbiddenException("No tienes permiso para ver este grupo");
         }
         return toResponse(grupo);

@@ -39,6 +39,8 @@ public class BandoService {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
 
+        validateConvocatoriaNotInProgress(convocatoria);
+
         BandoConvocatoria bando = BandoConvocatoria.builder()
                 .convocatoria(convocatoria)
                 .nombre(request.getNombre())
@@ -52,6 +54,8 @@ public class BandoService {
         BandoConvocatoria bando = bandoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + id));
 
+        validateConvocatoriaNotInProgress(bando.getConvocatoria());
+
         if (request.getNombre() != null) bando.setNombre(request.getNombre());
         if (request.getColor() != null) bando.setColor(request.getColor());
 
@@ -60,10 +64,21 @@ public class BandoService {
     }
 
     public void delete(Long id) {
-        if (!bandoRepository.existsById(id)) {
-            throw new NotFoundException("Bando no encontrado con id: " + id);
+        BandoConvocatoria bando = bandoRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + id));
+
+        validateConvocatoriaNotInProgress(bando.getConvocatoria());
+
+        bandoRepository.delete(bando);
+    }
+
+    private void validateConvocatoriaNotInProgress(Convocatoria c) {
+        if (c.getEstado() == com.event.backend.model.EstadoConvocatoria.EN_PROGRESO || 
+            c.getEstado() == com.event.backend.model.EstadoConvocatoria.FINALIZADA || 
+            c.getEstado() == com.event.backend.model.EstadoConvocatoria.CANCELADA || 
+            (c.getFechaHora() != null && !c.getFechaHora().isAfter(java.time.LocalDateTime.now()))) {
+            throw new com.event.backend.exception.BusinessException("No se pueden realizar cambios en los bandos de una convocatoria en progreso, finalizada o cancelada.");
         }
-        bandoRepository.deleteById(id);
     }
 
     private BandoResponse toResponse(BandoConvocatoria bando) {

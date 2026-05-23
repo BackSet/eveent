@@ -120,6 +120,8 @@ public class AsistenciaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(request.getConvocatoriaId())
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + request.getConvocatoriaId()));
 
+        validateConvocatoriaNotInProgress(convocatoria);
+
         // Validar si es una convocatoria abierta (categoria LIBRE), debe ser del deporte que practica el usuario
         Deporte deporteConvocatoria = convocatoria.getDeporte();
         if (deporteConvocatoria != null && "LIBRE".equalsIgnoreCase(convocatoria.getCategoria())) {
@@ -265,6 +267,8 @@ public class AsistenciaService {
         Asistencia asistencia = asistenciaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
+        validateConvocatoriaNotInProgress(asistencia.getConvocatoria());
+
         Long currentUserId = securityService.getCurrentUserId();
         boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
         boolean isHost = asistencia.getInvitadoPor() != null && asistencia.getInvitadoPor().getId().equals(currentUserId);
@@ -348,6 +352,8 @@ public class AsistenciaService {
         Asistencia asistencia = asistenciaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
+        validateConvocatoriaNotInProgress(asistencia.getConvocatoria());
+
         Long currentUserId = securityService.getCurrentUserId();
         boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
         boolean isHost = asistencia.getInvitadoPor() != null && asistencia.getInvitadoPor().getId().equals(currentUserId);
@@ -388,6 +394,8 @@ public class AsistenciaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada"));
 
+        validateConvocatoriaNotInProgress(convocatoria);
+
         List<Asistencia> existing = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
         Set<Long> existingUserIds = existing.stream()
                 .filter(a -> a.getUsuario() != null)
@@ -424,6 +432,10 @@ public class AsistenciaService {
     public void deleteBulk(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
         List<Asistencia> asistencias = asistenciaRepository.findAllById(ids);
+        
+        if (!asistencias.isEmpty()) {
+            validateConvocatoriaNotInProgress(asistencias.get(0).getConvocatoria());
+        }
         Long currentUserId = securityService.getCurrentUserId();
         
         for (Asistencia a : asistencias) {
@@ -481,6 +493,15 @@ public class AsistenciaService {
                     res.setPosicionesPreferidasNombres(userPositionsMap.getOrDefault(res.getUsuarioId(), java.util.List.of()));
                 }
             }
+        }
+    }
+
+    private void validateConvocatoriaNotInProgress(Convocatoria c) {
+        if (c.getEstado() == EstadoConvocatoria.EN_PROGRESO || 
+            c.getEstado() == EstadoConvocatoria.FINALIZADA || 
+            c.getEstado() == EstadoConvocatoria.CANCELADA || 
+            (c.getFechaHora() != null && !c.getFechaHora().isAfter(LocalDateTime.now()))) {
+            throw new com.event.backend.exception.BusinessException("No se pueden realizar cambios en las asistencias de una convocatoria en progreso, finalizada o cancelada.");
         }
     }
 }

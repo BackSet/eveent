@@ -14,4 +14,8 @@ public interface GrupoRepository extends JpaRepository<Grupo, Long> {
     Optional<Grupo> findById(Long id);
 
     List<Grupo> findByCreadoPorId(Long creadoPorId);
+
+    @EntityGraph(attributePaths = {"miembros"})
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT g FROM Grupo g LEFT JOIN g.miembros m WHERE g.creadoPor.id = :usuarioId OR m.id = :usuarioId")
+    List<Grupo> findByCreadoPorIdOrMiembroId(Long usuarioId);
 }

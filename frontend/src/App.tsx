@@ -63,7 +63,7 @@ function AppWithApiSetup() {
               <ProtectedRoute requiredPermission="gestionar_usuarios"><UsuariosPage /></ProtectedRoute>
             } />
             <Route path="/grupos" element={
-              <ProtectedRoute requiredPermission="gestionar_usuarios"><GruposPage /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="ver_convocatoria"><GruposPage /></ProtectedRoute>
             } />
             <Route path="/roles" element={
               <ProtectedRoute requiredPermission="gestionar_roles"><RolesPage /></ProtectedRoute>

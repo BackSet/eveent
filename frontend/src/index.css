@@ -239,46 +239,108 @@ body, header, aside, .bg-card, .border, input, select, textarea, button, .notion
 /* Notion Database Board View (Kanban) */
 .notion-board {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(280px, 1fr);
-  gap: 16px;
-  overflow-x: auto;
-  padding-bottom: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 4px 4px 16px 4px;
 }
 
 .notion-board-column {
   display: flex;
-  flex-col: true;
   flex-direction: column;
-  gap: 8px;
-  background-color: hsl(var(--muted) / 0.15);
-  border-radius: 6px;
-  padding: 8px;
-  min-height: 200px;
+  gap: 12px;
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.05) 0%, hsl(var(--muted) / 0.14) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--border) / 0.4);
+  border-radius: 16px;
+  padding: 16px;
+  min-height: 250px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+}
+
+.notion-board-column:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.06);
+  border-color: hsl(var(--border) / 0.7);
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.08) 0%, hsl(var(--muted) / 0.18) 100%);
 }
 
 .notion-board-column-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px;
-  font-size: 13px;
-  font-weight: 600;
+  padding: 2px 2px 10px 2px;
+  border-bottom: 1px solid hsl(var(--border) / 0.3);
 }
 
 .notion-board-card {
-  background-color: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  padding: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.96) 100%);
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.notion-board-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
 }
 
 .notion-board-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-  border-color: hsl(var(--muted-foreground) / 0.3);
+  transform: translateY(-3px) scale(1.005);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.08), 0 4px 12px -5px rgba(0, 0, 0, 0.03);
+  border-color: hsl(var(--primary) / 0.35);
+}
+
+.notion-board-card:hover::before {
+  background-color: hsl(var(--primary));
+}
+
+/* Custom premium scrollbar for player card container inside columns */
+.custom-column-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-column-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-column-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.15);
+  border-radius: 4px;
+}
+.custom-column-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Selector dropdown de Bando estilizado */
+.notion-select-pill {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(100, 116, 139, 0.7)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 10px;
+  padding-right: 20px !important;
+}
+
+.notion-select-pill:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+.notion-select-pill:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
 }
 
 /* Page animations */

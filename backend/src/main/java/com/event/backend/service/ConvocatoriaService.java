@@ -127,6 +127,8 @@ public class ConvocatoriaService {
             throw new ForbiddenException("No tienes permiso para editar esta convocatoria");
         }
 
+        validateConvocatoriaNotInProgress(convocatoria);
+
         if (request.getFechaHora() != null) {
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime eventTime = request.getFechaHora();
@@ -208,7 +210,18 @@ public class ConvocatoriaService {
             throw new ForbiddenException("No tienes permiso para eliminar esta convocatoria");
         }
 
+        validateConvocatoriaNotInProgress(convocatoria);
+
         convocatoriaRepository.deleteById(id);
+    }
+
+    private void validateConvocatoriaNotInProgress(Convocatoria c) {
+        if (c.getEstado() == EstadoConvocatoria.EN_PROGRESO || 
+            c.getEstado() == EstadoConvocatoria.FINALIZADA || 
+            c.getEstado() == EstadoConvocatoria.CANCELADA || 
+            (c.getFechaHora() != null && !c.getFechaHora().isAfter(LocalDateTime.now()))) {
+            throw new BusinessException("No se pueden realizar modificaciones en una convocatoria en progreso, finalizada o cancelada.");
+        }
     }
 
     private ConvocatoriaResponse toResponse(Convocatoria c) {

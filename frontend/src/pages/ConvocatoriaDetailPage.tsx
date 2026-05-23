@@ -345,6 +345,15 @@ export default function ConvocatoriaDetailPage() {
 
   const isOrganizador = hasPermission("crear_convocatoria") || hasPermission("dividir_bandos") || hasPermission("gestionar_convocatorias");
 
+  const isInProgressOrDone = useMemo(() => {
+    if (!convocatoria) return false;
+    const isStateProgress = convocatoria.estado === 'EN_PROGRESO' || 
+                            convocatoria.estado === 'FINALIZADA' || 
+                            convocatoria.estado === 'CANCELADA';
+    const isPastTime = convocatoria.fechaHora && new Date(convocatoria.fechaHora) <= new Date();
+    return isStateProgress || isPastTime;
+  }, [convocatoria]);
+
   const managedInvitados = useMemo(() => {
     return asistencias.filter(a => 
       isOrganizador 
@@ -421,6 +430,15 @@ export default function ConvocatoriaDetailPage() {
           </div>
         </div>
       </div>
+
+      {isInProgressOrDone && (
+        <div className="notion-callout border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10 items-center">
+          <div className="notion-callout-icon">ℹ️</div>
+          <div className="text-xs text-foreground/80 font-medium">
+            Esta convocatoria está en progreso, finalizada o cancelada. El registro de asistencia y la configuración táctica están en modo de solo lectura.
+          </div>
+        </div>
+      )}
 
       {/* Error Alert inside Notion style callout */}
       {error && (
@@ -525,7 +543,7 @@ export default function ConvocatoriaDetailPage() {
             </div>
           </div>
 
-          {convocatoria.estado === "ABIERTA" ? (
+          {convocatoria.estado === "ABIERTA" && !isInProgressOrDone ? (
             <div className="flex gap-2 w-full md:w-auto">
               <Button 
                 disabled={responderLoading}
@@ -589,7 +607,7 @@ export default function ConvocatoriaDetailPage() {
             </div>
 
             {/* Intelligent Matchmaking Balance Callout */}
-            {isOrganizador && (
+            {isOrganizador && !isInProgressOrDone && (
               <div className="notion-callout bg-primary/[0.03] border-primary/20 flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex gap-3">
                   <div className="notion-callout-icon">⚡</div>
@@ -714,18 +732,20 @@ export default function ConvocatoriaDetailPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 overflow-hidden flex-1">
-                            <input 
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                if (isSelected) {
-                                    setSelectedInvitados(selectedInvitados.filter(id => id !== asis.id));
-                                } else {
-                                    setSelectedInvitados([...selectedInvitados, asis.id]);
-                                }
-                              }}
-                              className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/20 shrink-0 cursor-pointer"
-                            />
+                            {!isInProgressOrDone && (
+                              <input 
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  if (isSelected) {
+                                      setSelectedInvitados(selectedInvitados.filter(id => id !== asis.id));
+                                  } else {
+                                      setSelectedInvitados([...selectedInvitados, asis.id]);
+                                  }
+                                }}
+                                className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/20 shrink-0 cursor-pointer"
+                              />
+                            )}
                             <div className="overflow-hidden">
                               <span className="text-xs font-bold text-foreground block truncate">
                                 {asis.nombreExterno}
@@ -771,66 +791,68 @@ export default function ConvocatoriaDetailPage() {
                         </div>
 
                         {/* Direct action buttons (hover actions / bottom actions) */}
-                        <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
-                          <div className="flex gap-1.5">
-                            {/* Toggle confirmation check */}
-                            {asis.estado !== 'ASISTIRE' ? (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleUpdateInvitadoEstado(asis.id, 'ASISTIRE')}
-                                className="h-6 w-6 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white"
-                                title="Confirmar Asistencia"
-                              >
-                                <CheckCircle2 size={11} />
-                              </Button>
-                            ) : (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
-                                className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
-                                title="Marcar No Asistencia"
-                              >
-                                <XCircle size={11} />
-                              </Button>
-                            )}
+                        {!isInProgressOrDone && (
+                          <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+                            <div className="flex gap-1.5">
+                              {/* Toggle confirmation check */}
+                              {asis.estado !== 'ASISTIRE' ? (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleUpdateInvitadoEstado(asis.id, 'ASISTIRE')}
+                                  className="h-6 w-6 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white"
+                                  title="Confirmar Asistencia"
+                                >
+                                  <CheckCircle2 size={11} />
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
+                                  className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
+                                  title="Marcar No Asistencia"
+                                >
+                                  <XCircle size={11} />
+                                </Button>
+                              )}
 
-                            {/* If in Waitlist, also allow direct unconfirm */}
-                            {asis.estado === 'LISTA_ESPERA' && (
+                              {/* If in Waitlist, also allow direct unconfirm */}
+                              {asis.estado === 'LISTA_ESPERA' && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
+                                  className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
+                                  title="Retirar de Espera"
+                                >
+                                  <XCircle size={11} />
+                                </Button>
+                              )}
+
+                              {/* Edit guest data (name, position priority) */}
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
-                                className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
-                                title="Retirar de Espera"
+                                onClick={() => handleEditInvitadoClick(asis)}
+                                className="h-6 w-6 rounded bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                title="Editar Datos"
                               >
-                                <XCircle size={11} />
+                                <Edit size={11} />
                               </Button>
-                            )}
+                            </div>
 
-                            {/* Edit guest data (name, position priority) */}
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => handleEditInvitadoClick(asis)}
-                              className="h-6 w-6 rounded bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                              title="Editar Datos"
+                              onClick={() => handleDeleteInvitado(asis.id)}
+                              className="h-6 w-6 rounded bg-destructive/10 text-destructive hover:bg-destructive hover:text-white opacity-40 group-hover:opacity-100 transition-opacity"
+                              title="Eliminar Invitado de la lista"
                             >
-                              <Edit size={11} />
+                              <Trash2 size={11} />
                             </Button>
                           </div>
-
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleDeleteInvitado(asis.id)}
-                            className="h-6 w-6 rounded bg-destructive/10 text-destructive hover:bg-destructive hover:text-white opacity-40 group-hover:opacity-100 transition-opacity"
-                            title="Eliminar Invitado de la lista"
-                          >
-                            <Trash2 size={11} />
-                          </Button>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
@@ -856,7 +878,7 @@ export default function ConvocatoriaDetailPage() {
                       {playerLists.teamPlayersMap.map(({ team, players }) => {
                         const teamColorHex = getTeamColorHex(team.color || "");
                         return (
-                          <div key={team.id} className="notion-board-column">
+                          <div key={team.id} className="notion-board-column" style={{ borderTop: `4px solid ${teamColorHex}` }}>
                             {/* Board Column Header */}
                             <div className="notion-board-column-header border-b border-border pb-2 mb-2">
                               <div className="flex items-center gap-2 overflow-hidden">
@@ -892,7 +914,7 @@ export default function ConvocatoriaDetailPage() {
                             </div>
 
                             {/* Player cards inside column */}
-                            <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
+                            <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1 custom-column-scrollbar">
                               {players.length === 0 ? (
                                 <p className="text-xs text-muted-foreground text-center py-6 italic font-medium">Sin jugadores asignados</p>
                               ) : (
@@ -900,7 +922,7 @@ export default function ConvocatoriaDetailPage() {
                                   <div key={asis.id} className="notion-board-card">
                                     <div className="flex items-center justify-between gap-2 overflow-hidden">
                                       <div className="flex items-center gap-2 overflow-hidden flex-1">
-                                        <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-muted rounded border shrink-0 text-muted-foreground">
+                                        <span className="text-[10px] font-black px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-md shrink-0 monospace">
                                           {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "—"}
                                         </span>
                                         <div className="overflow-hidden">
@@ -918,26 +940,26 @@ export default function ConvocatoriaDetailPage() {
                                     {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
                                       <div className="mt-2 flex flex-wrap gap-1">
                                         {asis.posicionesPreferidasNombres.map((name: string) => (
-                                          <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                          <span key={name} className="text-[9px] font-black text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
                                             {name}
                                           </span>
                                         ))}
                                       </div>
                                     ) : asis.posicionPreferidaNombre ? (
                                       <div className="mt-2 flex">
-                                        <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                        <span className="text-[9px] font-black text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
                                           {asis.posicionPreferidaNombre}
                                         </span>
                                       </div>
                                     ) : (
                                       <div className="mt-2 flex">
-                                        <span className="text-[9px] font-bold text-muted-foreground/45 bg-muted/40 uppercase tracking-widest px-1.5 py-0.5 rounded border border-dashed border-border">
+                                        <span className="text-[9px] font-black text-muted-foreground/45 bg-muted/40 uppercase tracking-wider px-2 py-0.5 rounded-full border border-dashed border-border">
                                           Comodín
                                         </span>
                                       </div>
                                     )}
                                     
-                                    {isOrganizador && (
+                                    {isOrganizador && !isInProgressOrDone && (
                                       <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1">
                                         <span className="text-[9px] text-muted-foreground font-medium shrink-0">Bando:</span>
                                         <select
@@ -946,7 +968,7 @@ export default function ConvocatoriaDetailPage() {
                                             const val = e.target.value;
                                             handleMovePlayer(asis.id, val ? Number(val) : -1);
                                           }}
-                                          className="text-[10px] bg-background border border-border rounded px-1 py-0.5 max-w-[110px] focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
+                                          className="text-[10px] bg-background border border-border rounded px-2 py-0.5 max-w-[115px] focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none notion-select-pill transition-all"
                                         >
                                           <option value="">Comodín / Sin asignar</option>
                                           {bandos.map((b) => (
@@ -968,20 +990,25 @@ export default function ConvocatoriaDetailPage() {
                     {(playerLists.comodines.length > 0 || playerLists.waitlist.length > 0) && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                         {playerLists.comodines.length > 0 && (
-                          <div className="border border-amber-500/20 rounded bg-amber-500/[0.02] p-4">
-                            <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                              <Compass size={13} />
-                              Comodines ({playerLists.comodines.length})
+                          <div className="border border-amber-500/20 rounded-2xl bg-gradient-to-br from-amber-500/[0.02] to-amber-500/[0.07] backdrop-blur-md p-5 shadow-sm transition-all hover:border-amber-500/30">
+                            <h4 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Compass size={14} />
+                                <span>Reserva Táctica (Comodines)</span>
+                              </div>
+                              <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-extrabold text-[10px]">
+                                {playerLists.comodines.length}
+                              </span>
                             </h4>
                             <div className="space-y-2">
                               {playerLists.comodines.map((asis) => (
-                                <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs gap-3">
+                                <div key={asis.id} className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/50 text-xs gap-3 shadow-sm hover:border-amber-500/30 hover:translate-y-[-2px] transition-all duration-300">
                                   <div className="overflow-hidden flex-1">
-                                    <span className="font-semibold text-foreground truncate block">
+                                    <span className="font-bold text-foreground truncate block">
                                       {asis.usuarioNombre || asis.nombreExterno}
                                     </span>
                                     {asis.nombreExterno && (
-                                      <span className="text-[9px] text-muted-foreground block truncate">
+                                      <span className="text-[9px] text-muted-foreground block truncate mt-0.5">
                                         Invitado de {asis.invitadoPorNombre}
                                       </span>
                                     )}
@@ -990,23 +1017,31 @@ export default function ConvocatoriaDetailPage() {
                                     {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
                                       <div className="flex flex-wrap gap-1">
                                         {asis.posicionesPreferidasNombres.map((name: string) => (
-                                          <Badge key={name} variant="outline" className="text-[9px]">{name}</Badge>
+                                          <span key={name} className="text-[9px] font-bold text-amber-600 bg-amber-500/10 dark:bg-amber-500/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
+                                            {name}
+                                          </span>
                                         ))}
                                       </div>
-                                    ) : asis.posicionPreferidaNombre && (
-                                      <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
+                                    ) : asis.posicionPreferidaNombre ? (
+                                      <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 dark:bg-amber-500/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
+                                        {asis.posicionPreferidaNombre}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-bold text-muted-foreground/50 bg-muted px-2 py-0.5 rounded-full border border-dashed border-border">
+                                        Sin Posición
+                                      </span>
                                     )}
                                     
-                                    {isOrganizador && (
+                                    {isOrganizador && !isInProgressOrDone && (
                                       <select
                                         value=""
                                         onChange={(e) => {
                                           const val = e.target.value;
                                           if (val) handleMovePlayer(asis.id, Number(val));
                                         }}
-                                        className="text-[10px] bg-background border border-border rounded px-1 py-0.5 focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none"
+                                        className="text-[10px] bg-background border border-border rounded px-2 py-0.5 focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none notion-select-pill transition-all"
                                       >
-                                        <option value="">Mover a...</option>
+                                        <option value="">Asignar...</option>
                                         {bandos.map((b) => (
                                           <option key={b.id} value={b.id}>{b.nombre}</option>
                                         ))}
@@ -1020,29 +1055,38 @@ export default function ConvocatoriaDetailPage() {
                         )}
 
                         {playerLists.waitlist.length > 0 && (
-                          <div className="border border-blue-500/20 rounded bg-blue-500/[0.02] p-4">
-                            <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                              <Clock size={13} />
-                              Lista de Espera ({playerLists.waitlist.length})
+                          <div className="border border-blue-500/20 rounded-2xl bg-gradient-to-br from-blue-500/[0.02] to-blue-500/[0.07] backdrop-blur-md p-5 shadow-sm transition-all hover:border-blue-500/30">
+                            <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Clock size={14} />
+                                <span>Sala de Espera (Lista de Espera)</span>
+                              </div>
+                              <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-extrabold text-[10px]">
+                                {playerLists.waitlist.length}
+                              </span>
                             </h4>
                             <div className="space-y-2">
                               {playerLists.waitlist.map((asis, idx) => (
-                                <div key={asis.id} className="flex items-center justify-between p-2.5 rounded bg-background border border-border/60 text-xs">
-                                  <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
-                                    <span className="text-[10px] text-muted-foreground font-bold shrink-0">{idx + 1}.</span>
+                                <div key={asis.id} className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/50 text-xs gap-3 shadow-sm hover:border-blue-500/30 hover:translate-y-[-2px] transition-all duration-300">
+                                  <div className="flex items-center gap-2.5 overflow-hidden flex-1">
+                                    <span className="text-[10px] font-black bg-blue-500/10 text-blue-600 rounded-lg w-5 h-5 flex items-center justify-center border border-blue-500/20 shrink-0">
+                                      {idx + 1}
+                                    </span>
                                     <div className="overflow-hidden">
-                                      <span className="font-semibold text-foreground truncate block">
+                                      <span className="font-bold text-foreground truncate block">
                                         {asis.usuarioNombre || asis.nombreExterno}
                                       </span>
                                       {asis.nombreExterno && (
-                                        <span className="text-[9px] text-muted-foreground block truncate">
+                                        <span className="text-[9px] text-muted-foreground block truncate mt-0.5">
                                           Invitado de {asis.invitadoPorNombre}
                                         </span>
                                       )}
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
-                                    <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
+                                    <span className="text-[9px] font-extrabold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
+                                      En Espera
+                                    </span>
                                   </div>
                                 </div>
                               ))}
@@ -1306,14 +1350,15 @@ export default function ConvocatoriaDetailPage() {
                   </Button>
                 )}
 
-                {convocatoria.estado !== "CANCELADA" && convocatoria.estado !== "FINALIZADA" && (
+                {convocatoria.estado === "ABIERTA" && !isInProgressOrDone && (
                   <Button 
-                    variant="destructive"
+                    variant="outline"
                     onClick={async () => {
                       if (confirm("¿Estás seguro de cancelar esta convocatoria?")) {
                         try {
                           await api.put(`/api/convocatorias/${id}/cancelar`);
-                          fetchData();
+                          const updated = await api.get(`/api/convocatorias/${id}`);
+                          setConvocatoria(updated.data);
                         } catch (err: unknown) {
                           setError(getApiErrorMessage(err));
                         }
@@ -1326,7 +1371,7 @@ export default function ConvocatoriaDetailPage() {
                   </Button>
                 )}
 
-                {(convocatoria.estado === "BORRADOR" || convocatoria.estado === "ABIERTA") && (
+                {(convocatoria.estado === "BORRADOR" || convocatoria.estado === "ABIERTA") && !isInProgressOrDone && (
                   <Button 
                     variant="outline"
                     onClick={() => navigate(`/convocatorias/${id}/edit`)}
@@ -1337,7 +1382,7 @@ export default function ConvocatoriaDetailPage() {
                   </Button>
                 )}
 
-                {convocatoria.estado === "BORRADOR" && (
+                {convocatoria.estado === "BORRADOR" && !isInProgressOrDone && (
                   <Button 
                     variant="destructive"
                     onClick={async () => {

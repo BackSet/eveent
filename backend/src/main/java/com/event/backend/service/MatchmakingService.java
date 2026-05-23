@@ -28,6 +28,13 @@ public class MatchmakingService {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
 
+        if (convocatoria.getEstado() == EstadoConvocatoria.EN_PROGRESO || 
+            convocatoria.getEstado() == EstadoConvocatoria.FINALIZADA || 
+            convocatoria.getEstado() == EstadoConvocatoria.CANCELADA || 
+            (convocatoria.getFechaHora() != null && !convocatoria.getFechaHora().isAfter(java.time.LocalDateTime.now()))) {
+            throw new com.event.backend.exception.BusinessException("No se puede autobalancear una convocatoria en progreso, finalizada o cancelada.");
+        }
+
         List<Asistencia> allAsistencias = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
 
         List<Asistencia> confirmados = allAsistencias.stream()

@@ -30,7 +30,7 @@ const convocatoriaItems = [
 // Configuración para el Organizador del Evento
 const configItems = [
   { icon: Trophy, label: "Disciplinas y Posiciones", path: "/deportes", permission: "gestionar_deportes", emoji: "⚽" },
-  { icon: Users, label: "Grupos de Jugadores", path: "/grupos", permission: "gestionar_usuarios", emoji: "📂" },
+  { icon: Users, label: "Grupos de Jugadores", path: "/grupos", permission: "ver_convocatoria", emoji: "📂" },
 ];
 
 // Administración para el Administrador del Sistema
