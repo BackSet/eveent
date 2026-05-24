@@ -1,4 +1,16 @@
-const baseURL = import.meta.env.VITE_API_URL || "";
+function resolveApiBaseUrl(raw: string): string {
+  const url = (raw || "").trim().replace(/\/$/, "");
+  if (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    url.startsWith("http://")
+  ) {
+    return url.replace(/^http:\/\//, "https://");
+  }
+  return url;
+}
+
+const baseURL = resolveApiBaseUrl(import.meta.env.VITE_API_URL || "");
 
 let authToken: string | null = localStorage.getItem("token");
 let onUnauthorized: (() => void) | null = null;
