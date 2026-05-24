@@ -29,6 +29,42 @@ function replaceSeoPlaceholders(content: string): string {
     .replaceAll('__SEO_GOOGLE_VERIFICATION_META__', googleMeta)
 }
 
+/** CSS del bundle antes que JS; scripts al final del body (solo assets de Vite). */
+function htmlAssetOrderPlugin(): Plugin {
+  const bundleCss = /<link[^>]*rel="stylesheet"[^>]*href="\/assets\/[^"]*"[^>]*>/gi
+  const bundleModule = /<script[^>]*type="module"[^>]*src="\/assets\/[^"]*"[^>]*><\/script>/gi
+
+  return {
+    name: 'html-asset-order',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        const styles = [...html.matchAll(bundleCss)].map((m) => m[0])
+        let out = html.replace(bundleCss, '')
+
+        const moduleScripts = [...out.matchAll(bundleModule)].map((m) => m[0])
+        out = out.replace(bundleModule, '')
+
+        if (styles.length > 0) {
+          const anchor = '</style>'
+          const idx = out.indexOf(anchor)
+          if (idx !== -1) {
+            const insertAt = idx + anchor.length
+            out = `${out.slice(0, insertAt)}\n    ${styles.join('\n    ')}\n${out.slice(insertAt)}`
+          }
+        }
+
+        if (moduleScripts.length > 0) {
+          out = out.replace('</body>', `    ${moduleScripts.join('\n    ')}\n  </body>`)
+        }
+
+        return out
+      },
+    },
+  }
+}
+
 function seoBuildPlugin(): Plugin {
   return {
     name: 'seo-build',
@@ -79,7 +115,7 @@ Sitemap: ${siteUrl}/sitemap.xml
 }
 
 export default defineConfig({
-  plugins: [tailwindcss(), react(), seoBuildPlugin()],
+  plugins: [tailwindcss(), react(), seoBuildPlugin(), htmlAssetOrderPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

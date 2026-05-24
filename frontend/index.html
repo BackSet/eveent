@@ -3,6 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- CSS crítico: evita destello sin estilo antes de que cargue el bundle -->
+    <style id="critical-css">
+      html { color-scheme: dark; }
+      html.dark,
+      html.dark body {
+        margin: 0;
+        background-color: hsl(240, 10%, 3.9%);
+        color: hsl(240, 10%, 92%);
+        min-height: 100dvh;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      #root {
+        min-height: 100dvh;
+      }
+      html:not(.app-ready) #root {
+        visibility: hidden;
+      }
+    </style>
     <title>__SEO_APP_NAME__ - Gestión Deportiva</title>
     <meta name="description" content="__SEO_APP_DESCRIPTION__" />
     <meta name="theme-color" content="#09090b" />
@@ -28,12 +47,23 @@
 
     __SEO_GOOGLE_VERIFICATION_META__
 
-    <!-- Google Fonts - Outfit -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Fuentes sin bloquear el primer render -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=optional"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=optional"
+      />
+    </noscript>
   </head>
-  <body class="bg-zinc-950 text-zinc-100 min-h-screen antialiased">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
