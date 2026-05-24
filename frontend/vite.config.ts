@@ -23,15 +23,16 @@ function getSeoEnv() {
 function replaceSeoPlaceholders(content: string): string {
   const { siteUrl, appName, description, googleMeta } = getSeoEnv()
   return content
-    .replaceAll('%VITE_SITE_URL%', siteUrl)
-    .replaceAll('%VITE_APP_NAME%', appName)
-    .replaceAll('%VITE_APP_DESCRIPTION%', description)
-    .replaceAll('%VITE_GOOGLE_SITE_VERIFICATION_META%', googleMeta)
+    .replaceAll('__SEO_SITE_URL__', siteUrl)
+    .replaceAll('__SEO_APP_NAME__', appName)
+    .replaceAll('__SEO_APP_DESCRIPTION__', description)
+    .replaceAll('__SEO_GOOGLE_VERIFICATION_META__', googleMeta)
 }
 
 function seoBuildPlugin(): Plugin {
   return {
     name: 'seo-build',
+    enforce: 'pre',
     transformIndexHtml(html) {
       return replaceSeoPlaceholders(html)
     },
