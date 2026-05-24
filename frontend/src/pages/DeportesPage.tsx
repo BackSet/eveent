@@ -15,8 +15,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { MasterDetailSkeleton, PageCoverHeaderSkeleton } from "@/components/ui/page-skeletons";
-import { DeporteIcon, PageCoverIcon } from "@/components/ui/page-icon";
+import { MasterDetailSkeleton, PageHeaderSkeleton } from "@/components/ui/page-skeletons";
+import { DeporteIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { PageIconKind } from "@/lib/iconography";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Trash2, Edit, Trophy } from "lucide-react";
@@ -251,36 +252,35 @@ export default function DeportesPage() {
   };
 
   return (
-    <div className="page-shell space-y-6 notion-animate-fade">
+    <div className="page-shell space-y-6 animate-fadeIn">
       {loading ? (
-        <PageCoverHeaderSkeleton showActions={canManage} />
-      ) : (
-      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-        <div className="h-28 notion-cover notion-cover-soccer" />
-        <div className="p-6 relative pt-10">
-          <PageCoverIcon kind={PageIconKind.DEPORTES} />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                Deportes y Posiciones
-                <InfoHint side="right" maxWidth={320}>
-                  Define cada <strong>deporte</strong> con sus reglas (juego por equipos, jugadores
-                  mín/máx por bando) y sus <strong>posiciones oficiales</strong> (ej. Portero,
-                  Central). Estas configuraciones se usan al crear convocatorias y formar equipos.
-                </InfoHint>
-              </h1>
-              <p className="text-muted-foreground text-xs mt-1">
-                Configura las disciplinas disponibles y las posiciones que pueden elegir los jugadores.
-              </p>
-            </div>
-            {canManage && (
+        <PageHeaderSkeleton showActions={canManage} />
+      ) : canManage ? (
               <Dialog open={deporteDialogOpen} onOpenChange={setDeporteDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={() => openDeporteDialog()} className="gap-1.5 font-medium text-xs h-9 rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
-                    <Plus size={14} />
-                    <span>Nuevo Deporte</span>
-                  </Button>
-                </DialogTrigger>
+                <PageHeader
+                  iconKind={PageIconKind.DEPORTES}
+                  title="Deportes y Posiciones"
+                  description="Configura las disciplinas disponibles y las posiciones que pueden elegir los jugadores."
+                  hintProps={{ maxWidth: 320 }}
+                  hint={
+                    <>
+                      Define cada <strong>deporte</strong> con sus reglas (juego por equipos, jugadores
+                      mín/máx por bando) y sus <strong>posiciones oficiales</strong> (ej. Portero,
+                      Central). Estas configuraciones se usan al crear convocatorias y formar equipos.
+                    </>
+                  }
+                  actions={
+                    <DialogTrigger asChild>
+                      <Button
+                        onClick={() => openDeporteDialog()}
+                        className="gap-1.5 font-medium text-xs h-9 rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        <Plus size={14} />
+                        <span>Nuevo Deporte</span>
+                      </Button>
+                    </DialogTrigger>
+                  }
+                />
                 <DialogContent className="rounded-lg border border-border bg-popover shadow-none max-w-sm">
                   <form onSubmit={handleSaveDeporte}>
                   <DialogHeader>
@@ -387,10 +387,20 @@ export default function DeportesPage() {
                   </form>
                 </DialogContent>
               </Dialog>
-            )}
-          </div>
-        </div>
-      </div>
+      ) : (
+        <PageHeader
+          iconKind={PageIconKind.DEPORTES}
+          title="Deportes y Posiciones"
+          description="Configura las disciplinas disponibles y las posiciones que pueden elegir los jugadores."
+          hintProps={{ maxWidth: 320 }}
+          hint={
+            <>
+              Define cada <strong>deporte</strong> con sus reglas (juego por equipos, jugadores
+              mín/máx por bando) y sus <strong>posiciones oficiales</strong> (ej. Portero,
+              Central). Estas configuraciones se usan al crear convocatorias y formar equipos.
+            </>
+          }
+        />
       )}
 
       {!loading && error && (

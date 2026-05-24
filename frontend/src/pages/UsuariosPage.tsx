@@ -19,11 +19,10 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { Shield, Trash2, Plus, UserX, UserCheck, Ban, Unlock, Users } from "lucide-react";
-import { PageHeaderIcon } from "@/components/ui/page-icon";
-import { getPageIcon, PageIconKind } from "@/lib/iconography";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageIconKind } from "@/lib/iconography";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { InfoHint } from "@/components/ui/info-hint";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlayerIdentity } from "@/components/ui/player-identity";
@@ -289,34 +288,30 @@ export default function UsuariosPage() {
 
   return (
     <div className="page-shell space-y-6 animate-fadeIn">
-      {/* Cover/Header area */}
-      <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
-        <div className="flex items-center gap-3">
-          <PageHeaderIcon icon={getPageIcon(PageIconKind.USUARIOS)} />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Gestión de Usuarios
-              <InfoHint side="right" maxWidth={320}>
-                Aquí gestionas a todos los miembros del workspace: sus <strong>roles</strong>
-                (permisos), <strong>estado</strong> (activo/inactivo) y posibles
-                <strong> suspensiones temporales</strong>.
-              </InfoHint>
-            </h1>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              Crea, edita y administra cuentas, permisos y suspensiones.
-            </p>
-          </div>
-        </div>
-        {(hasPermission("crear_usuarios") || canManage) && (
-          <Button 
-            onClick={openCreateDialog} 
-            className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus size={14} /> 
-            <span>Nuevo Usuario</span>
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        iconKind={PageIconKind.USUARIOS}
+        title="Gestión de Usuarios"
+        description="Crea, edita y administra cuentas, permisos y suspensiones."
+        hintProps={{ maxWidth: 320 }}
+        hint={
+          <>
+            Aquí gestionas a todos los miembros del workspace: sus <strong>roles</strong>
+            (permisos), <strong>estado</strong> (activo/inactivo) y posibles
+            <strong> suspensiones temporales</strong>.
+          </>
+        }
+        actions={
+          (hasPermission("crear_usuarios") || canManage) ? (
+            <Button
+              onClick={openCreateDialog}
+              className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus size={14} />
+              <span>Nuevo Usuario</span>
+            </Button>
+          ) : undefined
+        }
+      />
 
       {error && (
         <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">

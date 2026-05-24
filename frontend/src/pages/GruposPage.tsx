@@ -4,8 +4,8 @@ import { getApiErrorMessage } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { MasterDetailSkeleton, PageCoverHeaderSkeleton } from "@/components/ui/page-skeletons";
-import { PageCoverIcon } from "@/components/ui/page-icon";
+import { MasterDetailSkeleton, PageHeaderSkeleton } from "@/components/ui/page-skeletons";
+import { PageHeader } from "@/components/ui/page-header";
 import { PageIconKind } from "@/lib/iconography";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,6 @@ import { Users, UsersRound, Trash2, Edit, Plus, Check, X, Search, Settings, Spar
 import { Grupo, Usuario } from "@/types";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { InfoHint } from "@/components/ui/info-hint";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -266,37 +265,34 @@ export default function GruposPage() {
   }
 
   return (
-    <div className="page-shell space-y-6 notion-animate-fade">
+    <div className="page-shell space-y-6 animate-fadeIn">
       {loading ? (
-        <PageCoverHeaderSkeleton showActions={isOrganizer} />
+        <PageHeaderSkeleton showActions={isOrganizer} />
       ) : (
-      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-        <div className="h-28 notion-cover notion-cover-sports" />
-        <div className="p-6 relative pt-10">
-          <PageCoverIcon kind={PageIconKind.GRUPOS} />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                Gestión de Grupos
-                <InfoHint side="right" maxWidth={340}>
-                  Los <strong>grupos</strong> son listas reutilizables de jugadores (ej. "Plantilla
-                  Sub-18", "Amigos del barrio"). Al crear una convocatoria con invitación tipo
-                  <em> Grupo</em>, todos sus miembros reciben la invitación automáticamente.
-                </InfoHint>
-              </h1>
-              <p className="text-muted-foreground text-xs mt-1">
-                Crea listas reutilizables de jugadores para invitarlos en bloque a tus convocatorias.
-              </p>
-            </div>
-            {isOrganizer && (
-              <Button onClick={openCreateDialog} className="gap-1.5 font-medium text-xs h-9 rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
+        <PageHeader
+          iconKind={PageIconKind.GRUPOS}
+          title="Gestión de Grupos"
+          description="Crea listas reutilizables de jugadores para invitarlos en bloque a tus convocatorias."
+          hintProps={{ maxWidth: 340 }}
+          hint={
+            <>
+              Los <strong>grupos</strong> son listas reutilizables de jugadores (ej. &quot;Plantilla
+              Sub-18&quot;, &quot;Amigos del barrio&quot;). Al crear una convocatoria con invitación tipo
+              <em> Grupo</em>, todos sus miembros reciben la invitación automáticamente.
+            </>
+          }
+          actions={
+            isOrganizer ? (
+              <Button
+                onClick={openCreateDialog}
+                className="gap-1.5 font-medium text-xs h-9 rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+              >
                 <Plus size={14} />
                 <span>Nuevo Grupo</span>
               </Button>
-            )}
-          </div>
-        </div>
-      </div>
+            ) : undefined
+          }
+        />
       )}
 
       {!loading && error && (

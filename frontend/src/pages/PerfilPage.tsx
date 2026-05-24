@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { InlineListSkeleton } from "@/components/ui/page-skeletons";
-import { DeporteIcon, PageCoverIcon } from "@/components/ui/page-icon";
+import { DeporteIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { PageIconKind } from "@/lib/iconography";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -340,20 +341,12 @@ export default function PerfilPage() {
   };
 
   return (
-    <div className="page-shell space-y-6 notion-animate-fade">
-      {/* Cover / Header section */}
-      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-        <div className="h-28 notion-cover notion-cover-sports" />
-        <div className="p-6 relative pt-10">
-          <PageCoverIcon kind={PageIconKind.PERFIL} />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Ajustes de Perfil</h1>
-            <p className="text-muted-foreground text-xs mt-1">
-              Administra tu cuenta personal, información de jugador y prioridades de posición.
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="page-shell space-y-6 animate-fadeIn">
+      <PageHeader
+        iconKind={PageIconKind.PERFIL}
+        title="Ajustes de Perfil"
+        description="Administra tu cuenta personal, información de jugador y prioridades de posición."
+      />
 
         <div className="grid gap-6 md:grid-cols-3">
           {/* Tarjeta de Workspace de Usuario */}

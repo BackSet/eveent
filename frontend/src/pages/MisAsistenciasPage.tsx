@@ -4,7 +4,8 @@ import { useApi } from "@/hooks/useApi";
 import { formatDateTime } from "@/lib/formatDate";
 import { Badge } from "@/components/ui/badge";
 import { DataListSkeleton } from "@/components/ui/page-skeletons";
-import { DeporteIcon, PageCoverIcon } from "@/components/ui/page-icon";
+import { DeporteIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { PageIconKind } from "@/lib/iconography";
 import { Button } from "@/components/ui/button";
 import { PresetChips } from "@/components/ui/preset-chips";
@@ -180,20 +181,12 @@ export default function MisAsistenciasPage() {
   );
 
   return (
-    <div className="page-shell space-y-6 notion-animate-fade">
-      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-        <div className="h-28 notion-cover notion-cover-sports" />
-        <div className="p-6 relative pt-10">
-          <PageCoverIcon kind={PageIconKind.MIS_ASISTENCIAS} />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Mis Asistencias</h1>
-            <p className="text-muted-foreground text-xs mt-1">
-              Tus respuestas a convocatorias, ordenadas por la fecha del partido. Por defecto verás
-              los eventos más cercanos.
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="page-shell space-y-6 animate-fadeIn">
+      <PageHeader
+        iconKind={PageIconKind.MIS_ASISTENCIAS}
+        title="Mis Asistencias"
+        description="Tus respuestas a convocatorias, ordenadas por la fecha del partido. Por defecto verás los eventos más cercanos."
+      />
 
       {list.length > 0 && (
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4 border-t border-b border-border py-4 text-sm font-medium">

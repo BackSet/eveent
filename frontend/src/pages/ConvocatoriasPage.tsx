@@ -30,7 +30,8 @@ import {
 import { getApiErrorMessage } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { DataListSkeleton } from "@/components/ui/page-skeletons";
-import { DeporteIcon, PageCoverIcon } from "@/components/ui/page-icon";
+import { DeporteIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { PageIconKind } from "@/lib/iconography";
 import { PresetChips } from "@/components/ui/preset-chips";
 import {
@@ -470,23 +471,18 @@ export default function ConvocatoriasPage() {
   );
 
   return (
-    <div className="page-shell space-y-6 notion-animate-fade">
-      {/* Cover / Header section */}
-      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-        <div className="h-28 notion-cover notion-cover-sports" />
-        <div className="p-6 relative pt-10">
-          <PageCoverIcon kind={PageIconKind.CONVOCATORIAS} />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Convocatorias</h1>
-            <p className="text-muted-foreground text-xs mt-1">
-              Por defecto verás las convocatorias más cercanas en el tiempo. Usa los filtros para
-              abiertas, esta semana o el historial de partidos pasados.
-              {canCreate &&
-                " Como organizador, también puedes crear convocatorias únicas o reglas recurrentes."}
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="page-shell space-y-6 animate-fadeIn">
+      <PageHeader
+        iconKind={PageIconKind.CONVOCATORIAS}
+        title="Convocatorias"
+        description={
+          `Por defecto verás las convocatorias más cercanas en el tiempo. Usa los filtros para abiertas, esta semana o el historial de partidos pasados.${
+            canCreate
+              ? " Como organizador, también puedes crear convocatorias únicas o reglas recurrentes."
+              : ""
+          }`
+        }
+      />
 
 
       {/* Notion Database Toolbar & Search */}

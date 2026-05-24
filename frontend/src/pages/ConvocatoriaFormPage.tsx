@@ -12,6 +12,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { FormPageSkeleton } from "@/components/ui/page-skeletons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Calendar, Clock, MapPin, Users, Repeat, UserPlus, Check, X, Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageIconKind } from "@/lib/iconography";
 import { Deporte, Grupo, Usuario, HorarioDia } from "@/types";
 import { useToast } from "@/components/ui/toast";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -350,12 +352,15 @@ export default function ConvocatoriaFormPage() {
         <ArrowLeft size={15} /> Volver
       </Button>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{isEditing ? "Editar Convocatoria" : "Nueva Convocatoria"}</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          {isEditing ? "Edita los detalles del evento" : "Define una convocatoria o programa un ciclo recurrente"}
-        </p>
-      </div>
+      <PageHeader
+        iconKind={PageIconKind.CONVOCATORIAS}
+        title={isEditing ? "Editar Convocatoria" : "Nueva Convocatoria"}
+        description={
+          isEditing
+            ? "Edita los detalles del evento"
+            : "Define una convocatoria o programa un ciclo recurrente"
+        }
+      />
 
       {!isEditing && (
         <div>

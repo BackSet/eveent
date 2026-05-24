@@ -19,11 +19,12 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Search, Shirt, Shield, Calendar, Ban, Unlock, Eye } from "lucide-react";
 import { DeporteIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageIconKind } from "@/lib/iconography";
 import { formatDateTime } from "@/lib/formatDate";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { InfoHint } from "@/components/ui/info-hint";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlayerIdentity } from "@/components/ui/player-identity";
@@ -142,38 +143,30 @@ export default function MisGruposPage() {
 
   return (
     <div className="page-shell space-y-6 animate-fadeIn">
-      {/* Cover / Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border pb-5 pt-2 gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="p-2.5 bg-primary/10 text-primary rounded-xl border border-primary/20 shrink-0 shadow-xs">
-            <Users size={22} />
+      <PageHeader
+        iconKind={PageIconKind.GRUPOS}
+        title="Mis Grupos"
+        description="Consulta las agrupaciones a las que perteneces, tus compañeros y sus posiciones preferidas."
+        hintProps={{ maxWidth: 300 }}
+        hint={
+          <>
+            Los <strong>grupos</strong> son listas de jugadores reutilizables (ej. &quot;Equipo A&quot;,
+            &quot;Amigos del barrio&quot;). Sirven para invitar a varios jugadores a una convocatoria con
+            un solo clic.
+          </>
+        }
+        actions={
+          <div className="relative w-full sm:w-72">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre o descripción..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border rounded-md w-full"
+            />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Mis Grupos
-              <InfoHint side="right" maxWidth={300}>
-                Los <strong>grupos</strong> son listas de jugadores reutilizables (ej. "Equipo A",
-                "Amigos del barrio"). Sirven para invitar a varios jugadores a una convocatoria con
-                un solo clic.
-              </InfoHint>
-            </h1>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              Consulta las agrupaciones a las que perteneces, tus compañeros y sus posiciones preferidas.
-            </p>
-          </div>
-        </div>
-
-        {/* Search Input for Groups */}
-        <div className="relative w-full sm:w-72 shrink-0">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre o descripción..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border rounded-md"
-          />
-        </div>
-      </div>
+        }
+      />
 
       {error && (
         <Alert variant="destructive" className="border-destructive/20 bg-destructive/5 text-destructive rounded-lg shadow-none">

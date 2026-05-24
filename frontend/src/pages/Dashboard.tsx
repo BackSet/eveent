@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { DashboardSkeleton, InlineRowsSkeleton } from "@/components/ui/page-skeletons";
-import { DeporteIcon, PageCoverIcon } from "@/components/ui/page-icon";
+import { DeporteIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { PageIconKind } from "@/lib/iconography";
 import {
   Calendar,
@@ -199,36 +200,29 @@ export default function Dashboard() {
   const isSuspended = user?.fechaFinSuspension && new Date(user.fechaFinSuspension) > new Date();
 
   return (
-    <div className="page-shell space-y-6 notion-animate-fade">
-      {/* Cover / Header section */}
-      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-        <div className="h-28 notion-cover notion-cover-sports" />
-        <div className="p-6 relative pt-10">
-          <PageCoverIcon kind={PageIconKind.DASHBOARD} />
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest leading-none">Mi Espacio Personal</p>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">{getGreeting()}, {user?.nombre}</h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {canCreate && (
-                <Link to="/convocatorias/new">
-                  <Button variant="outline" className="border-border interactive-hover h-8.5 rounded-md text-[13px] font-bold">
-                    <Plus size={14} className="mr-1" />
-                    Crear Convocatoria
-                  </Button>
-                </Link>
-              )}
-              <Link to="/perfil">
-                <Button variant="ghost" className="interactive-hover h-8.5 rounded-md text-[13px] font-semibold text-muted-foreground hover:text-foreground">
-                  Configurar Ficha
+    <div className="page-shell space-y-6 animate-fadeIn">
+      <PageHeader
+        iconKind={PageIconKind.DASHBOARD}
+        title={`${getGreeting()}, ${user?.nombre}`}
+        description="Mi espacio personal"
+        actions={
+          <>
+            {canCreate && (
+              <Link to="/convocatorias/new">
+                <Button variant="outline" className="border-border interactive-hover h-9 rounded-md text-xs font-medium">
+                  <Plus size={14} className="mr-1" />
+                  Crear Convocatoria
                 </Button>
               </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+            )}
+            <Link to="/perfil">
+              <Button variant="ghost" className="interactive-hover h-9 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground">
+                Configurar Ficha
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {/* Notion Callout Banner */}
       {isSuspended ? (

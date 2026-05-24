@@ -17,7 +17,7 @@ const COL_SPAN: Record<number, string> = {
   12: "lg:col-span-12",
 };
 
-export function PageCoverHeaderSkeleton({
+export function PageHeaderSkeleton({
   showActions = true,
   className,
 }: {
@@ -27,30 +27,28 @@ export function PageCoverHeaderSkeleton({
   return (
     <div
       className={cn(
-        "relative rounded-lg overflow-hidden border border-border bg-muted/30",
+        "flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 pt-2 gap-4",
         className
       )}
     >
-      <Skeleton className="h-28 w-full rounded-none" />
-      <div className="p-6 relative pt-10">
-        <Skeleton className="absolute top-[-36px] left-6 h-14 w-14 rounded-xl" />
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div className="space-y-2 flex-1 min-w-0 pt-2">
-            <Skeleton className="h-3 w-32" />
-            <Skeleton className="h-8 w-56 max-w-full" />
-            <Skeleton className="h-3 w-72 max-w-full" />
-          </div>
-          {showActions && (
-            <div className="flex gap-2 shrink-0">
-              <Skeleton className="h-9 w-36" />
-              <Skeleton className="h-9 w-28" />
-            </div>
-          )}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <Skeleton className="h-11 w-11 rounded-lg shrink-0" />
+        <div className="space-y-2 flex-1 min-w-0">
+          <Skeleton className="h-7 w-56 max-w-full" />
+          <Skeleton className="h-3 w-72 max-w-full" />
         </div>
       </div>
+      {showActions && (
+        <div className="flex gap-2 shrink-0">
+          <Skeleton className="h-9 w-36" />
+        </div>
+      )}
     </div>
   );
 }
+
+/** @deprecated Use PageHeaderSkeleton */
+export const PageCoverHeaderSkeleton = PageHeaderSkeleton;
 
 function DataListRowSkeleton({ columns }: { columns: DataListColumns }) {
   const keys = Object.keys(columns);
@@ -257,7 +255,7 @@ export function CardGridSkeleton({
 export function DashboardSkeleton() {
   return (
     <SkeletonPage label="Cargando panel">
-      <PageCoverHeaderSkeleton />
+      <PageHeaderSkeleton />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="border border-border rounded-lg p-4 space-y-2 bg-card">

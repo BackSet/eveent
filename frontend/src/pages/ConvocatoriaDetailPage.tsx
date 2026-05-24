@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { ConvocatoriaDetailSkeleton } from "@/components/ui/page-skeletons";
-import { PageCoverIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { getDeporteIcon } from "@/lib/iconography";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -628,20 +628,11 @@ export default function ConvocatoriaDetailPage() {
         </Tooltip>
       </div>
 
-      {/* Cover / Header section */}
-      <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-        <div className={`h-28 notion-cover ${
-          convocatoria.deporteNombre?.toLowerCase().includes("futbol") || convocatoria.deporteNombre?.toLowerCase().includes("fútbol")
-            ? "notion-cover-soccer"
-            : "notion-cover-sports"
-        }`} />
-        <div className="p-6 relative pt-10">
-          <PageCoverIcon icon={getDeporteIcon(convocatoria.deporteNombre)} />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">{convocatoria.titulo}</h1>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={getDeporteIcon(convocatoria.deporteNombre)}
+        title={convocatoria.titulo}
+        description={convocatoria.deporteNombre ?? undefined}
+      />
 
       {isInProgressOrDone && (caps.canManageConvocatoria || caps.canManageLineup) && (
         <div className="notion-callout tone-info items-center">

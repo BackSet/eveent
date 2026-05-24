@@ -17,15 +17,14 @@ import {
 import { Shield, Pencil, Key, Search } from "lucide-react";
 import {
   getPermissionModuleId,
-  getPageIcon,
   PageIconKind,
   PermissionModuleId,
   PERMISSION_MODULES,
 } from "@/lib/iconography";
-import { ModuleIcon, PageHeaderIcon } from "@/components/ui/page-icon";
+import { ModuleIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/toast";
-import { InfoHint } from "@/components/ui/info-hint";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PresetChips } from "@/components/ui/preset-chips";
@@ -149,26 +148,23 @@ export default function PermisosPage() {
 
   return (
     <div className="page-shell space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
-        <div className="flex items-center gap-3">
-          <PageHeaderIcon icon={getPageIcon(PageIconKind.PERMISOS)} />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Permisos del Sistema
-              <InfoHint side="right" maxWidth={360}>
-                Las <strong>claves técnicas</strong> (ej. <code>crear_convocatorias</code>) se definen en el
-                código del backend y no se pueden cambiar aquí. Solo puedes editar el{" "}
-                <strong>nombre visible</strong> que ven los administradores al asignar roles.
-              </InfoHint>
-            </h1>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              {canEdit
-                ? "Consulta los permisos y personaliza cómo se muestran en la interfaz."
-                : "Consulta los permisos disponibles en el sistema (solo lectura)."}
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        iconKind={PageIconKind.PERMISOS}
+        title="Permisos del Sistema"
+        description={
+          canEdit
+            ? "Consulta los permisos y personaliza cómo se muestran en la interfaz."
+            : "Consulta los permisos disponibles en el sistema (solo lectura)."
+        }
+        hintProps={{ maxWidth: 360 }}
+        hint={
+          <>
+            Las <strong>claves técnicas</strong> (ej. <code>crear_convocatorias</code>) se definen en el
+            código del backend y no se pueden cambiar aquí. Solo puedes editar el{" "}
+            <strong>nombre visible</strong> que ven los administradores al asignar roles.
+          </>
+        }
+      />
 
       <div className="notion-callout tone-info p-3 rounded-lg text-[11px] leading-relaxed">
         <div className="notion-callout-icon">

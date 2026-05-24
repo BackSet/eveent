@@ -23,10 +23,10 @@ import {
   PermissionModuleId,
   PERMISSION_MODULES,
 } from "@/lib/iconography";
-import { ModuleIcon, PageHeaderIcon } from "@/components/ui/page-icon";
+import { ModuleIcon } from "@/components/ui/page-icon";
+import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { InfoHint } from "@/components/ui/info-hint";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PresetChips } from "@/components/ui/preset-chips";
@@ -184,31 +184,31 @@ export default function RolesPage() {
 
   return (
     <div className="page-shell space-y-6 animate-fadeIn">
-      {/* Cover/Header area */}
-      <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
-        <div className="flex items-center gap-3">
-          <PageHeaderIcon icon={PERMISSION_MODULES[PermissionModuleId.ROLES].icon} />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Roles del Sistema
-              <InfoHint side="right" maxWidth={320}>
-                Los <strong>roles</strong> agrupan permisos. Asignas un rol a un usuario y este
-                hereda todas sus capacidades. Los roles <em>de sistema</em> (SuperAdmin,
-                Organizador, Jugador) no pueden eliminarse, pero sí editar sus permisos.
-              </InfoHint>
-            </h1>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              Define qué puede hacer cada tipo de usuario en el workspace.
-            </p>
-          </div>
-        </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => openDialog()} className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus size={14} /> 
-              <span>Nuevo Rol</span>
-            </Button>
-          </DialogTrigger>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <PageHeader
+          icon={PERMISSION_MODULES[PermissionModuleId.ROLES].icon}
+          title="Roles del Sistema"
+          description="Define qué puede hacer cada tipo de usuario en el workspace."
+          hintProps={{ maxWidth: 320 }}
+          hint={
+            <>
+              Los <strong>roles</strong> agrupan permisos. Asignas un rol a un usuario y este
+              hereda todas sus capacidades. Los roles <em>de sistema</em> (SuperAdmin,
+              Organizador, Jugador) no pueden eliminarse, pero sí editar sus permisos.
+            </>
+          }
+          actions={
+            <DialogTrigger asChild>
+              <Button
+                onClick={() => openDialog()}
+                className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus size={14} />
+                <span>Nuevo Rol</span>
+              </Button>
+            </DialogTrigger>
+          }
+        />
           <DialogContent className="bg-popover border border-border shadow-none rounded-lg w-[calc(100vw-2rem)] max-w-[min(100%,28rem)] sm:max-w-md p-5 space-y-4">
             <form onSubmit={handleSave}>
             <DialogHeader className="border-b border-border pb-3">
@@ -310,7 +310,6 @@ export default function RolesPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
 
       {loading ? (
         <RolesGridSkeleton />

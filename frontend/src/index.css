@@ -104,7 +104,7 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 /* Butter-Smooth Theme Transitions */
-body, header, aside, .bg-card, .border, input, select, textarea, button, .notion-callout, .notion-cover, .badge {
+body, header, aside, .bg-card, .border, input, select, textarea, button, .notion-callout, .badge {
   transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
               border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
               color 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
@@ -127,56 +127,6 @@ body, header, aside, .bg-card, .border, input, select, textarea, button, .notion
 }
 
 /* Notion Design Utilities */
-
-/* Cover image container */
-.notion-cover {
-  position: relative;
-  height: 160px;
-  width: 100%;
-  background: linear-gradient(135deg, #e3e2e0 0%, #d5d4d0 100%);
-  overflow: hidden;
-  transition: height 0.3s;
-}
-
-.dark .notion-cover {
-  background: linear-gradient(135deg, #2e2e2e 0%, #1e1e1e 100%);
-}
-
-.notion-cover-sports {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-}
-.dark .notion-cover-sports {
-  background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
-}
-
-.notion-cover-soccer {
-  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-}
-.dark .notion-cover-soccer {
-  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
-}
-
-/* Emojis matching Notion style */
-.notion-page-icon-overlay {
-  position: absolute;
-  bottom: -40px;
-  left: 54px;
-  font-size: 76px;
-  line-height: 1;
-  background: hsl(var(--background));
-  padding: 8px;
-  border-radius: 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  border: 1px solid hsl(var(--border) / 0.7);
-  user-select: none;
-  z-index: 10;
-}
-
-.notion-page-icon-inline {
-  font-size: 32px;
-  line-height: 1;
-  user-select: none;
-}
 
 /* Notion Callout Box */
 .notion-callout {
