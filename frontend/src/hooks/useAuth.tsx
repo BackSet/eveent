@@ -30,7 +30,8 @@ interface AuthContextType extends AuthState {
     password: string,
     username: string,
     numeroCamiseta: number,
-    posicionIds?: number[]
+    posicionIds?: number[],
+    registerAsOrganizador?: boolean
   ) => Promise<void>;
   logout: () => void;
   hasRole: (role: string) => boolean;
@@ -75,7 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     username: string,
     numeroCamiseta: number,
-    posicionIds?: number[]
+    posicionIds?: number[],
+    registerAsOrganizador = false
   ) => {
     setIsLoading(true);
     try {
@@ -85,7 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         username,
         numeroCamiseta,
-        posicionIds,
+        posicionIds: registerAsOrganizador ? [] : posicionIds,
+        registerAsOrganizador,
       });
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data));

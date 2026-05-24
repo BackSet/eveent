@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
-import { Mail, Lock, User, ArrowRight, ShieldAlert, ArrowLeft, Hash, Check, X } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, ShieldAlert, ArrowLeft, Hash, Check, X, Megaphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [nombre, setNombre] = useState("");
   const [isRegister, setIsRegister] = useState(false);
+  const [registerAsOrganizador, setRegisterAsOrganizador] = useState(false);
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
 
@@ -60,6 +61,7 @@ export default function Login() {
   useEffect(() => {
     if (!isRegister) {
       setStep(1);
+      setRegisterAsOrganizador(false);
       setUsername("");
       setNumeroCamiseta("");
       setSelectedDeporteId(null);
@@ -132,20 +134,34 @@ export default function Login() {
           }
           setStep(2);
         } else {
-          if (!username.trim() || !numeroCamiseta.trim()) {
+          if (!username.trim()) {
+            setError(registerAsOrganizador
+              ? "Elige un nombre de usuario para tu cuenta de organizador."
+              : "Elige un nombre de usuario y un dorsal para terminar tu ficha de jugador.");
+            return;
+          }
+          if (!registerAsOrganizador && !numeroCamiseta.trim()) {
             setError("Elige un nombre de usuario y un dorsal para terminar tu ficha de jugador.");
             return;
           }
-          const dorsalErr = validateDorsal(numeroCamiseta);
-          if (dorsalErr) {
-            setError(dorsalErr);
-            return;
+          let numCamiseta = 1;
+          if (numeroCamiseta.trim()) {
+            const dorsalErr = validateDorsal(numeroCamiseta);
+            if (dorsalErr) {
+              setError(dorsalErr);
+              return;
+            }
+            numCamiseta = parseInt(numeroCamiseta, 10);
           }
-          const numCamiseta = parseInt(numeroCamiseta, 10);
 
-          const posicionIds = selectedPositions.map((p) => p.id);
-          await register(nombre, email, password, username, numCamiseta, posicionIds);
-          toast.success("¡Cuenta creada!", `Bienvenido a Event, ${nombre.split(" ")[0]}.`);
+          const posicionIds = registerAsOrganizador ? [] : selectedPositions.map((p) => p.id);
+          await register(nombre, email, password, username, numCamiseta, posicionIds, registerAsOrganizador);
+          toast.success(
+            "¡Cuenta creada!",
+            registerAsOrganizador
+              ? `Bienvenido, ${nombre.split(" ")[0]}. Ya puedes crear convocatorias y grupos.`
+              : `Bienvenido a Event, ${nombre.split(" ")[0]}.`
+          );
         }
       } else {
         await login(email, password);
@@ -206,9 +222,16 @@ export default function Login() {
                 : "Iniciar sesión"}
             </h2>
             {isRegister && (
-              <div className="flex gap-1.5 items-center">
-                <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${step === 1 ? "bg-primary" : "bg-muted"}`} />
-                <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${step === 2 ? "bg-primary" : "bg-muted"}`} />
+              <div className="flex items-center gap-2">
+                {registerAsOrganizador && (
+                  <Badge variant="outline" className="text-[9px] font-semibold uppercase tracking-wide border-primary/30 text-primary">
+                    Organizador
+                  </Badge>
+                )}
+                <div className="flex gap-1.5 items-center">
+                  <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${step === 1 ? "bg-primary" : "bg-muted"}`} />
+                  <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${step === 2 ? "bg-primary" : "bg-muted"}`} />
+                </div>
               </div>
             )}
           </div>
@@ -217,6 +240,42 @@ export default function Login() {
             {/* STEP 1: Simple Registration fields */}
             {(!isRegister || step === 1) && (
               <>
+                {isRegister && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                      Tipo de cuenta
+                    </label>
+                    <PresetChips
+                      showIcon={false}
+                      activeId={registerAsOrganizador ? "organizador" : "jugador"}
+                      options={[
+                        {
+                          id: "jugador",
+                          label: "Jugador",
+                          onClick: () => {
+                            setRegisterAsOrganizador(false);
+                            setError("");
+                          },
+                        },
+                        {
+                          id: "organizador",
+                          label: "Organizador",
+                          onClick: () => {
+                            setRegisterAsOrganizador(true);
+                            setSelectedPositions([]);
+                            setError("");
+                          },
+                        },
+                      ]}
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      {registerAsOrganizador
+                        ? "Crea y gestiona convocatorias, grupos e invitaciones."
+                        : "Confirma asistencia a convocatorias y define tus posiciones deportivas."}
+                    </p>
+                  </div>
+                )}
+
                 {isRegister && (
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -278,10 +337,20 @@ export default function Login() {
               </>
             )}
 
-            {/* STEP 2: Player Details & Sports Selection */}
+            {/* STEP 2: Account details (player or organizer) */}
             {isRegister && step === 2 && (
               <div className="space-y-3.5 animate-fadeIn">
-                <div className="grid grid-cols-2 gap-3">
+                {registerAsOrganizador && (
+                  <div className="notion-callout border-primary/20 bg-primary/5 p-3 rounded flex gap-2">
+                    <Megaphone size={14} className="shrink-0 text-primary mt-0.5" />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Como <strong className="text-foreground">organizador</strong> podrás publicar convocatorias,
+                      gestionar grupos y coordinar asistencias. No necesitas elegir deportes ni posiciones.
+                    </p>
+                  </div>
+                )}
+
+                <div className={registerAsOrganizador ? "space-y-3" : "grid grid-cols-2 gap-3"}>
                   {/* Username (Mandatory) */}
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -300,10 +369,10 @@ export default function Login() {
                     </div>
                   </div>
 
-                  {/* Shirt Number (Mandatory) */}
+                  {/* Shirt Number */}
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                      Nº Camiseta *
+                      Nº Camiseta{registerAsOrganizador ? " (opcional)" : " *"}
                     </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50">
@@ -315,25 +384,29 @@ export default function Login() {
                         max="99"
                         value={numeroCamiseta}
                         onChange={(e) => setNumeroCamiseta(e.target.value)}
-                        required
+                        required={!registerAsOrganizador}
                         className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
-                        placeholder="10"
+                        placeholder={registerAsOrganizador ? "Opcional" : "10"}
                       />
                     </div>
                   </div>
-                  <PresetChips
-                    showIcon={false}
-                    options={[
-                      {
-                        id: "random",
-                        label: "Dorsal aleatorio",
-                        onClick: () => setNumeroCamiseta(String(Math.floor(Math.random() * 99) + 1)),
-                      },
-                    ]}
-                  />
+                  {!registerAsOrganizador && (
+                    <PresetChips
+                      showIcon={false}
+                      options={[
+                        {
+                          id: "random",
+                          label: "Dorsal aleatorio",
+                          onClick: () => setNumeroCamiseta(String(Math.floor(Math.random() * 99) + 1)),
+                        },
+                      ]}
+                    />
+                  )}
                 </div>
 
-                {/* Optional Sport Selection */}
+                {/* Optional Sport Selection (jugadores) */}
+                {!registerAsOrganizador && (
+                <>
                 <div className="space-y-2 border-t border-border/60 pt-3">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -444,6 +517,8 @@ export default function Login() {
                     </div>
                   </div>
                 )}
+                </>
+                )}
               </div>
             )}
 
@@ -488,18 +563,40 @@ export default function Login() {
         </div>
 
         {/* Toggle Mode Footer */}
-        <p className="text-center text-xs text-muted-foreground">
-          {isRegister ? "¿Ya tienes una cuenta?" : "¿No tienes cuenta?"}{" "}
-          <button
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setError("");
-            }}
-            className="text-foreground hover:underline font-bold transition cursor-pointer"
-          >
-            {isRegister ? "Inicia sesión" : "Regístrate"}
-          </button>
-        </p>
+        <div className="text-center space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {isRegister ? "¿Ya tienes una cuenta?" : "¿No tienes cuenta?"}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setIsRegister(!isRegister);
+                setRegisterAsOrganizador(false);
+                setError("");
+              }}
+              className="text-foreground hover:underline font-bold transition cursor-pointer"
+            >
+              {isRegister ? "Inicia sesión" : "Regístrate"}
+            </button>
+          </p>
+          {!isRegister && (
+            <p className="text-xs text-muted-foreground">
+              ¿Organizas eventos?{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegister(true);
+                  setRegisterAsOrganizador(true);
+                  setStep(1);
+                  setError("");
+                }}
+                className="text-foreground hover:underline font-bold transition cursor-pointer inline-flex items-center gap-1"
+              >
+                <Megaphone size={12} />
+                Regístrate como organizador
+              </button>
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

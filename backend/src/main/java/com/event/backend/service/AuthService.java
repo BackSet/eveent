@@ -77,20 +77,21 @@ public class AuthService {
             usuarioPosicionRepository.saveAll(userPositions);
         }
 
-        RolesSistema rolJugador = rolesSistemaRepository.findByNombre("Jugador")
+        String rolNombre = request.isRegisterAsOrganizador() ? "Organizador" : "Jugador";
+        RolesSistema rol = rolesSistemaRepository.findByNombre(rolNombre)
                 .orElseGet(() -> rolesSistemaRepository.save(
-                        RolesSistema.builder().nombre("Jugador").build()));
+                        RolesSistema.builder().nombre(rolNombre).build()));
 
-        UsuarioRolId urId = new UsuarioRolId(usuario.getId(), rolJugador.getId());
+        UsuarioRolId urId = new UsuarioRolId(usuario.getId(), rol.getId());
         usuarioRolRepository.save(UsuarioRol.builder()
                 .id(urId)
                 .usuario(usuario)
-                .rol(rolJugador)
+                .rol(rol)
                 .build());
 
         String token = jwtUtil.generateToken(usuario.getEmail());
-        List<String> roles = List.of(rolJugador.getNombre());
-        List<String> permissions = rolPermisoRepository.findByIdRolId(rolJugador.getId()).stream()
+        List<String> roles = List.of(rol.getNombre());
+        List<String> permissions = rolPermisoRepository.findByIdRolId(rol.getId()).stream()
                 .map(rp -> rp.getPermiso().getClave())
                 .toList();
 

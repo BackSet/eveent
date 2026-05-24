@@ -35,4 +35,7 @@ public class RegisterRequest {
     private Integer numeroCamiseta;
 
     private List<Long> posicionIds;
+
+    /** Si es true, asigna rol Organizador en lugar de Jugador. */
+    private boolean registerAsOrganizador;
 }
