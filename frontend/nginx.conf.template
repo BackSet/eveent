@@ -8,6 +8,10 @@ server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
 
+    # Bloquea beacon.min.js que Cloudflare inyecta con Web Analytics activo (CORS/SRI en consola).
+    # Para eliminar el <script> del HTML: Cloudflare → Analytics → Web Analytics → Desactivar.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https: wss:; img-src 'self' data: https: blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self';" always;
+
     # Assets con hash: servir el archivo o 404 (nunca index.html).
     # Evita el error "MIME text/html" cuando el navegador tiene un index.html en caché
     # que referencia bundles de un build anterior.

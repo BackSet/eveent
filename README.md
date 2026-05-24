@@ -253,6 +253,19 @@ El frontend llama al API con `VITE_API_URL`; el backend permite el origen del fr
 
 Orden recomendado: PostgreSQL → backend → frontend → CORS en backend.
 
+### Cloudflare (dominio personalizado)
+
+Si `event.bymerge.org` pasa por el proxy de Cloudflare y en la consola aparecen errores de `static.cloudflareinsights.com/beacon.min.js` (CORS o SRI), **no vienen del código del proyecto**: Cloudflare inyecta ese script cuando **Web Analytics** está activo.
+
+**Solución recomendada (sin errores en consola):**
+
+1. Panel Cloudflare → tu zona → **Analytics** → **Web Analytics** → **Desactivar**.
+2. Opcional: purga caché (**Caching** → **Purge Everything**).
+
+El frontend también envía una cabecera **Content-Security-Policy** (ver `frontend/nginx.conf.template`) que impide ejecutar ese beacon; tras redeploy del frontend el script puede seguir en el HTML pero el navegador lo ignora. Desactivar Web Analytics evita la inyección por completo.
+
+Para métricas usa `VITE_GA_MEASUREMENT_ID` (Google Analytics 4 integrado en la app).
+
 ### Perfil de producción (backend)
 
 - `spring.jpa.hibernate.ddl-auto=validate` + **Flyway** (`spring-boot-starter-flyway`, obligatorio en Spring Boot 4)
