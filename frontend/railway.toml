@@ -1,0 +1,13 @@
+# Servicio frontend — Root Directory: frontend
+# VITE_API_URL debe apuntar a la URL pública del backend (build-time).
+# Variables: ver railway.env.example
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

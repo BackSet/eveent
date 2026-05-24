@@ -1,5 +1,8 @@
-# Stack de producción local (un solo servicio web + PostgreSQL).
+# Stack de producción local: PostgreSQL + backend + frontend (Nginx).
 # Uso: docker compose -f docker-compose.prod.yml up --build
+#
+# Frontend: http://localhost:3000
+# API:       http://localhost:8080
 
 services:
   db:
@@ -18,9 +21,9 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
@@ -28,6 +31,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DATABASE_URL: postgresql://postgres:postgres@db:5432/event
       JWT_SECRET: YWJjZGVmZ2hpamsKbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OWFiY2RlZg==
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
       ADMIN_BOOTSTRAP_ENABLED: "true"
       ADMIN_EMAIL: admin@event.com
       ADMIN_INITIAL_PASSWORD: admin123
@@ -35,6 +39,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

@@ -197,67 +197,66 @@ Documentación de endpoints: controladores en `backend/src/main/java/com/event/b
 ## Seguridad
 
 - No subas archivos `.env` al repositorio (están en `.gitignore`).
-- En producción: desactiva `ADMIN_BOOTSTRAP_ENABLED` tras el primer arranque y usa `JWT_SECRET` fuerte (Base64). Con el despliegue unificado, `CORS_ALLOWED_ORIGINS` solo hace falta si consumes la API desde otro dominio.
+- En producción: desactiva `ADMIN_BOOTSTRAP_ENABLED` tras el primer arranque, usa `JWT_SECRET` fuerte (Base64) y configura `CORS_ALLOWED_ORIGINS` con la URL pública del frontend.
 
 ---
 
 ## Despliegue en Railway
 
-### Por qué un solo servicio (y no Nginx aparte)
-
-Para esta app (SPA + API REST en el mismo dominio), el enfoque recomendado es **un contenedor Spring Boot** que:
-
-1. Compila el frontend con Vite en el build de Docker.
-2. Embebe `dist/` en `classpath:/static/` dentro del JAR.
-3. Sirve la SPA y expone `/api/**` en el **mismo puerto y dominio**.
-
-| Enfoque | Ventajas | Inconvenientes |
-|---------|----------|----------------|
-| **Unificado (actual)** | Un servicio Railway, sin proxy Nginx, sin `BACKEND_URL`, sin CORS entre front y API, React Router con fallback en Spring | Imagen Docker algo más grande |
-| Nginx + API separados | Escala front y API por separado | Dos servicios, proxy, CORS, más variables y coste |
-
-Nginx sigue siendo excelente como CDN o reverse proxy de alto tráfico; para Railway y este tamaño de proyecto, **Spring + static embebido** es más simple y robusto.
-
-### Arquitectura
+### Arquitectura (backend + frontend separados)
 
 ```
-Usuario → [Spring Boot :PORT]
-              ├── /api/*     → controladores REST + JWT
-              ├── /assets/*  → ficheros Vite
-              └── /*         → index.html (React Router)
-              └── JDBC → [PostgreSQL]
+Usuario → [Frontend Nginx :80]
+              └── fetch → [Backend Spring Boot :PORT]
+                              └── JDBC → [PostgreSQL]
 ```
+
+| Servicio | Root Directory | Dominio | Variables clave |
+|----------|----------------|---------|-----------------|
+| PostgreSQL | (plugin) | interno | inyecta `DATABASE_URL` al backend |
+| **backend** | `backend` | API pública | `DATABASE_URL`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `ADMIN_*` |
+| **frontend** | `frontend` | App pública | `VITE_API_URL` (build-time) |
+
+El frontend llama al API con `VITE_API_URL`; el backend permite el origen del front vía CORS.
 
 ### Archivos de despliegue
 
 | Archivo | Uso |
 |---------|-----|
-| `Dockerfile` (raíz) | Multi-stage: Node (Vite) + Maven (JAR con static) + JRE |
-| `railway.toml` (raíz) | Build Docker y healthcheck |
-| `backend/.../application-prod.properties` | Perfil `prod` |
-| `backend/.../SpaWebConfig.java` | Fallback SPA → `index.html` |
-| `railway.env.example` | Variables del panel Railway |
-| `docker-compose.prod.yml` | Prueba local (`app` + `db`) |
+| [`backend/Dockerfile`](backend/Dockerfile) | JAR Spring Boot |
+| [`backend/railway.toml`](backend/railway.toml) | Healthcheck `/actuator/health` |
+| [`backend/railway.env.example`](backend/railway.env.example) | Variables del servicio API |
+| [`frontend/Dockerfile`](frontend/Dockerfile) | Build Vite + Nginx |
+| [`frontend/nginx.conf`](frontend/nginx.conf) | Fallback SPA → `index.html` |
+| [`frontend/railway.toml`](frontend/railway.toml) | Healthcheck `/` |
+| [`frontend/railway.env.example`](frontend/railway.env.example) | `VITE_API_URL`, `VITE_APP_NAME` |
+| [`docker-compose.prod.yml`](docker-compose.prod.yml) | Prueba local (`db` + `backend` + `frontend`) |
 
 ### Pasos en Railway
 
 1. **Nuevo proyecto** → conectar el repositorio.
-2. **Añadir PostgreSQL** y vincularlo al servicio de la app.
-3. **Un servicio** desde la **raíz del repo** (Root Directory vacío o `/`).
-   - Railway usará `Dockerfile` y `railway.toml` de la raíz.
-4. Variables (ver `railway.env.example`):
-   - `DATABASE_URL` — la inyecta Railway al vincular PostgreSQL (no la sobrescribas con JDBC ni `PGHOST` sueltos)
-   - `SPRING_PROFILES_ACTIVE=prod`
-   - `JWT_SECRET` (`openssl rand -base64 48`)
-   - `ADMIN_BOOTSTRAP_ENABLED=true` solo en el primer despliegue
-5. Generar dominio público → esa URL sirve **login, dashboard y API**.
+2. **Añadir PostgreSQL** y vincularlo solo al servicio **backend**.
+3. **Servicio backend**
+   - Root Directory: `backend`
+   - Railway usará `backend/Dockerfile` y `backend/railway.toml`
+   - Variables: ver [`backend/railway.env.example`](backend/railway.env.example)
+   - Generar dominio público → copiar URL (API)
+4. **Servicio frontend**
+   - Root Directory: `frontend`
+   - Variables de **build**: `VITE_API_URL` = URL del backend (sin barra final)
+   - Generar dominio público → copiar URL (app)
+5. **Volver al backend** y poner `CORS_ALLOWED_ORIGINS` = URL del frontend.
+6. Redeploy backend y frontend si cambiaste CORS o `VITE_API_URL`.
 
-### Perfil de producción
+Orden recomendado: PostgreSQL → backend → frontend → CORS en backend.
+
+### Perfil de producción (backend)
 
 - `spring.jpa.hibernate.ddl-auto=validate` + **Flyway** (`spring-boot-starter-flyway`, obligatorio en Spring Boot 4)
+- Base de datos: solo `DATABASE_URL`
 - Puerto: `PORT` (Railway)
 - Health: `GET /actuator/health`
-- `VITE_API_URL` vacío en build → peticiones a `/api/...` en el mismo host
+- CORS: `CORS_ALLOWED_ORIGINS` obligatorio
 
 ### Prueba local con Docker
 
@@ -265,7 +264,9 @@ Usuario → [Spring Boot :PORT]
 docker compose -f docker-compose.prod.yml up --build
 ```
 
-App: http://localhost:8080 (UI y API en el mismo puerto).
+- Frontend: http://localhost:3000  
+- API: http://localhost:8080  
+- Login con `admin@event.com` / `admin123` (bootstrap por defecto en compose)
 
 ---
 

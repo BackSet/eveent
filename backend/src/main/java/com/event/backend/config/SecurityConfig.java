@@ -54,8 +54,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/deportes/**").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/api/**").authenticated()
-                // En prod el mismo servicio sirve la SPA; la seguridad real está en /api/**
-                .anyRequest().permitAll()
+                .anyRequest().denyAll()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
