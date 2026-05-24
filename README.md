@@ -254,7 +254,7 @@ Usuario → [Spring Boot :PORT]
 
 ### Perfil de producción
 
-- `spring.jpa.hibernate.ddl-auto=validate` + **Flyway**
+- `spring.jpa.hibernate.ddl-auto=validate` + **Flyway** (`spring-boot-starter-flyway`, obligatorio en Spring Boot 4)
 - Puerto: `PORT` (Railway)
 - Health: `GET /actuator/health`
 - `VITE_API_URL` vacío en build → peticiones a `/api/...` en el mismo host
