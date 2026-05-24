@@ -1,11 +1,15 @@
 import { memo } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
+import { SeoHead } from "@/components/SeoHead";
 
 export const Layout = memo(function Layout() {
+  const { pathname } = useLocation();
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      <SeoHead noindex canonicalPath={pathname} />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header />

@@ -5,6 +5,7 @@ import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
 import { Mail, Lock, User, ArrowRight, ShieldAlert, ArrowLeft, Hash, Check, X, Megaphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -15,6 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PresetChips } from "@/components/ui/preset-chips";
 import { validateEmail, validatePassword, validateDorsal } from "@/lib/formValidation";
+import { SeoHead } from "@/components/SeoHead";
 
 interface Deporte {
   id: number;
@@ -203,6 +205,10 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:px-6 bg-background">
+      <SeoHead
+        title={isRegister ? "Registrarse" : "Iniciar sesión"}
+        canonicalPath="/login"
+      />
       <div className="w-full max-w-[390px] space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2 flex flex-col items-center">
@@ -320,19 +326,14 @@ export default function Login() {
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                     Contraseña
                   </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50">
-                      <Lock size={13} />
-                    </span>
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
-                      placeholder="••••••••"
-                    />
-                  </div>
+                  <PasswordInput
+                    leftIcon={<Lock size={13} />}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
+                    placeholder="••••••••"
+                  />
                 </div>
               </>
             )}

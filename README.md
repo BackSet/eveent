@@ -229,7 +229,7 @@ El frontend llama al API con `VITE_API_URL`; el backend permite el origen del fr
 | [`frontend/Dockerfile`](frontend/Dockerfile) | Build Vite + Nginx |
 | [`frontend/nginx.conf.template`](frontend/nginx.conf.template) | Nginx + fallback SPA (`listen ${PORT}`) |
 | [`frontend/railway.toml`](frontend/railway.toml) | Healthcheck `/` |
-| [`frontend/railway.env.example`](frontend/railway.env.example) | `VITE_API_URL`, `VITE_APP_NAME` |
+| [`frontend/railway.env.example`](frontend/railway.env.example) | `VITE_API_URL`, `VITE_SITE_URL`, SEO y Analytics |
 | [`docker-compose.prod.yml`](docker-compose.prod.yml) | Prueba local (`db` + `backend` + `frontend`) |
 
 ### Pasos en Railway
@@ -243,7 +243,10 @@ El frontend llama al API con `VITE_API_URL`; el backend permite el origen del fr
    - Generar dominio público → copiar URL (API)
 4. **Servicio frontend**
    - Root Directory: `frontend`
-   - Variables de **build**: `VITE_API_URL` = URL del backend (sin barra final)
+   - Variables de **build**: ver [`frontend/railway.env.example`](frontend/railway.env.example)
+     - `VITE_API_URL` = URL del backend (HTTPS, sin barra final)
+     - `VITE_SITE_URL` = URL pública del frontend (HTTPS, sin barra final; vista previa al compartir)
+     - Opcional: `VITE_GOOGLE_SITE_VERIFICATION`, `VITE_GA_MEASUREMENT_ID`
    - Generar dominio público → copiar URL (app)
 5. **Volver al backend** y poner `CORS_ALLOWED_ORIGINS` = URL del frontend.
 6. Redeploy backend y frontend si cambiaste CORS o `VITE_API_URL`.
@@ -267,6 +270,43 @@ docker compose -f docker-compose.prod.yml up --build
 - Frontend: http://localhost:3000  
 - API: http://localhost:8080  
 - Login con `admin@event.com` / `admin123` (bootstrap por defecto en compose)
+
+---
+
+## Google Search Console y Analytics
+
+### Variables en el frontend (build-time)
+
+| Variable | Descripción |
+|----------|-------------|
+| `VITE_SITE_URL` | URL pública del frontend (`https://tu-app.up.railway.app`) |
+| `VITE_APP_DESCRIPTION` | Texto para meta description y Open Graph |
+| `VITE_GOOGLE_SITE_VERIFICATION` | Código del meta tag de verificación de Search Console |
+| `VITE_GA_MEASUREMENT_ID` | ID de medición GA4 (`G-XXXXXXXXXX`) |
+
+Tras el deploy, comprueba que existen `https://TU_DOMINIO/robots.txt` y `https://TU_DOMINIO/sitemap.xml`.
+
+### Search Console
+
+1. Entra en [Google Search Console](https://search.google.com/search-console).
+2. Añade una propiedad de tipo **Prefijo de URL** con la misma URL que `VITE_SITE_URL`.
+3. Elige verificación por **etiqueta HTML** y copia solo el valor del atributo `content` del meta tag.
+4. Configúralo en Railway como `VITE_GOOGLE_SITE_VERIFICATION` y redeploy del frontend.
+5. En Search Console, envía el sitemap: `https://TU_DOMINIO/sitemap.xml`.
+
+Solo `/` y `/login` están pensados para indexación; el resto de rutas llevan `noindex` (área privada).
+
+### Google Analytics 4
+
+1. Crea una propiedad GA4 y obtén el ID `G-XXXXXXXXXX`.
+2. Configúralo en Railway como `VITE_GA_MEASUREMENT_ID` y redeploy.
+3. Verifica visitas en **Informes → Tiempo real** al navegar la app.
+
+### Vista previa al compartir enlaces
+
+- Al compartir la URL raíz o `/login`, WhatsApp/Telegram usan `og-image.png`, título y descripción definidos en el build.
+- En convocatorias, el menú **Compartir** permite copiar enlace, copiar alineación (con URL) o usar el diálogo nativo del sistema.
+- Los enlaces profundos (`/convocatorias/:id`) muestran la vista previa genérica de la app en redes sociales (la app requiere login).
 
 ---
 

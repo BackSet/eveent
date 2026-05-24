@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { isAnalyticsEnabled, trackPageView } from './lib/analytics'
 import { AuthProvider } from './hooks/useAuth'
 import ProtectedRoute from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -31,6 +32,17 @@ function PageLoader() {
   )
 }
 
+function AnalyticsListener() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!isAnalyticsEnabled()) return
+    trackPageView(location.pathname + location.search, document.title)
+  }, [location.pathname, location.search])
+
+  return null
+}
+
 function AppWithApiSetup() {
   const navigate = useNavigate()
 
@@ -40,6 +52,7 @@ function AppWithApiSetup() {
 
   return (
     <ErrorBoundary>
+      <AnalyticsListener />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />

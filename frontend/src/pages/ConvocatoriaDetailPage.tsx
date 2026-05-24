@@ -15,6 +15,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PresetChips } from "@/components/ui/preset-chips";
+import { SeoHead } from "@/components/SeoHead";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +49,8 @@ import {
   AlertTriangle,
   Shirt,
   Share2,
+  Link2,
+  Copy,
   Check,
   Lock,
   Info,
@@ -145,76 +154,11 @@ export default function ConvocatoriaDetailPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [editingInvitado, setEditingInvitado] = useState<Asistencia | null>(null);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const canNativeShare =
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function";
   const [userPosiciones, setUserPosiciones] = useState<any[]>([]);
   const [positionsDialogOpen, setPositionsDialogOpen] = useState(false);
-
-  const handleShareLineup = () => {
-    if (!convocatoria) {
-      toast.error("No se pudo cargar la información para compartir.");
-      return;
-    }
-
-    let shareText = `🏆 *Alineación: ${convocatoria.titulo}* 🏆\n`;
-    if (convocatoria.fechaHora) {
-      const date = new Date(convocatoria.fechaHora);
-      const formattedDate = date.toLocaleDateString("es-ES", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      shareText += `📅 *Fecha:* ${formattedDate}\n`;
-    }
-    shareText += `📍 *Lugar:* ${convocatoria.lugar || "Por definir"}\n\n`;
-
-    playerLists.teamPlayersMap.forEach(({ team, players }) => {
-      const teamColor = team.color ? team.color.toUpperCase() : "";
-      const teamEmoji = teamColor === "BLANCO" ? "⚪" : teamColor === "NEGRO" ? "⚫" : teamColor === "ROJO" ? "🔴" : teamColor === "AZUL" ? "🔵" : teamColor === "VERDE" ? "🟢" : teamColor === "AMARILLO" ? "🟡" : "👥";
-      
-      shareText += `${teamEmoji} *${team.nombre.toUpperCase()}* (${players.length} jugadores):\n`;
-      if (players.length === 0) {
-        shareText += `  _Sin jugadores asignados_\n`;
-      } else {
-        players.forEach((p) => {
-          const handle = p.usuarioUsername
-            ? `@${p.usuarioUsername}`
-            : p.nombreExterno || p.usuarioNombre || "Invitado";
-          const legend = p.usuarioUsername && p.usuarioNombre ? ` (${p.usuarioNombre})` : "";
-          const invBy = p.nombreExterno && p.invitadoPorNombre && !p.usuarioUsername ? ` (Invitado de ${p.invitadoPorNombre})` : "";
-          const pos = p.posicionAsignadaNombre ? ` - ${p.posicionAsignadaNombre}` : p.posicionPreferidaNombre ? ` - ${p.posicionPreferidaNombre}` : "";
-          shareText += `  • ${handle}${legend}${invBy}${pos}\n`;
-        });
-      }
-      shareText += `\n`;
-    });
-
-    if (playerLists.comodines.length > 0) {
-      shareText += `🌟 *RESERVAS / COMODINES* (${playerLists.comodines.length}):\n`;
-      playerLists.comodines.forEach((p) => {
-        const handle = p.usuarioUsername
-          ? `@${p.usuarioUsername}`
-          : p.nombreExterno || p.usuarioNombre || "Invitado";
-        const legend = p.usuarioUsername && p.usuarioNombre ? ` (${p.usuarioNombre})` : "";
-        const invBy = p.nombreExterno && p.invitadoPorNombre && !p.usuarioUsername ? ` (Invitado de ${p.invitadoPorNombre})` : "";
-        shareText += `  • ${handle}${legend}${invBy}\n`;
-      });
-      shareText += `\n`;
-    }
-
-    shareText += `⚡ _Generado por Event App_`;
-
-    navigator.clipboard.writeText(shareText)
-      .then(() => {
-        setShareSuccess(true);
-        toast.success("Alineación copiada", "Ya puedes pegarla en WhatsApp o donde la necesites.");
-        setTimeout(() => setShareSuccess(false), 3000);
-      })
-      .catch((err) => {
-        toast.error("No se pudo copiar al portapapeles. Intenta de nuevo.");
-        console.error("Error al copiar al portapapeles", err);
-      });
-  };
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -545,6 +489,116 @@ export default function ConvocatoriaDetailPage() {
     };
   }, [asistencias, bandos, matchmakerRun]);
 
+  const getShareUrl = useCallback(() => {
+    if (typeof window === "undefined") return "";
+    return window.location.href;
+  }, []);
+
+  const buildLineupShareText = useCallback(() => {
+    if (!convocatoria) return "";
+
+    let shareText = `🏆 *Alineación: ${convocatoria.titulo}* 🏆\n`;
+    if (convocatoria.fechaHora) {
+      const date = new Date(convocatoria.fechaHora);
+      const formattedDate = date.toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      shareText += `📅 *Fecha:* ${formattedDate}\n`;
+    }
+    shareText += `📍 *Lugar:* ${convocatoria.lugar || "Por definir"}\n\n`;
+
+    playerLists.teamPlayersMap.forEach(({ team, players }) => {
+      const teamColor = team.color ? team.color.toUpperCase() : "";
+      const teamEmoji = teamColor === "BLANCO" ? "⚪" : teamColor === "NEGRO" ? "⚫" : teamColor === "ROJO" ? "🔴" : teamColor === "AZUL" ? "🔵" : teamColor === "VERDE" ? "🟢" : teamColor === "AMARILLO" ? "🟡" : "👥";
+
+      shareText += `${teamEmoji} *${team.nombre.toUpperCase()}* (${players.length} jugadores):\n`;
+      if (players.length === 0) {
+        shareText += `  _Sin jugadores asignados_\n`;
+      } else {
+        players.forEach((p) => {
+          const handle = p.usuarioUsername
+            ? `@${p.usuarioUsername}`
+            : p.nombreExterno || p.usuarioNombre || "Invitado";
+          const legend = p.usuarioUsername && p.usuarioNombre ? ` (${p.usuarioNombre})` : "";
+          const invBy = p.nombreExterno && p.invitadoPorNombre && !p.usuarioUsername ? ` (Invitado de ${p.invitadoPorNombre})` : "";
+          const pos = p.posicionAsignadaNombre ? ` - ${p.posicionAsignadaNombre}` : p.posicionPreferidaNombre ? ` - ${p.posicionPreferidaNombre}` : "";
+          shareText += `  • ${handle}${legend}${invBy}${pos}\n`;
+        });
+      }
+      shareText += `\n`;
+    });
+
+    if (playerLists.comodines.length > 0) {
+      shareText += `🌟 *RESERVAS / COMODINES* (${playerLists.comodines.length}):\n`;
+      playerLists.comodines.forEach((p) => {
+        const handle = p.usuarioUsername
+          ? `@${p.usuarioUsername}`
+          : p.nombreExterno || p.usuarioNombre || "Invitado";
+        const legend = p.usuarioUsername && p.usuarioNombre ? ` (${p.usuarioNombre})` : "";
+        const invBy = p.nombreExterno && p.invitadoPorNombre && !p.usuarioUsername ? ` (Invitado de ${p.invitadoPorNombre})` : "";
+        shareText += `  • ${handle}${legend}${invBy}\n`;
+      });
+      shareText += `\n`;
+    }
+
+    shareText += `⚡ _Generado por Event App_\n`;
+    shareText += `🔗 Ver convocatoria: ${getShareUrl()}`;
+    return shareText;
+  }, [convocatoria, getShareUrl, playerLists]);
+
+  const copyToClipboard = async (text: string, successTitle: string, successDesc: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareSuccess(true);
+      toast.success(successTitle, successDesc);
+      setTimeout(() => setShareSuccess(false), 3000);
+    } catch (err) {
+      toast.error("No se pudo copiar al portapapeles. Intenta de nuevo.");
+      console.error("Error al copiar al portapapeles", err);
+    }
+  };
+
+  const handleCopyLink = () => {
+    const url = getShareUrl();
+    if (!url) {
+      toast.error("No se pudo obtener el enlace.");
+      return;
+    }
+    void copyToClipboard(url, "Enlace copiado", "Pégalo donde quieras compartir la convocatoria.");
+  };
+
+  const handleShareLineup = () => {
+    if (!convocatoria) {
+      toast.error("No se pudo cargar la información para compartir.");
+      return;
+    }
+    void copyToClipboard(
+      buildLineupShareText(),
+      "Alineación copiada",
+      "Incluye el enlace a la convocatoria. Pégala en WhatsApp o donde la necesites."
+    );
+  };
+
+  const handleNativeShare = async () => {
+    if (!convocatoria || !canNativeShare) return;
+    const url = getShareUrl();
+    const text = buildLineupShareText().replace(`🔗 Ver convocatoria: ${url}`, "").trim();
+    try {
+      await navigator.share({
+        title: `Alineación: ${convocatoria.titulo}`,
+        text,
+        url,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      toast.error("No se pudo compartir", "Prueba copiar el enlace o la alineación.");
+    }
+  };
+
   const caps = useConvocatoriaCapabilities(convocatoria);
 
   const isUserSuspended = useMemo(() => {
@@ -606,6 +660,11 @@ export default function ConvocatoriaDetailPage() {
 
   return (
     <div className="page-shell space-y-6 notion-animate-fade">
+      <SeoHead
+        title={convocatoria.titulo}
+        noindex
+        canonicalPath={`/convocatorias/${convocatoria.id}`}
+      />
       {/* Navigation / Actions Bar */}
       <div className="flex items-center justify-between pt-2">
         <Button
@@ -919,26 +978,43 @@ export default function ConvocatoriaDetailPage() {
                   <Shirt size={16} className="text-primary" />
                   <h2 className="font-extrabold text-sm text-foreground tracking-tight">Alineación / Roster</h2>
                 </div>
-                {/* SHARE LINEUP BUTTON */}
+                {/* SHARE MENU */}
                 {matchmakerRun && bandos.length > 0 && (
                   <div className="flex items-center gap-2">
                     {shareSuccess && (
                       <span className="status-pill status-pill--success text-[10px] font-bold animate-fadeIn">
                         <Check size={10} />
-                        Copiado al portapapeles
+                        Copiado
                       </span>
                     )}
-                    <Tooltip content="Copia un resumen de los equipos para pegarlo en WhatsApp u otra app">
-                      <Button
-                        onClick={handleShareLineup}
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-[10px] font-bold gap-1 px-2.5 rounded border border-border bg-background text-foreground hover:bg-muted"
-                      >
-                        <Share2 size={11} />
-                        Compartir Alineación
-                      </Button>
-                    </Tooltip>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[10px] font-bold gap-1 px-2.5 rounded border border-border bg-background text-foreground hover:bg-muted"
+                        >
+                          <Share2 size={11} />
+                          Compartir
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleCopyLink}>
+                          <Link2 size={12} />
+                          Copiar enlace
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleShareLineup}>
+                          <Copy size={12} />
+                          Copiar alineación
+                        </DropdownMenuItem>
+                        {canNativeShare && (
+                          <DropdownMenuItem onClick={() => void handleNativeShare()}>
+                            <Share2 size={12} />
+                            Compartir…
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )}
               </div>

@@ -4,6 +4,7 @@ import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { InlineListSkeleton } from "@/components/ui/page-skeletons";
@@ -24,13 +25,16 @@ import {
   Plus,
   Check,
   ListOrdered,
+  Lock,
+  UserCircle2,
 } from "lucide-react";
 import { Deporte, PosicionesDeporte, UsuarioPosicionDto } from "@/types";
 import { useToast } from "@/components/ui/toast";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PlayerIdentity } from "@/components/ui/player-identity";
 import { FieldError } from "@/components/ui/field-error";
 import { AutoAceptacionCard } from "@/components/perfil/AutoAceptacionCard";
+import { ProfileSectionCard } from "@/components/perfil/ProfileSectionCard";
+import { ProfileHero } from "@/components/perfil/ProfileHero";
 import { PresetChips } from "@/components/ui/preset-chips";
 import {
   validateDorsal,
@@ -341,48 +345,31 @@ export default function PerfilPage() {
   };
 
   return (
-    <div className="page-shell space-y-8 animate-fadeIn">
+    <div className="page-shell max-w-6xl mx-auto space-y-6 animate-fadeIn">
       <PageHeader
         iconKind={PageIconKind.PERFIL}
         title="Ajustes de Perfil"
-        description="Administra tu cuenta personal, información de jugador y prioridades de posición."
+        description="Tu cuenta, disponibilidad automática y preferencias tácticas en un solo lugar."
       />
 
-      <div className="space-y-8">
-        <AutoAceptacionCard />
+      <ProfileHero
+        nombre={user?.nombre}
+        username={user?.username}
+        email={user?.email}
+        numeroCamiseta={formData.numeroCamiseta || undefined}
+        roles={user?.roles}
+      />
 
-        <div className="grid gap-6 lg:grid-cols-12">
-          <aside className="lg:col-span-4 xl:col-span-3 rounded-lg border border-border bg-card p-5 space-y-4">
-            <div className="flex flex-col items-center text-center space-y-3 pt-2">
-              <PlayerIdentity
-                nombre={user?.nombre}
-                username={user?.username}
-                email={user?.email}
-                variant="profile"
-              />
-            </div>
-            
-            <div className="pt-4 border-t border-border space-y-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Roles en el Workspace</span>
-              <div className="flex flex-wrap gap-1">
-                {user?.roles?.map((role) => (
-                  <Badge 
-                    key={role} 
-                    variant="outline"
-                    className="text-[9px] uppercase px-2 py-0.5 font-semibold tracking-wider bg-secondary/50 border-border text-foreground rounded shadow-none"
-                  >
-                    {role}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </aside>
+      <AutoAceptacionCard />
 
-          <div className="lg:col-span-8 xl:col-span-9 rounded-lg border border-border bg-card p-5 space-y-4">
-            <h3 className="text-sm font-semibold tracking-tight">Información personal</h3>
-            
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
+          <ProfileSectionCard
+            title="Información personal"
+            description="Datos visibles en convocatorias y alineaciones."
+            icon={UserCircle2}
+          >
             {error && (
-              <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">
+              <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 mb-4">
                 <div className="notion-callout-icon">
                   <ShieldAlert size={16} className="shrink-0" />
                 </div>
@@ -390,7 +377,7 @@ export default function PerfilPage() {
               </div>
             )}
             {success && (
-              <div className="notion-callout tone-success p-3">
+              <div className="notion-callout tone-success p-3 mb-4">
                 <div className="notion-callout-icon">
                   <UserCheck size={16} className="shrink-0" />
                 </div>
@@ -399,75 +386,75 @@ export default function PerfilPage() {
             )}
 
             <form onSubmit={handleSubmitProfile} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="nombre" className="text-xs font-semibold text-muted-foreground">Nombre</Label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50">
                       <User size={13} />
                     </span>
-                    <Input 
-                      id="nombre" 
-                      value={formData.nombre} 
-                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
-                      required 
-                      className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border" 
+                    <Input
+                      id="nombre"
+                      value={formData.nombre}
+                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                      required
+                      className="pl-9 h-9 text-xs border-border bg-background shadow-none"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs font-semibold text-muted-foreground">Correo Electrónico</Label>
+                  <Label htmlFor="email" className="text-xs font-semibold text-muted-foreground">Correo electrónico</Label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50">
                       <Mail size={13} />
                     </span>
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      value={formData.email} 
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-                      required 
-                      className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border" 
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      className="pl-9 h-9 text-xs border-border bg-background shadow-none"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="username" className="text-xs font-semibold text-muted-foreground">Nombre de Usuario</Label>
+                  <Label htmlFor="username" className="text-xs font-semibold text-muted-foreground">Usuario</Label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50 font-semibold text-xs">@</span>
-                    <Input 
-                      id="username" 
-                      value={formData.username} 
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })} 
-                      placeholder="ej. messi10" 
-                      className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border" 
+                    <Input
+                      id="username"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      placeholder="ej. messi10"
+                      className="pl-9 h-9 text-xs border-border bg-background shadow-none"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="numeroCamiseta" className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                    <span>Dorsal / Camiseta</span>
+                    <span>Dorsal / camiseta</span>
                     <InfoHint side="right" maxWidth={260}>
                       Número que prefieres usar en tu camiseta. Aparece junto a tu nombre en las
                       alineaciones para que el equipo te identifique rápido.
                     </InfoHint>
                   </Label>
-                  <div className="relative">
+                  <div className="relative max-w-[140px]">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50">
                       <Hash size={13} />
                     </span>
-                    <Input 
-                      id="numeroCamiseta" 
-                      type="number" 
-                      min="1" 
-                      max="99" 
-                      value={formData.numeroCamiseta} 
-                      onChange={(e) => setFormData({ ...formData, numeroCamiseta: e.target.value })} 
-                      placeholder="ej. 10" 
-                      className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
+                    <Input
+                      id="numeroCamiseta"
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={formData.numeroCamiseta}
+                      onChange={(e) => setFormData({ ...formData, numeroCamiseta: e.target.value })}
+                      placeholder="ej. 10"
+                      className="pl-9 h-9 text-xs border-border bg-background shadow-none"
                       aria-invalid={!!dorsalError}
                     />
                   </div>
@@ -475,106 +462,109 @@ export default function PerfilPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
-                <Button 
-                  type="submit" 
-                  disabled={saving} 
-                  className="h-8 px-4 font-semibold text-xs rounded shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+              <div className="flex justify-end pt-1 border-t border-border/60">
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="mt-4 h-9 px-5 font-semibold text-xs shadow-none"
                 >
-                  {saving ? <Spinner size="sm" /> : "Guardar Cambios"}
+                  {saving ? <Spinner size="sm" /> : "Guardar cambios"}
                 </Button>
               </div>
             </form>
+          </ProfileSectionCard>
 
-            <div className="border-t border-border pt-5 mt-2 space-y-4">
-              <h3 className="text-sm font-semibold tracking-tight">Cambiar contraseña</h3>
-              {passwordError && (
-                <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 text-xs font-medium">
-                  {passwordError}
-                </div>
-              )}
-              {passwordSuccess && (
-                <div className="notion-callout tone-success p-3 text-xs font-medium">
-                  {passwordSuccess}
-                </div>
-              )}
-              <form onSubmit={handleSubmitPassword} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="currentPassword">Contraseña actual</Label>
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    autoComplete="current-password"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="newPassword">Nueva contraseña</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      autoComplete="new-password"
-                      minLength={6}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="confirmPassword">Confirmar nueva</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      autoComplete="new-password"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={savingPassword} size="sm">
-                    {savingPassword ? <Spinner size="sm" /> : "Actualizar contraseña"}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+          <ProfileSectionCard
+            title="Seguridad"
+            description="Actualiza tu contraseña de acceso al workspace."
+            icon={Lock}
+          >
+            {passwordError && (
+              <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 mb-4 text-xs font-medium">
+                {passwordError}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div className="notion-callout tone-success p-3 mb-4 text-xs font-medium">
+                {passwordSuccess}
+              </div>
+            )}
+            <form onSubmit={handleSubmitPassword} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="currentPassword" className="text-xs font-semibold text-muted-foreground">
+                  Contraseña actual
+                </Label>
+                <PasswordInput
+                  id="currentPassword"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  autoComplete="current-password"
+                  className="h-9 text-xs"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="newPassword" className="text-xs font-semibold text-muted-foreground">
+                  Nueva contraseña
+                </Label>
+                <PasswordInput
+                  id="newPassword"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  autoComplete="new-password"
+                  minLength={6}
+                  className="h-9 text-xs"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword" className="text-xs font-semibold text-muted-foreground">
+                  Confirmar nueva
+                </Label>
+                <PasswordInput
+                  id="confirmPassword"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  autoComplete="new-password"
+                  className="h-9 text-xs"
+                  required
+                />
+              </div>
+              <div className="flex justify-end pt-1 border-t border-border/60">
+                <Button type="submit" disabled={savingPassword} className="mt-4 h-9 px-5 text-xs font-semibold shadow-none">
+                  {savingPassword ? <Spinner size="sm" /> : "Actualizar contraseña"}
+                </Button>
+              </div>
+            </form>
+          </ProfileSectionCard>
+      </div>
 
-        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <div>
-              <h3 className="text-sm font-semibold tracking-tight flex items-center gap-1.5">
-                <ListOrdered size={15} className="text-primary shrink-0" />
-                <span>Posiciones preferidas</span>
-                <InfoHint side="right" maxWidth={320}>
-                  El sistema usa estas posiciones (y su prioridad) para formar equipos balanceados
-                  automáticamente. <strong>Prioridad 1</strong> es tu posición favorita; las demás
-                  son alternativas en orden descendente.
-                </InfoHint>
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Indícanos en qué posiciones puedes jugar y en qué orden las prefieres.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {positionsDirty && (
-                <Badge variant="warning" className="text-[10px] font-bold">
-                  Sin guardar
-                </Badge>
-              )}
-              {prioritizedPositions.length > 0 && (
-                <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded shadow-none border-border bg-secondary/30">
-                  {prioritizedPositions.length} asignadas
-                </Badge>
-              )}
-            </div>
-          </div>
-
+      <ProfileSectionCard
+        title="Posiciones preferidas"
+        description="Indica en qué posiciones puedes jugar y en qué orden las prefieres por deporte."
+        icon={ListOrdered}
+        hint={
+          <InfoHint side="right" maxWidth={320}>
+            El sistema usa estas posiciones (y su prioridad) para formar equipos balanceados
+            automáticamente. <strong>Prioridad 1</strong> es tu posición favorita.
+          </InfoHint>
+        }
+        actions={
+          <>
+            {positionsDirty && (
+              <Badge variant="warning" className="text-[10px] font-bold">
+                Sin guardar
+              </Badge>
+            )}
+            {prioritizedPositions.length > 0 && (
+              <Badge variant="outline" className="text-[10px] font-bold border-border bg-secondary/30">
+                {prioritizedPositions.length} en este deporte
+              </Badge>
+            )}
+          </>
+        }
+        contentClassName="space-y-4"
+      >
           {positionsError && (
             <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">
               <div className="notion-callout-icon">
@@ -597,7 +587,7 @@ export default function PerfilPage() {
           ) : (
             <div className="space-y-4">
               {/* Deportes Tab Bar (Notion Style) */}
-              <div className="flex flex-wrap gap-1 border-b border-border pb-1.5">
+              <div className="flex flex-wrap gap-1.5 p-1 rounded-lg border border-border bg-secondary/10">
                 {deportes.map((d) => {
                   const count = userPosiciones.filter(up => up.deporteId === d.id).length;
                   const active = selectedDeporteId === d.id;
@@ -607,10 +597,10 @@ export default function PerfilPage() {
                       key={d.id}
                       type="button"
                       onClick={() => handleSportChange(d.id)}
-                      className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 border ${
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
                         active
-                          ? "bg-secondary text-foreground border-border"
-                          : "bg-transparent text-muted-foreground border-transparent hover:text-foreground hover:bg-secondary/40"
+                          ? "bg-card text-foreground border border-border shadow-sm"
+                          : "text-muted-foreground hover:text-foreground hover:bg-card/60"
                       }`}
                     >
                       <DeporteIcon nombre={d.nombre} size={14} />
@@ -625,11 +615,10 @@ export default function PerfilPage() {
                 })}
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Available Positions Panel */}
-                <div className="space-y-3">
+              <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
+                <div className="space-y-3 flex flex-col min-h-[300px]">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Posiciones Disponibles</Label>
+                    <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Disponibles</Label>
                     <PresetChips
                       showIcon={false}
                       options={[
@@ -659,7 +648,7 @@ export default function PerfilPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="border border-border rounded-lg bg-card divide-y divide-border max-h-[260px] overflow-y-auto">
+                    <div className="border border-border rounded-lg bg-background/50 divide-y divide-border flex-1 min-h-[200px] max-h-[320px] overflow-y-auto">
                       {filteredPositions.map((pos) => {
                         const isAdded = isPositionAdded(pos.id);
                         return (
@@ -699,11 +688,10 @@ export default function PerfilPage() {
                   )}
                 </div>
 
-                {/* Priority Sorting Panel */}
-                <div className="space-y-3">
+                <div className="space-y-3 flex flex-col min-h-[300px] lg:border-l lg:border-border/60 lg:pl-6">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <span>Tu Prioridad</span>
+                    <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Tu prioridad
                     </Label>
                     {prioritizedPositions.length > 0 && (
                       <span className="text-[10px] text-muted-foreground font-semibold">1ª = Mayor importancia</span>
@@ -716,7 +704,7 @@ export default function PerfilPage() {
                       <p className="text-[11px] text-muted-foreground/75">Usa el panel de la izquierda para agregar.</p>
                     </div>
                   ) : (
-                    <div className="space-y-1.5 border border-border bg-secondary/10 rounded-lg p-1.5 max-h-[308px] overflow-y-auto">
+                    <div className="space-y-1.5 border border-border bg-secondary/10 rounded-lg p-1.5 flex-1 min-h-[200px] max-h-[320px] overflow-y-auto">
                       {prioritizedPositions.map((up, index) => {
                         const isFirst = index === 0;
                         const isLast = index === prioritizedPositions.length - 1;
@@ -805,20 +793,22 @@ export default function PerfilPage() {
               </div>
 
               {userPosiciones.length > 0 && (
-                <div className="pt-3 border-t border-border flex justify-end">
+                <div className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-[11px] text-muted-foreground">
+                    Los cambios en prioridad afectan al autobalanceo de equipos en nuevas convocatorias.
+                  </p>
                   <Button
                     onClick={handleSavePositions}
                     disabled={savingPositions}
-                    className="h-8 px-4 font-semibold text-xs rounded shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="h-9 px-5 font-semibold text-xs shadow-none shrink-0"
                   >
-                    {savingPositions ? <Spinner size="sm" /> : "Guardar Prioridades"}
+                    {savingPositions ? <Spinner size="sm" /> : "Guardar prioridades"}
                   </Button>
                 </div>
               )}
             </div>
           )}
-        </div>
-      </div>
+      </ProfileSectionCard>
     </div>
   );
 }

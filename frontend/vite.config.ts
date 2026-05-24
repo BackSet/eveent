@@ -1,10 +1,84 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
+import fs from 'fs'
+
+const DEFAULT_SITE_URL = 'http://localhost:5173'
+const DEFAULT_APP_NAME = 'Event'
+const DEFAULT_DESCRIPTION =
+  'Gestiona convocatorias deportivas, confirma asistencias y organiza alineaciones en un solo lugar.'
+
+function getSeoEnv() {
+  const siteUrl = (process.env.VITE_SITE_URL || DEFAULT_SITE_URL).replace(/\/$/, '')
+  const appName = process.env.VITE_APP_NAME || DEFAULT_APP_NAME
+  const description = process.env.VITE_APP_DESCRIPTION || DEFAULT_DESCRIPTION
+  const googleVerification = process.env.VITE_GOOGLE_SITE_VERIFICATION?.trim() || ''
+  const googleMeta = googleVerification
+    ? `<meta name="google-site-verification" content="${googleVerification}" />`
+    : ''
+  return { siteUrl, appName, description, googleMeta }
+}
+
+function replaceSeoPlaceholders(content: string): string {
+  const { siteUrl, appName, description, googleMeta } = getSeoEnv()
+  return content
+    .replaceAll('%VITE_SITE_URL%', siteUrl)
+    .replaceAll('%VITE_APP_NAME%', appName)
+    .replaceAll('%VITE_APP_DESCRIPTION%', description)
+    .replaceAll('%VITE_GOOGLE_SITE_VERIFICATION_META%', googleMeta)
+}
+
+function seoBuildPlugin(): Plugin {
+  return {
+    name: 'seo-build',
+    transformIndexHtml(html) {
+      return replaceSeoPlaceholders(html)
+    },
+    closeBundle() {
+      const { siteUrl } = getSeoEnv()
+      const outDir = path.resolve(__dirname, 'dist')
+      const robots = `User-agent: *
+Allow: /login
+Disallow: /dashboard
+Disallow: /convocatorias
+Disallow: /deportes
+Disallow: /usuarios
+Disallow: /grupos
+Disallow: /mis-grupos
+Disallow: /mis-asistencias
+Disallow: /perfil
+Disallow: /roles
+Disallow: /permisos
+
+Sitemap: ${siteUrl}/sitemap.xml
+`
+      const today = new Date().toISOString().slice(0, 10)
+      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${siteUrl}/</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${siteUrl}/login</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>
+`
+      fs.mkdirSync(outDir, { recursive: true })
+      fs.writeFileSync(path.join(outDir, 'robots.txt'), robots, 'utf-8')
+      fs.writeFileSync(path.join(outDir, 'sitemap.xml'), sitemap, 'utf-8')
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [tailwindcss(), react()],
+  plugins: [tailwindcss(), react(), seoBuildPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

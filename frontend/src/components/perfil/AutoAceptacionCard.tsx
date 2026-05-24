@@ -156,7 +156,7 @@ export function AutoAceptacionCard({ className }: AutoAceptacionCardProps) {
   return (
     <section
       className={cn(
-        "rounded-lg border border-border bg-card overflow-hidden",
+        "rounded-xl border border-border bg-card overflow-hidden shadow-sm shadow-black/5",
         className
       )}
       aria-labelledby="auto-aceptacion-heading"
