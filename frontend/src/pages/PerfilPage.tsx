@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +30,7 @@ import { useToast } from "@/components/ui/toast";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PlayerIdentity } from "@/components/ui/player-identity";
 import { FieldError } from "@/components/ui/field-error";
+import { AutoAceptacionCard } from "@/components/perfil/AutoAceptacionCard";
 import { PresetChips } from "@/components/ui/preset-chips";
 import {
   validateDorsal,
@@ -341,16 +341,18 @@ export default function PerfilPage() {
   };
 
   return (
-    <div className="page-shell space-y-6 animate-fadeIn">
+    <div className="page-shell space-y-8 animate-fadeIn">
       <PageHeader
         iconKind={PageIconKind.PERFIL}
         title="Ajustes de Perfil"
         description="Administra tu cuenta personal, información de jugador y prioridades de posición."
       />
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Tarjeta de Workspace de Usuario */}
-          <div className="md:col-span-1 rounded-lg border border-border bg-card p-5 space-y-4">
+      <div className="space-y-8">
+        <AutoAceptacionCard />
+
+        <div className="grid gap-6 lg:grid-cols-12">
+          <aside className="lg:col-span-4 xl:col-span-3 rounded-lg border border-border bg-card p-5 space-y-4">
             <div className="flex flex-col items-center text-center space-y-3 pt-2">
               <PlayerIdentity
                 nombre={user?.nombre}
@@ -374,11 +376,10 @@ export default function PerfilPage() {
                 ))}
               </div>
             </div>
-          </div>
+          </aside>
 
-          {/* Formulario de Información */}
-          <div className="md:col-span-2 rounded-lg border border-border bg-card p-5 space-y-4">
-            <h3 className="text-sm font-semibold tracking-tight">Información Personal</h3>
+          <div className="lg:col-span-8 xl:col-span-9 rounded-lg border border-border bg-card p-5 space-y-4">
+            <h3 className="text-sm font-semibold tracking-tight">Información personal</h3>
             
             {error && (
               <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3">
@@ -544,7 +545,6 @@ export default function PerfilPage() {
           </div>
         </div>
 
-        {/* Posiciones de Deportes */}
         <div className="rounded-lg border border-border bg-card p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
@@ -819,5 +819,6 @@ export default function PerfilPage() {
           )}
         </div>
       </div>
+    </div>
   );
 }

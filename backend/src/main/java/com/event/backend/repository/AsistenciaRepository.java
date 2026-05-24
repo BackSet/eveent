@@ -19,6 +19,9 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, Long> {
     List<Asistencia> findByUsuarioId(Long usuarioId);
 
     @EntityGraph(value = "Asistencia.withRelations")
+    List<Asistencia> findByUsuarioIdAndEstado(Long usuarioId, EstadoAsistencia estado);
+
+    @EntityGraph(value = "Asistencia.withRelations")
     List<Asistencia> findByConvocatoriaIdAndEstado(Long convocatoriaId, EstadoAsistencia estado);
 
     long countByConvocatoriaIdAndEstado(Long convocatoriaId, EstadoAsistencia estado);

@@ -34,7 +34,6 @@ public class DataInitializer implements CommandLineRunner {
     private final Environment environment;
     private final DeporteRepository deporteRepo;
     private final PosicionesDeporteRepository posicionesDeporteRepo;
-    private final jakarta.persistence.EntityManager entityManager;
 
     @Value("${app.admin.email}")
     private String adminEmail;
@@ -48,41 +47,24 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${admin.username:admin}")
     private String adminUsername;
 
-    @Value("${ADMIN_BOOTSTRAP_ENABLED:true}")
+    @Value("${admin.bootstrap.enabled:true}")
     private boolean bootstrapEnabled;
 
     @Override
     @Transactional
     public void run(String... args) {
-        try {
-            entityManager.createNativeQuery("ALTER TABLE convocatorias ALTER COLUMN deporte_id DROP NOT NULL").executeUpdate();
-            entityManager.createNativeQuery("ALTER TABLE configuraciones_recurrentes ALTER COLUMN deporte_id DROP NOT NULL").executeUpdate();
-            log.info("Restricciones NOT NULL para deporte_id removidas con éxito.");
-        } catch (Exception e) {
-            log.warn("No se pudieron alterar los campos deporte_id (ya podrían ser nullables): {}", e.getMessage());
-        }
-
-        try {
-            entityManager.createNativeQuery("ALTER TABLE asistencias_posiciones_preferidas ADD COLUMN IF NOT EXISTS prioridad INTEGER NOT NULL DEFAULT 0").executeUpdate();
-            log.info("Columna prioridad en asistencias_posiciones_preferidas agregada/verificada con éxito.");
-        } catch (Exception e) {
-            log.warn("No se pudo agregar la columna prioridad a asistencias_posiciones_preferidas: {}", e.getMessage());
-        }
-
         permisoRoleSyncService.syncCatalog();
+        seedDeportesYPosicionesIfEmpty();
 
         if (!bootstrapEnabled) return;
 
-        if (environment.matchesProfiles("prod")) {
-            seedAdminIfNoUsers();
-            return;
-        }
+        seedAdminIfNoUsers();
+
+        if (environment.matchesProfiles("prod")) return;
 
         if (!environment.matchesProfiles("dev", "test", "default")) return;
-        seedAdminIfNoUsers();
         seedJugadoresIfEmpty();
-        seedDeportesYPosicionesIfEmpty();
-        log.info("Seed completado: {} deportes", deporteRepo.count());
+        log.info("Seed dev completado: {} deportes", deporteRepo.count());
     }
 
     private void seedAdminIfNoUsers() {
@@ -100,6 +82,12 @@ public class DataInitializer implements CommandLineRunner {
 
         Usuario admin = usuarioRepo.findByEmail(adminEmail).orElse(null);
         if (admin == null) {
+            if (usuarioRepo.count() > 0) {
+                log.warn(
+                        "Bootstrap de admin omitido: no existe {} pero ya hay usuarios en la BD",
+                        adminEmail);
+                return;
+            }
             admin = usuarioRepo.save(Usuario.builder()
                     .nombre(adminNombre != null && !adminNombre.isBlank() ? adminNombre : "Super Admin")
                     .email(adminEmail)
@@ -114,11 +102,6 @@ public class DataInitializer implements CommandLineRunner {
                 admin.setUsername(adminUsername);
                 changed = true;
             }
-            if (!passwordEncoder.matches(adminPassword, admin.getPasswordHash())) {
-                admin.setPasswordHash(passwordEncoder.encode(adminPassword));
-                changed = true;
-                log.info("Contrasena de admin sincronizada desde ADMIN_INITIAL_PASSWORD");
-            }
             if (!admin.getActivo()) {
                 admin.setActivo(true);
                 changed = true;
@@ -128,6 +111,10 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
+        ensureSuperAdminRole(admin, superAdmin);
+    }
+
+    private void ensureSuperAdminRole(Usuario admin, RolesSistema superAdmin) {
         if (usuarioRolRepo.findByIdUsuarioId(admin.getId()).stream()
                 .noneMatch(ur -> ur.getRol().getNombre().equals("SuperAdmin"))) {
             usuarioRolRepo.save(UsuarioRol.builder()
@@ -197,6 +184,12 @@ public class DataInitializer implements CommandLineRunner {
     private record PosData(String nombre, String abreviatura) {}
 
     private void seedDeportesYPosicionesIfEmpty() {
+        if (deporteRepo.count() > 0) {
+            log.debug("Catálogo de deportes ya inicializado ({} registros) — omitiendo seed", deporteRepo.count());
+            return;
+        }
+
+        log.info("Catálogo de deportes vacío — cargando disciplinas y posiciones iniciales (solo esta vez)");
 
         // 1. Fútbol
         Deporte futbol = deporteRepo.findByNombreIgnoreCase("Fútbol")
@@ -321,7 +314,7 @@ public class DataInitializer implements CommandLineRunner {
         );
         seedPosicionesParaDeporte(padel, padelPos);
 
-        log.info("Seed de deportes y posiciones oficiales completado de forma auto-reparable.");
+        log.info("Seed inicial de deportes y posiciones completado ({} deportes)", deporteRepo.count());
     }
 
     private void seedPosicionesParaDeporte(Deporte deporte, List<PosData> posicionesRequeridas) {

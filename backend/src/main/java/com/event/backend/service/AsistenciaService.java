@@ -33,6 +33,7 @@ public class AsistenciaService {
     private final AsistenciaMapper asistenciaMapper;
     private final UsuarioPosicionRepository usuarioPosicionRepository;
     private final ConvocatoriaAccessService convocatoriaAccessService;
+    private final AutoAceptacionService autoAceptacionService;
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByConvocatoriaId(Long convocatoriaId) {
@@ -231,6 +232,10 @@ public class AsistenciaService {
         }
 
         EstadoAsistencia requestedEstado = request.getEstado() != null ? EstadoAsistencia.valueOf(request.getEstado()) : EstadoAsistencia.PENDIENTE;
+        if (request.getEstado() == null
+                && autoAceptacionService.shouldAutoAcceptOnSelfRegister(usuario, convocatoria, requestedEstado)) {
+            requestedEstado = EstadoAsistencia.ASISTIRE;
+        }
         EstadoAsistencia finalEstado = evaluateEstadoWithCupo(convocatoria, requestedEstado);
 
         Asistencia.AsistenciaBuilder builder = Asistencia.builder()
@@ -262,6 +267,14 @@ public class AsistenciaService {
             selectedPos.add(asistencia.getPosicionPreferida());
         }
         asistencia.setPosicionesPreferidas(selectedPos);
+        if (request.getEstado() == null
+                && autoAceptacionService.matches(usuario, convocatoria.getFechaHora(), LocalDateTime.now())) {
+            autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, usuario);
+        } else if (request.getEstado() != null
+                && EstadoAsistencia.valueOf(request.getEstado()) == EstadoAsistencia.ASISTIRE
+                && autoAceptacionService.matches(usuario, convocatoria.getFechaHora(), LocalDateTime.now())) {
+            autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, usuario);
+        }
         asistencia = asistenciaRepository.save(asistencia);
         
         AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
@@ -428,11 +441,15 @@ public class AsistenciaService {
         List<Usuario> users = usuarioRepository.findAllById(newIds);
 
         List<Asistencia> newAsistencias = users.stream()
-                .map(usuario -> Asistencia.builder()
-                        .convocatoria(convocatoria)
-                        .usuario(usuario)
-                        .estado(EstadoAsistencia.PENDIENTE)
-                        .build())
+                .map(usuario -> {
+                    Asistencia asistencia = Asistencia.builder()
+                            .convocatoria(convocatoria)
+                            .usuario(usuario)
+                            .estado(EstadoAsistencia.PENDIENTE)
+                            .build();
+                    autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, usuario);
+                    return asistencia;
+                })
                 .toList();
 
         asistenciaRepository.saveAll(newAsistencias);

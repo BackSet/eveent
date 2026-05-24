@@ -2,6 +2,7 @@ package com.event.backend.config;
 
 import com.event.backend.model.*;
 import com.event.backend.repository.*;
+import com.event.backend.service.AutoAceptacionService;
 import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class RecurrenciaScheduler {
     private final ConfiguracionRecurrenteRepository configuracionRepository;
     private final ConvocatoriaRepository convocatoriaRepository;
     private final AsistenciaRepository asistenciaRepository;
+    private final AutoAceptacionService autoAceptacionService;
 
     @Scheduled(fixedRate = 60000)
     public void runScheduler() {
@@ -149,12 +151,16 @@ public class RecurrenciaScheduler {
                     if (grupo.getMiembros() != null) {
                         final Convocatoria savedConv = newConv;
                         List<Asistencia> bulkAsistencias = grupo.getMiembros().stream()
-                                .map(member -> Asistencia.builder()
-                                        .convocatoria(savedConv)
-                                        .usuario(member)
-                                        .estado(EstadoAsistencia.PENDIENTE)
-                                        .fechaRespuesta(LocalDateTime.now())
-                                        .build())
+                                .map(member -> {
+                                    Asistencia asistencia = Asistencia.builder()
+                                            .convocatoria(savedConv)
+                                            .usuario(member)
+                                            .estado(EstadoAsistencia.PENDIENTE)
+                                            .fechaRespuesta(LocalDateTime.now())
+                                            .build();
+                                    autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, member);
+                                    return asistencia;
+                                })
                                 .toList();
                         asistenciaRepository.saveAll(bulkAsistencias);
                     }

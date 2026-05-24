@@ -1,5 +1,7 @@
 package com.event.backend.service;
 
+import com.event.backend.dto.usuario.AutoAceptacionRequest;
+import com.event.backend.dto.usuario.AutoAceptacionResponse;
 import com.event.backend.dto.usuario.PasswordChangeRequest;
 import com.event.backend.dto.usuario.SuspensionRequest;
 import com.event.backend.dto.usuario.UsuarioProfileRequest;
@@ -9,6 +11,7 @@ import com.event.backend.dto.usuario.UsuarioPosicionDto;
 import com.event.backend.exception.BusinessException;
 import com.event.backend.exception.ConflictException;
 import com.event.backend.exception.NotFoundException;
+import com.event.backend.model.AutoAceptacionModo;
 import com.event.backend.model.RolesSistema;
 import com.event.backend.model.Usuario;
 import com.event.backend.model.UsuarioRol;
@@ -47,6 +50,7 @@ public class UsuarioService {
     private final UsuarioPosicionRepository usuarioPosicionRepository;
     private final PosicionesDeporteRepository posicionesDeporteRepository;
     private final SecurityService securityService;
+    private final AutoAceptacionService autoAceptacionService;
 
     @Transactional(readOnly = true)
     public List<UsuarioResponse> findAll() {
@@ -301,7 +305,19 @@ public class UsuarioService {
                 .fechaCreacion(usuario.getFechaCreacion())
                 .fechaFinSuspension(usuario.getFechaFinSuspension())
                 .motivoSuspension(usuario.getMotivoSuspension())
+                .autoAceptacionModo(usuario.getAutoAceptacionModo() != null ? usuario.getAutoAceptacionModo().name() : AutoAceptacionModo.OFF.name())
+                .autoAceptacionActiva(usuario.getAutoAceptacionModo() != null && usuario.getAutoAceptacionModo() != AutoAceptacionModo.OFF)
+                .autoAceptacionResumen(autoAceptacionService.resumenFor(usuario))
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public AutoAceptacionResponse getAutoAceptacionConfig() {
+        return autoAceptacionService.getConfig(securityService.getCurrentUserId());
+    }
+
+    public AutoAceptacionResponse updateAutoAceptacionConfig(AutoAceptacionRequest request) {
+        return autoAceptacionService.updateConfig(securityService.getCurrentUserId(), request);
     }
 
     @Transactional(readOnly = true)

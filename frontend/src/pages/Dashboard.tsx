@@ -55,6 +55,7 @@ import { useToast } from "@/components/ui/toast";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AutoAceptadaBadge } from "@/components/ui/auto-aceptada-badge";
 import { PlayerIdentity } from "@/components/ui/player-identity";
 import {
   canCreateConvocatorias,
@@ -320,6 +321,7 @@ export default function Dashboard() {
                 {activeConvs.slice(0, 8).map((conv) => {
                   const rsvp = getUserRsvpStatus(conv.id);
                   const list = convocatoriaAsistencias[conv.id] || [];
+                  const miAsis = list.find((a) => a.usuarioId === user?.id);
                   const confirmedCount = list.filter((a) => a.estado === "ASISTIRE").length;
                   const maxCupo = conv.cupoMaximo || 0;
                   const isFull = maxCupo > 0 && confirmedCount >= maxCupo;
@@ -335,6 +337,7 @@ export default function Dashboard() {
                           <span className="font-bold text-foreground group-hover:text-primary transition-colors truncate">
                             {conv.titulo}
                           </span>
+                          {miAsis?.autoAceptada && <AutoAceptadaBadge />}
                         </div>
                       </DataListCell>
                       <DataListCell label="Deporte" span={DASH_CONV_COLUMNS.deporte} priority="secondary">

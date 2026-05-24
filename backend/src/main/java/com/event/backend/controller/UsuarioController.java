@@ -1,5 +1,7 @@
 package com.event.backend.controller;
 
+import com.event.backend.dto.usuario.AutoAceptacionRequest;
+import com.event.backend.dto.usuario.AutoAceptacionResponse;
 import com.event.backend.dto.usuario.PasswordChangeRequest;
 import com.event.backend.dto.usuario.SuspensionRequest;
 import com.event.backend.dto.usuario.UsuarioProfileRequest;
@@ -62,6 +64,16 @@ public class UsuarioController {
     @PutMapping("/me/posiciones")
     public ResponseEntity<List<UsuarioPosicionDto>> updateCurrentUserPosiciones(@RequestBody List<UsuarioPosicionDto> positionsDto) {
         return ResponseEntity.ok(usuarioService.updateCurrentUserPosiciones(positionsDto));
+    }
+
+    @GetMapping("/me/auto-aceptacion")
+    public ResponseEntity<AutoAceptacionResponse> getAutoAceptacion() {
+        return ResponseEntity.ok(usuarioService.getAutoAceptacionConfig());
+    }
+
+    @PutMapping("/me/auto-aceptacion")
+    public ResponseEntity<AutoAceptacionResponse> updateAutoAceptacion(@Valid @RequestBody AutoAceptacionRequest request) {
+        return ResponseEntity.ok(usuarioService.updateAutoAceptacionConfig(request));
     }
 
     @GetMapping("/{id}")

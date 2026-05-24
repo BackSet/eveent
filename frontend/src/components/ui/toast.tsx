@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { CheckCircle2, AlertTriangle, Info, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,8 +55,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const warning = useCallback((message: string, title?: string) => show(message, { variant: "warning", title }), [show]);
   const info = useCallback((message: string, title?: string) => show(message, { variant: "info", title }), [show]);
 
+  const contextValue = useMemo(
+    () => ({ show, success, error, warning, info }),
+    [show, success, error, warning, info]
+  );
+
   return (
-    <ToastContext.Provider value={{ show, success, error, warning, info }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <ToastViewport toasts={toasts} onDismiss={dismiss} />
     </ToastContext.Provider>

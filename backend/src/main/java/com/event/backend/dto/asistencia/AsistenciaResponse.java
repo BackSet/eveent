@@ -31,4 +31,5 @@ public class AsistenciaResponse {
     private String bandoNombre;
     private Integer numeroCamiseta;
     private LocalDateTime fechaRespuesta;
+    private Boolean autoAceptada;
 }

@@ -47,6 +47,7 @@ import {
   Info,
   Timer,
   Settings,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { Convocatoria, Asistencia, BandoConvocatoria } from "@/types";
@@ -633,6 +634,18 @@ export default function ConvocatoriaDetailPage() {
         title={convocatoria.titulo}
         description={convocatoria.deporteNombre ?? undefined}
       />
+
+      {user?.autoAceptacionActiva && user.autoAceptacionResumen && (
+        <div className="notion-callout tone-info p-3">
+          <div className="notion-callout-icon">
+            <Zap size={14} />
+          </div>
+          <div className="text-xs leading-relaxed">
+            <span className="font-semibold text-foreground">Disponibilidad automática activa.</span>{" "}
+            {user.autoAceptacionResumen}. Las invitaciones en esa ventana se confirmarán solas.
+          </div>
+        </div>
+      )}
 
       {isInProgressOrDone && (caps.canManageConvocatoria || caps.canManageLineup) && (
         <div className="notion-callout tone-info items-center">

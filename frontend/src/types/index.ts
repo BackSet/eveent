@@ -1,3 +1,14 @@
+export type AutoAceptacionModo = "OFF" | "HOY" | "DIA" | "DESDE_FECHA_HORA";
+
+export interface AutoAceptacionConfig {
+  modo: AutoAceptacionModo | string;
+  referencia?: string | null;
+  activa: boolean;
+  resumen: string;
+  pendientesAplicables: number;
+  pendientesAplicados?: number;
+}
+
 export interface Usuario {
   id: number;
   nombre: string;
@@ -9,6 +20,9 @@ export interface Usuario {
   activo?: boolean;
   fechaCreacion?: string;
   posiciones?: UsuarioPosicionDto[];
+  autoAceptacionModo?: string;
+  autoAceptacionResumen?: string;
+  autoAceptacionActiva?: boolean;
 }
 
 export interface RolesSistema {
@@ -121,6 +135,7 @@ export interface Asistencia {
   fechaRespuesta: string;
   posicionesPreferidasIds?: number[];
   posicionesPreferidasNombres?: string[];
+  autoAceptada?: boolean;
 }
 
 export interface AuthState {

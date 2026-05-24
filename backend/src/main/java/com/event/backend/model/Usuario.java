@@ -45,4 +45,16 @@ public class Usuario {
 
     @Column(name = "motivo_suspension", length = 500)
     private String motivoSuspension;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auto_aceptacion_modo", nullable = false, length = 30,
+            columnDefinition = "varchar(30) not null default 'OFF'")
+    @Builder.Default
+    private AutoAceptacionModo autoAceptacionModo = AutoAceptacionModo.OFF;
+
+    @Column(name = "auto_aceptacion_referencia")
+    private LocalDateTime autoAceptacionReferencia;
+
+    @Column(name = "auto_aceptacion_actualizado_en")
+    private LocalDateTime autoAceptacionActualizadoEn;
 }

@@ -25,4 +25,7 @@ public class UsuarioResponse {
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaFinSuspension;
     private String motivoSuspension;
+    private String autoAceptacionModo;
+    private String autoAceptacionResumen;
+    private Boolean autoAceptacionActiva;
 }

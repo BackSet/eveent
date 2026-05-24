@@ -70,4 +70,8 @@ public class Asistencia {
 
     @Builder.Default
     private LocalDateTime fechaRespuesta = LocalDateTime.now();
+
+    @Transient
+    @Builder.Default
+    private boolean autoAceptada = false;
 }

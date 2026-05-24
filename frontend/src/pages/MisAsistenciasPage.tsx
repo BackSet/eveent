@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { formatDateTime } from "@/lib/formatDate";
 import { Badge } from "@/components/ui/badge";
+import { AutoAceptadaBadge } from "@/components/ui/auto-aceptada-badge";
 import { DataListSkeleton } from "@/components/ui/page-skeletons";
 import { DeporteIcon } from "@/components/ui/page-icon";
 import { PageHeader } from "@/components/ui/page-header";
@@ -123,6 +124,7 @@ export default function MisAsistenciasPage() {
       <DataListCell label="Mi respuesta" span={ASIST_LIST_COLUMNS.respuesta} priority="primary">
         <div className="flex flex-wrap gap-1.5 items-center">
           <AsistenciaEstadoBadge estado={asis.estado} />
+          {asis.autoAceptada && <AutoAceptadaBadge />}
           {asis.posicionPreferidaNombre && (
             <Badge variant="outline" className="text-[8px] px-1 py-0 uppercase">
               {asis.posicionPreferidaNombre}

@@ -11,6 +11,9 @@ interface User {
   numeroCamiseta?: number;
   fechaFinSuspension?: string | null;
   motivoSuspension?: string | null;
+  autoAceptacionModo?: string;
+  autoAceptacionResumen?: string;
+  autoAceptacionActiva?: boolean;
 }
 
 interface AuthState {

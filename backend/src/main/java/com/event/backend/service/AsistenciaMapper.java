@@ -38,6 +38,7 @@ public class AsistenciaMapper {
                 .bandoNombre(a.getBando() != null ? a.getBando().getNombre() : null)
                 .numeroCamiseta(a.getUsuario() != null ? a.getUsuario().getNumeroCamiseta() : null)
                 .fechaRespuesta(a.getFechaRespuesta())
+                .autoAceptada(a.isAutoAceptada())
                 .build();
     }
 }
