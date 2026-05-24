@@ -1,16 +1,42 @@
+# Dependencies & builds
 node_modules/
 dist/
-.env.local
-*.log
+build/
+target/
+*.tsbuildinfo
 
-# Agent & Skill files
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs & caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vite/
+.turbo/
+.cache/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE & editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+
+# Agent & skill tooling (local only)
 .agents/
 .antigravitycli/
 skills-lock.json
 
-# TypeScript Build Info
-*.tsbuildinfo
-
-# IDE Settings
-.vscode/
-
+# Local overrides
+.env.local

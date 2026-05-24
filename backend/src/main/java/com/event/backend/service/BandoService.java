@@ -7,7 +7,10 @@ import com.event.backend.model.BandoConvocatoria;
 import com.event.backend.model.Convocatoria;
 import com.event.backend.repository.BandoConvocatoriaRepository;
 import com.event.backend.repository.ConvocatoriaRepository;
+import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
+
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +42,7 @@ public class BandoService {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
 
-        validateConvocatoriaNotInProgress(convocatoria);
+        ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(convocatoria, LocalDateTime.now());
 
         BandoConvocatoria bando = BandoConvocatoria.builder()
                 .convocatoria(convocatoria)
@@ -54,7 +57,8 @@ public class BandoService {
         BandoConvocatoria bando = bandoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + id));
 
-        validateConvocatoriaNotInProgress(bando.getConvocatoria());
+        ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(
+                bando.getConvocatoria(), LocalDateTime.now());
 
         if (request.getNombre() != null) bando.setNombre(request.getNombre());
         if (request.getColor() != null) bando.setColor(request.getColor());
@@ -67,18 +71,10 @@ public class BandoService {
         BandoConvocatoria bando = bandoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + id));
 
-        validateConvocatoriaNotInProgress(bando.getConvocatoria());
+        ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(
+                bando.getConvocatoria(), LocalDateTime.now());
 
         bandoRepository.delete(bando);
-    }
-
-    private void validateConvocatoriaNotInProgress(Convocatoria c) {
-        if (c.getEstado() == com.event.backend.model.EstadoConvocatoria.EN_PROGRESO || 
-            c.getEstado() == com.event.backend.model.EstadoConvocatoria.FINALIZADA || 
-            c.getEstado() == com.event.backend.model.EstadoConvocatoria.CANCELADA || 
-            (c.getFechaHora() != null && !c.getFechaHora().isAfter(java.time.LocalDateTime.now()))) {
-            throw new com.event.backend.exception.BusinessException("No se pueden realizar cambios en los bandos de una convocatoria en progreso, finalizada o cancelada.");
-        }
     }
 
     private BandoResponse toResponse(BandoConvocatoria bando) {

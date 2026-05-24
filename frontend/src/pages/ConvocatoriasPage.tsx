@@ -1,53 +1,143 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "@/services/api";
 import { formatDateTime } from "@/lib/formatDate";
-import { ESTADO_COLORS, CONVOCATORIA_ESTADO_COLORS, ESTADO_LABELS, getApiErrorMessage } from "@/lib/constants";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Calendar, MapPin, Users, Clock, Tag, ArrowRight, Repeat, Play, Trash2, Edit, CheckCircle, XCircle, KanbanSquare, Search, FileText } from "lucide-react";
+import {
+  DataListShell,
+  DataListHeader,
+  DataListBody,
+  DataListSection,
+  DataListRow,
+  DataListCell,
+  DataListActions,
+  type DataListColumns,
+} from "@/components/ui/data-list";
+import {
+  ConvocatoriaEstadoCell,
+  EventProximityPill,
+  RecurrenteEstadoBadge,
+  TipoInvitacionPill,
+  CupoLabel,
+} from "@/components/ui/entity-badges";
+import { isBorradorConFechaPasada } from "@/lib/convocatoriaDraft";
+import {
+  puedePublicarBorrador,
+  TOOLTIP_PUBLICAR_BLOQUEADO,
+  TOOLTIP_PUBLICAR_BORRADOR,
+} from "@/lib/convocatoriaDraft";
+import { getApiErrorMessage } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import { DataListSkeleton } from "@/components/ui/page-skeletons";
+import { DeporteIcon, PageCoverIcon } from "@/components/ui/page-icon";
+import { PageIconKind } from "@/lib/iconography";
+import { PresetChips } from "@/components/ui/preset-chips";
+import {
+  Plus,
+  Calendar,
+  MapPin,
+  Repeat,
+  Trash2,
+  Edit,
+  CheckCircle,
+  XCircle,
+  KanbanSquare,
+  Search,
+  Eye,
+} from "lucide-react";
+import {
+  buildConvocatoriaSections,
+  matchesQuickFilter,
+  QUICK_FILTER_LABELS,
+  type ConvocatoriaQuickFilter,
+} from "@/lib/convocatoriaList";
 import { useAuth } from "@/hooks/useAuth";
 import { Convocatoria, ConfiguracionRecurrente } from "@/types";
 import { humanizeRRule } from "@/lib/rruleHumanizer";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
+import { Tooltip } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  buildConvocatoriaDeleteConfirm,
+  countInscritosConvocatoria,
+} from "@/lib/convocatoriaDelete";
+import {
+  canCreateConvocatorias,
+  canCancelConvocatoria,
+  canDeleteConvocatoria,
+  canDeleteRecurrente,
+  canManageRecurrente,
+  canManageConvocatoriasGlobally,
+  canPublishConvocatoria,
+  filterConvocatoriasForUser,
+} from "@/lib/permissions";
 
-const ESTADOS = ["TODOS", "BORRADOR", "ABIERTA", "EN_PROGRESO", "FINALIZADA", "CANCELADA"];
+const CONV_LIST_COLUMNS: DataListColumns = {
+  evento: 4,
+  acceso: 2,
+  cuando: 2,
+  cupo: 1,
+  estado: 1,
+  acciones: 2,
+};
+
+const REC_LIST_COLUMNS: DataListColumns = {
+  regla: 4,
+  deporte: 2,
+  programacion: 2,
+  cupo: 1,
+  estado: 1,
+  acciones: 2,
+};
 
 export default function ConvocatoriasPage() {
   const [convocatorias, setConvocatorias] = useState<Convocatoria[]>([]);
   const [recurrentes, setRecurrentes] = useState<ConfiguracionRecurrente[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingRecurrentes, setLoadingRecurrentes] = useState(false);
-  const [estadoFilter, setEstadoFilter] = useState("TODOS");
+  const [quickFilter, setQuickFilter] = useState<ConvocatoriaQuickFilter>("PROXIMAS");
+  const [pastCollapsed, setPastCollapsed] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"CONVOCATORIAS" | "PLANTILLAS">("CONVOCATORIAS");
-  const [schedulerMessage, setSchedulerMessage] = useState("");
-  const [runningScheduler, setRunningScheduler] = useState(false);
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
 
-  const isOrganizer = hasPermission("crear_convocatorias");
+  const canCreate = canCreateConvocatorias(hasPermission);
+  const canManageAny = canManageConvocatoriasGlobally(hasPermission);
+  const showOrganizerFeatures = canCreate || canManageAny;
 
-  const getSportEmoji = (deporteNombre?: string) => {
-    if (!deporteNombre) return "🏆";
-    const name = deporteNombre.toLowerCase();
-    if (name.includes("futbol") || name.includes("fútbol") || name.includes("soccer")) return "⚽";
-    if (name.includes("basquet") || name.includes("básquet") || name.includes("basketball") || name.includes("baloncesto")) return "🏀";
-    if (name.includes("tenis") || name.includes("tennis")) return "🎾";
-    if (name.includes("voley") || name.includes("voleibol") || name.includes("volleyball")) return "🏐";
-    if (name.includes("running") || name.includes("correr")) return "🏃";
-    return "🏆";
-  };
-
-  const handleDeleteConvocatoria = async (e: React.MouseEvent, id: number) => {
+  const handleDeleteConvocatoria = async (e: React.MouseEvent, conv: Convocatoria) => {
     e.stopPropagation();
-    if (!confirm("¿Eliminar esta convocatoria?")) return;
+    let inscritosCount = 0;
+    if (conv.estado === "ABIERTA") {
+      try {
+        inscritosCount = await countInscritosConvocatoria(conv.id);
+      } catch {
+        /* confirmación sin conteo si falla la carga */
+      }
+    }
+    const { title, description } = buildConvocatoriaDeleteConfirm(conv, inscritosCount);
+    const ok = await confirm({
+      title,
+      description,
+      confirmLabel: "Sí, eliminar",
+      cancelLabel: "Cancelar",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
-      await api.delete(`/api/convocatorias/${id}`);
+      await api.delete(`/api/convocatorias/${conv.id}`);
+      toast.success(
+        conv.estado === "BORRADOR" ? "Borrador eliminado" : "Convocatoria eliminada"
+      );
       fetchConvocatorias();
     } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudo eliminar la convocatoria.");
       console.error("Error al eliminar convocatoria", err);
     }
   };
@@ -56,8 +146,10 @@ export default function ConvocatoriasPage() {
     e.stopPropagation();
     try {
       await api.put(`/api/convocatorias/${id}/abrir`);
+      toast.success("Convocatoria abierta", "Ahora los jugadores pueden confirmar asistencia.");
       fetchConvocatorias();
     } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudo abrir la convocatoria.");
       console.error("Error al abrir convocatoria", err);
     }
   };
@@ -66,35 +158,54 @@ export default function ConvocatoriasPage() {
     e.stopPropagation();
     try {
       await api.put(`/api/configuraciones-recurrentes/${id}`, { activo: !currentActivo });
+      toast.success(
+        currentActivo ? "Regla pausada" : "Regla activada",
+        currentActivo
+          ? "Dejará de generar nuevas convocatorias hasta que la reactives."
+          : "Comenzará a generar convocatorias automáticamente."
+      );
       fetchRecurrentes();
     } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudo cambiar el estado de la regla.");
       console.error("Error al cambiar estado de la regla", err);
     }
   };
 
-  const handleCancelar = async (e: React.MouseEvent, id: number) => {
+  const handleCancelar = async (e: React.MouseEvent, id: number, titulo: string) => {
     e.stopPropagation();
-    if (!confirm("¿Cancelar esta convocatoria?")) return;
+    const ok = await confirm({
+      title: "Cancelar convocatoria",
+      description: (
+        <>
+          La convocatoria <strong>{titulo}</strong> quedará marcada como cancelada y los jugadores
+          confirmados perderán su lugar. ¿Deseas continuar?
+        </>
+      ),
+      confirmLabel: "Sí, cancelar",
+      cancelLabel: "Volver",
+      variant: "warning",
+    });
+    if (!ok) return;
     try {
       await api.put(`/api/convocatorias/${id}/cancelar`);
+      toast.success("Convocatoria cancelada");
       fetchConvocatorias();
     } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudo cancelar la convocatoria.");
       console.error("Error al cancelar convocatoria", err);
     }
   };
 
   const fetchConvocatorias = useCallback(async () => {
     try {
-      const url = estadoFilter === "TODOS" ? "/api/convocatorias" : `/api/convocatorias?estado=${estadoFilter}`;
-      const { data } = await api.get(url);
-      const filtered = isOrganizer ? data : data.filter((c: Convocatoria) => c.estado !== "BORRADOR");
-      setConvocatorias(filtered);
+      const { data } = await api.get<Convocatoria[]>("/api/convocatorias");
+      setConvocatorias(filterConvocatoriasForUser(data, hasPermission, user?.id));
     } catch (err) {
       console.error("Error al cargar convocatorias", err);
     } finally {
       setLoading(false);
     }
-  }, [estadoFilter, isOrganizer]);
+  }, [hasPermission, user?.id]);
 
   const fetchRecurrentes = useCallback(async () => {
     setLoadingRecurrentes(true);
@@ -110,27 +221,113 @@ export default function ConvocatoriasPage() {
 
   useEffect(() => {
     fetchConvocatorias();
-    if (isOrganizer) {
+    if (canCreate) {
       fetchRecurrentes();
     }
-  }, [fetchConvocatorias, fetchRecurrentes, isOrganizer]);
+  }, [fetchConvocatorias, fetchRecurrentes, canCreate]);
 
 
 
-  const handleDeleteRecurrencia = async (id: number) => {
-    if (!confirm("¿Eliminar esta regla recurrente?")) return;
+  const handleDeleteRecurrencia = async (id: number, titulo: string) => {
+    const ok = await confirm({
+      title: "Eliminar regla recurrente",
+      description: (
+        <>
+          Vas a eliminar la regla <strong>{titulo}</strong>. Las convocatorias ya generadas se
+          mantendrán, pero no se generarán nuevas. Esta acción no se puede deshacer.
+        </>
+      ),
+      confirmLabel: "Sí, eliminar regla",
+      cancelLabel: "Cancelar",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
-      await api.delete(`/api/convocatorias/recurrentes/${id}`);
+      await api.delete(`/api/configuraciones-recurrentes/${id}`);
+      toast.success("Regla eliminada");
       fetchRecurrentes();
-    } catch (err) { console.error("Error", err); }
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudo eliminar la regla recurrente.");
+      console.error("Error", err);
+    }
   };
 
-  // Filter convocatorias/recurrentes locally based on search query
-  const filteredConvocatorias = convocatorias.filter(conv =>
-    conv.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (conv.lugar || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (conv.deporteNombre || "").toLowerCase().includes(searchQuery.toLowerCase())
+  const searchMatch = useCallback(
+    (conv: Convocatoria) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        conv.titulo.toLowerCase().includes(q) ||
+        (conv.lugar || "").toLowerCase().includes(q) ||
+        (conv.deporteNombre || "").toLowerCase().includes(q)
+      );
+    },
+    [searchQuery]
   );
+
+  const searchedConvocatorias = useMemo(
+    () => convocatorias.filter(searchMatch),
+    [convocatorias, searchMatch]
+  );
+
+  const listSections = useMemo(
+    () =>
+      buildConvocatoriaSections(searchedConvocatorias, quickFilter, {
+        includeBorradores: showOrganizerFeatures,
+        groupPast: quickFilter !== "PASADAS",
+      }),
+    [searchedConvocatorias, quickFilter, showOrganizerFeatures]
+  );
+
+  const proximasCount = useMemo(
+    () =>
+      convocatorias.filter((c) =>
+        matchesQuickFilter(c, "PROXIMAS", { includeBorradores: showOrganizerFeatures })
+      ).length,
+    [convocatorias, showOrganizerFeatures]
+  );
+
+  const borradoresCount = useMemo(
+    () => convocatorias.filter((c) => matchesQuickFilter(c, "BORRADORES")).length,
+    [convocatorias]
+  );
+
+  const vencidosCount = useMemo(
+    () => convocatorias.filter((c) => matchesQuickFilter(c, "VENCIDOS")).length,
+    [convocatorias]
+  );
+
+  const quickFilterOptions = useMemo(() => {
+    const base: ConvocatoriaQuickFilter[] = [
+      "PROXIMAS",
+      "SEMANA",
+      "ABIERTAS",
+      "TODAS",
+      "PASADAS",
+    ];
+    if (showOrganizerFeatures) {
+      base.splice(3, 0, "BORRADORES", "VENCIDOS");
+    }
+    return base.map((id) => {
+      const count =
+        id === "BORRADORES" && borradoresCount > 0
+          ? borradoresCount
+          : id === "VENCIDOS" && vencidosCount > 0
+            ? vencidosCount
+            : null;
+      return {
+        id,
+        label: count != null ? `${QUICK_FILTER_LABELS[id]} (${count})` : QUICK_FILTER_LABELS[id],
+        onClick: () => {
+          setQuickFilter(id);
+          if (id === "PASADAS" || id === "VENCIDOS" || id === "BORRADORES") {
+            setPastCollapsed(false);
+          }
+          if (id === "PROXIMAS") setPastCollapsed(true);
+        },
+      };
+    });
+  }, [showOrganizerFeatures, borradoresCount, vencidosCount]);
 
   const filteredRecurrentes = recurrentes.filter(rec =>
     rec.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -138,32 +335,159 @@ export default function ConvocatoriasPage() {
     (rec.deporteNombre || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalVisible = listSections.reduce((n, s) => n + s.items.length, 0);
+
+  const renderConvocatoriaRow = (conv: Convocatoria) => (
+    <DataListRow
+      key={conv.id}
+      onClick={() => navigate(`/convocatorias/${conv.id}`)}
+    >
+      <DataListCell label="Evento" span={CONV_LIST_COLUMNS.evento} priority="primary">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="text-2xl shrink-0 select-none mt-0.5" role="img" aria-hidden>
+            <DeporteIcon nombre={conv.deporteNombre} size={18} className="text-foreground/80" />
+          </span>
+          <div className="space-y-0.5 min-w-0">
+            <div className="text-sm font-semibold text-foreground group-hover:text-primary group-hover:underline decoration-1 underline-offset-2 transition-colors truncate">
+              {conv.titulo}
+            </div>
+            {conv.descripcion && (
+              <p className="text-xs text-muted-foreground line-clamp-1">{conv.descripcion}</p>
+            )}
+          </div>
+        </div>
+      </DataListCell>
+
+      <DataListCell label="Deporte y acceso" span={CONV_LIST_COLUMNS.acceso} priority="secondary">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="text-[10px] font-medium text-foreground bg-secondary px-2 py-0.5 rounded border border-border uppercase">
+            {conv.deporteNombre}
+          </span>
+          {conv.categoria && (
+            <span className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border">
+              {conv.categoria}
+            </span>
+          )}
+          <TipoInvitacionPill tipo={conv.tipoInvitacion} grupoNombre={conv.grupoNombre} />
+        </div>
+      </DataListCell>
+
+      <DataListCell label="Cuándo y dónde" span={CONV_LIST_COLUMNS.cuando} priority="secondary">
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Calendar size={12} className="opacity-70 shrink-0" />
+            <span
+              className={cn(
+                "font-medium",
+                isBorradorConFechaPasada(conv)
+                  ? "text-amber-700/90 dark:text-amber-400/90 line-through decoration-amber-500/40"
+                  : "text-foreground/90"
+              )}
+            >
+              {conv.fechaHora ? formatDateTime(conv.fechaHora) : "Sin fecha"}
+            </span>
+            <EventProximityPill schedule={conv} />
+          </div>
+          {conv.lugar && (
+            <div className="flex items-center gap-1.5">
+              <MapPin size={12} className="opacity-70 shrink-0" />
+              <span className="truncate max-w-[200px]">{conv.lugar}</span>
+            </div>
+          )}
+        </div>
+      </DataListCell>
+
+      <DataListCell label="Cupo" span={CONV_LIST_COLUMNS.cupo} priority="detail">
+        <CupoLabel cupoMaximo={conv.cupoMaximo} />
+      </DataListCell>
+
+      <DataListCell label="Estado" span={CONV_LIST_COLUMNS.estado} priority="primary">
+        <ConvocatoriaEstadoCell
+          conv={conv}
+          recurrente={!!conv.configuracionRecurrenteId}
+          align="end"
+          className="lg:justify-end"
+        />
+      </DataListCell>
+
+      <DataListActions span={CONV_LIST_COLUMNS.acciones}>
+        {canPublishConvocatoria(conv, hasPermission, user?.id) && (
+          <Tooltip
+            content={
+              puedePublicarBorrador(conv) ? TOOLTIP_PUBLICAR_BORRADOR : TOOLTIP_PUBLICAR_BLOQUEADO
+            }
+          >
+            <button
+              type="button"
+              onClick={(e) => handleAbrir(e, conv.id)}
+              disabled={!puedePublicarBorrador(conv)}
+              className="h-7 w-7 flex items-center justify-center rounded hover:bg-green-500/10 text-green-600 hover:text-green-700 transition-colors disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent"
+              aria-label="Publicar convocatoria"
+            >
+              <CheckCircle size={13} />
+            </button>
+          </Tooltip>
+        )}
+        {canCancelConvocatoria(conv, hasPermission, user?.id) && (
+            <Tooltip content="Cancelar convocatoria">
+              <button
+                type="button"
+                onClick={(e) => handleCancelar(e, conv.id, conv.titulo)}
+                className="h-7 w-7 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-colors"
+                aria-label="Cancelar convocatoria"
+              >
+                <XCircle size={13} />
+              </button>
+            </Tooltip>
+          )}
+        {canDeleteConvocatoria(conv, hasPermission, user?.id) && (
+          <Tooltip
+            content={
+              conv.estado === "BORRADOR"
+                ? "Eliminar borrador"
+                : conv.estado === "ABIERTA"
+                  ? "Eliminar convocatoria"
+                  : "Eliminar convocatoria cancelada"
+            }
+          >
+            <button
+              type="button"
+              onClick={(e) => handleDeleteConvocatoria(e, conv)}
+              className="h-7 w-7 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-colors"
+              aria-label="Eliminar convocatoria"
+            >
+              <Trash2 size={13} />
+            </button>
+          </Tooltip>
+        )}
+        <Tooltip content="Ver detalle">
+          <span className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground group-hover:text-primary transition-colors">
+            <Eye size={13} />
+          </span>
+        </Tooltip>
+      </DataListActions>
+    </DataListRow>
+  );
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
+    <div className="page-shell space-y-6 notion-animate-fade">
       {/* Cover / Header section */}
       <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
         <div className="h-28 notion-cover notion-cover-sports" />
         <div className="p-6 relative pt-10">
-          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
-            📅
-          </div>
+          <PageCoverIcon kind={PageIconKind.CONVOCATORIAS} />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Convocatorias</h1>
-            <p className="text-muted-foreground text-xs mt-1">Base de datos de convocatorias programadas y configuraciones recurrentes en el workspace.</p>
+            <p className="text-muted-foreground text-xs mt-1">
+              Por defecto verás las convocatorias más cercanas en el tiempo. Usa los filtros para
+              abiertas, esta semana o el historial de partidos pasados.
+              {canCreate &&
+                " Como organizador, también puedes crear convocatorias únicas o reglas recurrentes."}
+            </p>
           </div>
         </div>
       </div>
 
-      {schedulerMessage && (
-        <div className={`notion-callout ${
-          schedulerMessage.includes("Error") ? "border-destructive bg-destructive/5 text-destructive" : "border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
-        }`}>
-          <div className="notion-callout-icon">
-            {schedulerMessage.includes("Error") ? <XCircle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
-          </div>
-          <div className="text-sm font-medium">{schedulerMessage}</div>
-        </div>
-      )}
 
       {/* Notion Database Toolbar & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
@@ -176,17 +500,22 @@ export default function ConvocatoriasPage() {
             <Calendar size={13} className="opacity-70" />
             <span>Todas las Convocatorias</span>
             <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded-full font-medium ml-1">
-              {convocatorias.length}
+              {proximasCount}
             </span>
           </button>
           
-          {isOrganizer && (
+          {canCreate && (
             <button
               onClick={() => { setActiveTab("PLANTILLAS"); setSearchQuery(""); }}
               className={`notion-db-header-item px-3 py-1.5 text-xs font-semibold ${activeTab === "PLANTILLAS" ? "active" : ""}`}
+              title="Reglas que generan convocatorias automáticamente cada cierto tiempo"
             >
               <Repeat size={13} className="opacity-70" />
               <span>Reglas Recurrentes</span>
+              <InfoHint side="bottom" maxWidth={260}>
+                Una <strong>regla recurrente</strong> genera convocatorias automáticamente según
+                un calendario (ej. todos los lunes a las 8pm). Útil para encuentros fijos.
+              </InfoHint>
               <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded-full font-medium ml-1">
                 {recurrentes.length}
               </span>
@@ -195,35 +524,21 @@ export default function ConvocatoriasPage() {
         </div>
 
         {/* Database filters / search & actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search box */}
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
             <input
               type="text"
-              placeholder="Buscar..."
+              placeholder="Buscar por nombre, lugar o deporte..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 py-1.5 h-9 w-[180px] sm:w-[220px] rounded-md border border-border bg-background text-xs font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="pl-8 pr-3 py-1.5 h-9 w-full sm:w-[260px] rounded-md border border-border bg-background text-xs font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
-          {activeTab === "CONVOCATORIAS" && (
-            <Select value={estadoFilter} onValueChange={setEstadoFilter}>
-              <SelectTrigger className="w-[125px] h-9 text-xs font-medium border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ESTADOS.filter((est) => isOrganizer || est !== "BORRADOR").map((est) => (
-                  <SelectItem key={est} value={est} className="text-xs">{est === "TODOS" ? "Todos" : ESTADO_LABELS[est] ?? est}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          
-
-          
-          {user && isOrganizer && (
-            <Link to={activeTab === "PLANTILLAS" ? "/convocatorias/recurrentes/new" : "/convocatorias/new"}>
-              <Button className="h-9 px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
+          {user && canCreate && (
+            <Link to={activeTab === "PLANTILLAS" ? "/convocatorias/recurrentes/new" : "/convocatorias/new"} className="w-full sm:w-auto">
+              <Button className="h-9 w-full sm:w-auto px-3 gap-1.5 font-medium text-xs rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
                 <Plus size={14} />
                 <span>{activeTab === "PLANTILLAS" ? "Plantilla" : "Convocatoria"}</span>
               </Button>
@@ -232,234 +547,291 @@ export default function ConvocatoriasPage() {
         </div>
       </div>
 
+      {activeTab === "CONVOCATORIAS" && (
+        <div className="flex flex-col gap-2 -mt-2">
+          <PresetChips activeId={quickFilter} showIcon={false} options={quickFilterOptions} />
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+            <InfoHint side="right" maxWidth={300}>
+              <strong>Próximas</strong> ordena por fecha del partido (hoy, mañana, esta semana).
+              Incluye convocatorias abiertas, en juego y borradores con fecha futura. El{" "}
+              <strong>historial</strong> agrupa finalizadas y canceladas. Los{" "}
+              filtros <strong>Borradores</strong> y <strong>Vencidos</strong> para gestionar
+              borradores activos y los que ya no se pueden publicar.
+            </InfoHint>
+            <span>
+              {listSections.reduce((n, s) => n + s.items.length, 0)} resultado
+              {listSections.reduce((n, s) => n + s.items.length, 0) !== 1 ? "s" : ""}
+              {searchQuery ? " con tu búsqueda" : ` · filtro «${QUICK_FILTER_LABELS[quickFilter]}»`}
+            </span>
+          </p>
+        </div>
+      )}
+
       {/* Main Database Content Grid/List */}
       {activeTab === "CONVOCATORIAS" ? (
         loading ? (
-          <div className="flex justify-center py-16"><Spinner /></div>
+          <DataListSkeleton
+            columns={CONV_LIST_COLUMNS}
+            labels={{
+              evento: "Evento",
+              acceso: "Deporte y acceso",
+              cuando: "Cuándo y dónde",
+              cupo: "Cupo",
+              estado: "Estado",
+              acciones: "Acciones",
+            }}
+            rowCount={8}
+          />
         ) : (
-          <div className="border border-border rounded-lg bg-card overflow-hidden">
-            {/* Database header row */}
-            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-              <div className="col-span-5 flex items-center gap-2">Título / Convocatoria</div>
-              <div className="col-span-2">Deporte / Categoría</div>
-              <div className="col-span-3">Fecha y Lugar</div>
-              <div className="col-span-2 text-right">Estado / Acciones</div>
-            </div>
+          <DataListShell>
+            <DataListHeader
+              columns={CONV_LIST_COLUMNS}
+              labels={{
+                evento: "Evento",
+                acceso: "Deporte y acceso",
+                cuando: "Cuándo y dónde",
+                cupo: "Cupo",
+                estado: "Estado",
+                acciones: "Acciones",
+              }}
+            />
+            <DataListBody>
+              {listSections.map((section) => {
+                const isPastSection = section.id === "PASADAS" && quickFilter === "TODAS";
+                const collapsed = isPastSection && pastCollapsed;
+                return (
+                  <DataListSection
+                    key={section.id}
+                    title={section.label}
+                    count={section.items.length}
+                    collapsible={isPastSection}
+                    collapsed={collapsed}
+                    onToggleCollapse={
+                      isPastSection ? () => setPastCollapsed((v) => !v) : undefined
+                    }
+                  >
+                    {!collapsed && section.items.map((conv) => renderConvocatoriaRow(conv))}
+                  </DataListSection>
+                );
+              })}
 
-            {/* Database Rows */}
-            <div className="divide-y divide-border/80">
-              {filteredConvocatorias.map((conv) => (
-                <div
-                  key={conv.id}
-                  onClick={() => navigate(`/convocatorias/${conv.id}`)}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 items-center px-4 py-3.5 hover:bg-muted/40 transition-colors cursor-pointer group"
-                >
-                  {/* Title & Emojis */}
-                  <div className="col-span-1 md:col-span-5 flex items-start gap-3">
-                    <span className="text-2xl shrink-0 select-none mt-0.5" role="img" aria-label="sport-emoji">
-                      {getSportEmoji(conv.deporteNombre)}
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="text-sm font-semibold text-foreground group-hover:text-primary group-hover:underline decoration-1 underline-offset-2 transition-colors">
-                        {conv.titulo}
-                      </div>
-                      {conv.descripcion && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{conv.descripcion}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Sport & Category Tags */}
-                  <div className="col-span-1 md:col-span-2 flex flex-wrap gap-1.5">
-                    <span className="text-[10px] font-medium text-foreground bg-secondary px-2 py-0.5 rounded border border-border uppercase">
-                      {conv.deporteNombre}
-                    </span>
-                    {conv.categoria && (
-                      <span className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border">
-                        {conv.categoria}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Location & Date details */}
-                  <div className="col-span-1 md:col-span-3 space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={12} className="opacity-70 shrink-0" />
-                      <span>{formatDateTime(conv.fechaHora ?? null)}</span>
-                    </div>
-                    {conv.lugar && (
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={12} className="opacity-70 shrink-0" />
-                        <span className="truncate max-w-[200px]">{conv.lugar}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Badges & Actions */}
-                  <div className="col-span-1 md:col-span-2 flex items-center justify-between md:justify-end gap-2 md:text-right">
-                    <div className="flex items-center gap-1.5">
-                      {conv.configuracionRecurrenteId && (
-                        <Badge variant="outline" className="text-[8px] bg-sky-50 dark:bg-sky-950/20 text-sky-600 border-sky-200 dark:border-sky-800/40 px-1 py-0 uppercase">
-                          <Repeat size={8} className="mr-0.5" />Rec.
-                        </Badge>
-                      )}
-                      <Badge variant={CONVOCATORIA_ESTADO_COLORS[conv.estado] || "default"} className="text-[9px] px-1.5 py-0.5 uppercase tracking-wide">
-                        {ESTADO_LABELS[conv.estado] || conv.estado}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      {isOrganizer && conv.estado === "BORRADOR" && (
-                        <button
-                          onClick={(e) => handleAbrir(e, conv.id)}
-                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-green-500/10 text-green-600 hover:text-green-700 transition-colors"
-                          title="Abrir convocatoria"
-                        >
-                          <CheckCircle size={13} />
-                        </button>
-                      )}
-                      {isOrganizer && conv.estado !== "CANCELADA" && conv.estado !== "FINALIZADA" && (
-                        <button
-                          onClick={(e) => handleCancelar(e, conv.id)}
-                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-colors"
-                          title="Cancelar convocatoria"
-                        >
-                          <XCircle size={13} />
-                        </button>
-                      )}
-                      {isOrganizer && conv.estado === "BORRADOR" && (
-                        <button
-                          onClick={(e) => handleDeleteConvocatoria(e, conv.id)}
-                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                      <div className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground group-hover:text-primary transition-colors">
-                        <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {filteredConvocatorias.length === 0 && (
-                <div className="text-center py-16 select-none bg-muted/5">
-                  <KanbanSquare size={26} className="mx-auto text-muted-foreground/60 mb-2.5" />
-                  <p className="text-xs text-muted-foreground font-medium">Ninguna convocatoria coincide con la búsqueda</p>
-                </div>
+              {totalVisible === 0 && (
+                <EmptyState
+                  className="border-0 rounded-none py-12"
+                  variant={searchQuery ? "search" : "default"}
+                  icon={<KanbanSquare size={32} />}
+                  title={
+                    searchQuery
+                      ? "Sin resultados para tu búsqueda"
+                      : convocatorias.length === 0
+                        ? "Aún no hay convocatorias"
+                        : "Ninguna convocatoria con ese filtro"
+                  }
+                  description={
+                    searchQuery
+                      ? "Prueba con otras palabras clave o limpia el campo de búsqueda."
+                      : convocatorias.length === 0
+                        ? canCreate
+                          ? "Crea tu primera convocatoria o programa una regla recurrente para empezar."
+                          : "Cuando un organizador publique convocatorias, aparecerán aquí."
+                        : `Prueba otro filtro rápido (p. ej. «${QUICK_FILTER_LABELS.TODAS}» o «${QUICK_FILTER_LABELS.PASADAS}»).`
+                  }
+                  action={
+                    convocatorias.length === 0 && canCreate ? (
+                      <Link to="/convocatorias/new">
+                        <Button size="sm" className="h-8 px-3 text-xs font-semibold">
+                          <Plus size={13} className="mr-1.5" />
+                          Crear convocatoria
+                        </Button>
+                      </Link>
+                    ) : searchQuery ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSearchQuery("")}
+                        className="h-8 px-3 text-xs font-semibold"
+                      >
+                        Limpiar búsqueda
+                      </Button>
+                    ) : undefined
+                  }
+                />
               )}
-            </div>
-          </div>
+            </DataListBody>
+          </DataListShell>
         )
       ) : (
         loadingRecurrentes ? (
-          <div className="flex justify-center py-16"><Spinner /></div>
+          <DataListSkeleton
+            columns={REC_LIST_COLUMNS}
+            labels={{
+              regla: "Regla",
+              deporte: "Deporte",
+              programacion: "Programación",
+              cupo: "Cupo",
+              estado: "Estado",
+              acciones: "Acciones",
+            }}
+            rowCount={5}
+          />
         ) : (
-          <div className="border border-border rounded-lg bg-card overflow-hidden">
-            {/* Database header row */}
-            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-              <div className="col-span-5 flex items-center gap-2">Regla Recurrente</div>
-              <div className="col-span-2">Deporte</div>
-              <div className="col-span-3">Frecuencia / Lugar</div>
-              <div className="col-span-2 text-right">Estado / Acciones</div>
-            </div>
-
-            {/* Database Rows */}
-            <div className="divide-y divide-border/80">
-              {filteredRecurrentes.map((rec) => (
-                <div
-                  key={rec.id}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 items-center px-4 py-3.5 hover:bg-muted/40 transition-colors"
-                >
-                  {/* Title & Emojis */}
-                  <div className="col-span-1 md:col-span-5 flex items-start gap-3">
-                    <span className="text-2xl shrink-0 select-none mt-0.5" role="img" aria-label="sport-emoji">
-                      {getSportEmoji(rec.deporteNombre)}
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="text-sm font-semibold text-foreground">
-                        {rec.titulo}
+          <DataListShell>
+            <DataListHeader
+              columns={REC_LIST_COLUMNS}
+              labels={{
+                regla: "Regla recurrente",
+                deporte: "Deporte",
+                programacion: "Programación",
+                cupo: "Cupo",
+                estado: "Estado",
+                acciones: "Acciones",
+              }}
+            />
+            <DataListBody>
+              {filteredRecurrentes.map((rec) => {
+                const firstHorario = Object.values(rec.horariosPorDia || {})[0];
+                return (
+                  <DataListRow key={rec.id}>
+                    <DataListCell label="Regla" span={REC_LIST_COLUMNS.regla} priority="primary">
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl shrink-0 select-none mt-0.5" role="img" aria-hidden>
+                          <DeporteIcon nombre={rec.deporteNombre} size={16} />
+                        </span>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="text-sm font-semibold text-foreground truncate">
+                            {rec.titulo}
+                          </div>
+                          {rec.grupoDestinoNombre && (
+                            <span className="text-[10px] text-muted-foreground bg-muted/50 border border-border px-1.5 py-0.2 rounded font-semibold">
+                              Grupo: {rec.grupoDestinoNombre}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-1 text-[10px]">
-                        {rec.grupoDestinoNombre && (
-                          <span className="text-muted-foreground bg-muted/50 border border-border px-1.5 py-0.2 rounded font-semibold uppercase">
-                            {rec.grupoDestinoNombre}
+                    </DataListCell>
+                    <DataListCell label="Deporte" span={REC_LIST_COLUMNS.deporte} priority="secondary">
+                      <span className="text-[10px] font-medium text-foreground bg-secondary px-2 py-0.5 rounded border border-border uppercase">
+                        {rec.deporteNombre}
+                      </span>
+                    </DataListCell>
+                    <DataListCell label="Programación" span={REC_LIST_COLUMNS.programacion} priority="secondary">
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Repeat size={12} className="opacity-70 shrink-0" />
+                          <span className="font-semibold">{humanizeRRule(rec.rruleExpression)}</span>
+                        </div>
+                        {firstHorario && (
+                          <span className="text-[10px] block">
+                            Apertura {firstHorario.horaApertura} · Evento {firstHorario.horaEvento}
                           </span>
                         )}
+                        {rec.lugar && (
+                          <div className="flex items-center gap-1.5">
+                            <MapPin size={12} className="opacity-70 shrink-0" />
+                            <span className="truncate max-w-[200px]">{rec.lugar}</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Sport Tag */}
-                  <div className="col-span-1 md:col-span-2">
-                    <span className="text-[10px] font-medium text-foreground bg-secondary px-2 py-0.5 rounded border border-border uppercase">
-                      {rec.deporteNombre}
-                    </span>
-                  </div>
-
-                  {/* Frequency & Location details */}
-                  <div className="col-span-1 md:col-span-3 space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <Repeat size={12} className="opacity-70 shrink-0" />
-                      <span className="font-semibold">{humanizeRRule(rec.rruleExpression)}</span>
-                    </div>
-                    {rec.lugar && (
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={12} className="opacity-70 shrink-0" />
-                        <span className="truncate max-w-[200px]">{rec.lugar}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Badges & Actions */}
-                  <div className="col-span-1 md:col-span-2 flex items-center justify-between md:justify-end gap-2 md:text-right">
-                    <Badge variant={rec.activo ? "success" : "default"} className="text-[9px] px-1.5 py-0.5 uppercase tracking-wide font-bold">
-                      {rec.activo ? "Activa" : "Borrador"}
-                    </Badge>
-
-                    <div className="flex items-center gap-1.5">
-                      {isOrganizer && (
-                        <button
-                          onClick={(e) => handleToggleActivoRecurrente(e, rec.id, rec.activo)}
-                          className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
-                            rec.activo
-                              ? "hover:bg-amber-500/10 text-amber-600 hover:text-amber-700"
-                              : "hover:bg-green-500/10 text-green-600 hover:text-green-700"
-                          }`}
-                          title={rec.activo ? "Desactivar regla" : "Activar regla"}
-                        >
-                          {rec.activo ? <XCircle size={13} /> : <CheckCircle size={13} />}
-                        </button>
+                    </DataListCell>
+                    <DataListCell label="Cupo" span={REC_LIST_COLUMNS.cupo} priority="detail">
+                      <CupoLabel cupoMaximo={rec.cupoMaximo} />
+                      {firstHorario?.duracionMinutos != null && (
+                        <span className="text-[10px] text-muted-foreground block mt-0.5">
+                          {firstHorario.duracionMinutos} min
+                        </span>
                       )}
-                      <Link to={`/convocatorias/recurrentes/${rec.id}/edit`}>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-muted" title="Editar">
-                          <Edit size={13} className="text-muted-foreground hover:text-foreground" />
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteRecurrencia(rec.id)}
-                        className="h-7 w-7 rounded hover:bg-destructive/10 text-destructive"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    </DataListCell>
+                    <DataListCell label="Estado" span={REC_LIST_COLUMNS.estado} align="right" priority="primary">
+                      <RecurrenteEstadoBadge activo={rec.activo} />
+                    </DataListCell>
+                    <DataListActions span={REC_LIST_COLUMNS.acciones}>
+                      {canManageRecurrente(rec, hasPermission, user?.id) && (
+                        <Tooltip
+                          content={
+                            rec.activo
+                              ? "Pausar generación automática"
+                              : "Activar generación automática"
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleActivoRecurrente(e, rec.id, rec.activo)}
+                            className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
+                              rec.activo
+                                ? "hover:bg-[hsl(var(--warning)/0.12)] text-tone-warning"
+                                : "hover:bg-[hsl(var(--success)/0.12)] text-tone-success"
+                            }`}
+                            aria-label={rec.activo ? "Pausar regla" : "Activar regla"}
+                          >
+                            {rec.activo ? <XCircle size={13} /> : <CheckCircle size={13} />}
+                          </button>
+                        </Tooltip>
+                      )}
+                      {canManageRecurrente(rec, hasPermission, user?.id) && (
+                        <Tooltip content="Editar regla">
+                          <Link to={`/convocatorias/recurrentes/${rec.id}/edit`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-muted">
+                              <Edit size={13} className="text-muted-foreground hover:text-foreground" />
+                            </Button>
+                          </Link>
+                        </Tooltip>
+                      )}
+                      {canDeleteRecurrente(rec, hasPermission, user?.id) && (
+                        <Tooltip content="Eliminar regla">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteRecurrencia(rec.id, rec.titulo)}
+                            className="h-7 w-7 rounded hover:bg-destructive/10 text-destructive"
+                            aria-label="Eliminar regla"
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </DataListActions>
+                  </DataListRow>
+                );
+              })}
 
               {filteredRecurrentes.length === 0 && (
-                <div className="text-center py-16 select-none bg-muted/5">
-                  <Repeat size={26} className="mx-auto text-muted-foreground/60 mb-2.5" />
-                  <p className="text-xs text-muted-foreground font-medium">Ninguna regla recurrente coincide con la búsqueda</p>
-                </div>
+                <EmptyState
+                  className="border-0 rounded-none py-12"
+                  variant={searchQuery ? "search" : "default"}
+                  icon={<Repeat size={32} />}
+                  title={
+                    searchQuery
+                      ? "Sin resultados para tu búsqueda"
+                      : "Aún no tienes reglas recurrentes"
+                  }
+                  description={
+                    searchQuery
+                      ? "Prueba con otras palabras clave."
+                      : "Las reglas recurrentes crean convocatorias por ti según un calendario (ej. cada lunes 8pm)."
+                  }
+                  action={
+                    !searchQuery && canCreate ? (
+                      <Link to="/convocatorias/recurrentes/new">
+                        <Button size="sm" className="h-8 px-3 text-xs font-semibold">
+                          <Plus size={13} className="mr-1.5" />
+                          Crear primera regla
+                        </Button>
+                      </Link>
+                    ) : searchQuery ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSearchQuery("")}
+                        className="h-8 px-3 text-xs font-semibold"
+                      >
+                        Limpiar búsqueda
+                      </Button>
+                    ) : undefined
+                  }
+                />
               )}
-            </div>
-          </div>
+            </DataListBody>
+          </DataListShell>
         )
       )}
     </div>

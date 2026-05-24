@@ -28,7 +28,13 @@ public class ConvocatoriaController {
     public ResponseEntity<List<ConvocatoriaResponse>> findAll(
             @RequestParam(required = false) EstadoConvocatoria estado) {
         boolean isOrganizer = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("crear_convocatorias"));
+                .anyMatch(a -> {
+                    String auth = a.getAuthority();
+                    return auth.equals("crear_convocatorias")
+                            || auth.equals("editar_convocatorias")
+                            || auth.equals("cancelar_convocatorias")
+                            || auth.equals("eliminar_convocatorias");
+                });
         if (estado != null) {
             return ResponseEntity.ok(convocatoriaService.findByEstado(estado));
         }
@@ -56,25 +62,25 @@ public class ConvocatoriaController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('editar_convocatorias')")
+    @PreAuthorize("hasAuthority('editar_convocatorias') or hasAuthority('crear_convocatorias')")
     public ResponseEntity<ConvocatoriaResponse> update(@PathVariable Long id, @Valid @RequestBody ConvocatoriaRequest request) {
         return ResponseEntity.ok(convocatoriaService.update(id, request));
     }
 
     @PutMapping("/{id}/abrir")
-    @PreAuthorize("hasAuthority('editar_convocatorias')")
+    @PreAuthorize("hasAuthority('editar_convocatorias') or hasAuthority('crear_convocatorias')")
     public ResponseEntity<ConvocatoriaResponse> abrir(@PathVariable Long id) {
         return ResponseEntity.ok(convocatoriaService.abrir(id));
     }
 
     @PutMapping("/{id}/cancelar")
-    @PreAuthorize("hasAuthority('cancelar_convocatorias')")
+    @PreAuthorize("hasAuthority('cancelar_convocatorias') or hasAuthority('editar_convocatorias') or hasAuthority('crear_convocatorias')")
     public ResponseEntity<ConvocatoriaResponse> cancelar(@PathVariable Long id) {
         return ResponseEntity.ok(convocatoriaService.cancelar(id));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('eliminar_convocatorias')")
+    @PreAuthorize("hasAuthority('eliminar_convocatorias') or hasAuthority('editar_convocatorias') or hasAuthority('crear_convocatorias')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         convocatoriaService.delete(id);
         return ResponseEntity.noContent().build();

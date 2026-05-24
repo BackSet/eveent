@@ -9,6 +9,7 @@ import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.*;
 import com.event.backend.repository.*;
 import com.event.backend.security.SecurityService;
+import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,9 +32,14 @@ public class AsistenciaService {
     private final SecurityService securityService;
     private final AsistenciaMapper asistenciaMapper;
     private final UsuarioPosicionRepository usuarioPosicionRepository;
+    private final ConvocatoriaAccessService convocatoriaAccessService;
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByConvocatoriaId(Long convocatoriaId) {
+        Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
+                .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
+        convocatoriaAccessService.assertCanView(convocatoria, securityService.getCurrentUserId());
+
         List<Asistencia> asistencias = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
         List<AsistenciaResponse> responses = asistencias.stream()
                 .map(asistenciaMapper::toResponse)
@@ -91,6 +97,10 @@ public class AsistenciaService {
     @Transactional(readOnly = true)
     public AsistenciaResponse findByConvocatoriaAndUsuario(Long convocatoriaId) {
         Long usuarioId = securityService.getCurrentUserId();
+        Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
+                .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
+        convocatoriaAccessService.assertCanView(convocatoria, usuarioId);
+
         Asistencia asistencia = asistenciaRepository.findByConvocatoriaIdAndUsuarioId(convocatoriaId, usuarioId)
                 .orElseThrow(() -> new NotFoundException("No tienes registro de asistencia para esta convocatoria"));
         AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
@@ -131,26 +141,13 @@ public class AsistenciaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(request.getConvocatoriaId())
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + request.getConvocatoriaId()));
 
-        validateConvocatoriaNotInProgress(convocatoria);
-
-        // Validar si es una convocatoria abierta (categoria LIBRE), debe ser del deporte que practica el usuario
-        Deporte deporteConvocatoria = convocatoria.getDeporte();
-        if (deporteConvocatoria != null && "LIBRE".equalsIgnoreCase(convocatoria.getCategoria())) {
-            List<UsuarioPosicion> posicionesUsuario = usuarioPosicionRepository.findByUsuarioId(usuario.getId());
-            boolean practicaDeporte = posicionesUsuario.stream()
-                    .anyMatch(up -> up.getPosicion() != null 
-                            && up.getPosicion().getDeporte() != null 
-                            && up.getPosicion().getDeporte().getId().equals(deporteConvocatoria.getId()));
-            
-            if (!practicaDeporte) {
-                throw new com.event.backend.exception.ConflictException("Solo los jugadores que practican el deporte " 
-                        + deporteConvocatoria.getNombre() + " pueden inscribirse a esta convocatoria abierta. "
-                        + "Configura tus demarcaciones de " + deporteConvocatoria.getNombre() + " en tu perfil para continuar.");
-            }
-        }
+        ConvocatoriaScheduleHelper.assertConvocatoriaActiveForSideEffects(convocatoria, LocalDateTime.now());
 
         // Si es un jugador externo (invitado por el usuario actual)
         if (request.getNombreExterno() != null && !request.getNombreExterno().trim().isEmpty()) {
+            if (!convocatoriaAccessService.isOrganizer(convocatoria, usuario.getId())) {
+                throw new ForbiddenException("Solo el organizador puede registrar invitados externos.");
+            }
             EstadoAsistencia requestedEstado = request.getEstado() != null 
                     ? EstadoAsistencia.valueOf(request.getEstado()) 
                     : EstadoAsistencia.ASISTIRE;
@@ -198,6 +195,8 @@ public class AsistenciaService {
             }
             return response;
         }
+
+        convocatoriaAccessService.assertCanSelfRegister(convocatoria, usuario.getId());
 
         var existing = asistenciaRepository.findByConvocatoriaIdAndUsuarioId(request.getConvocatoriaId(), usuario.getId());
         if (existing.isPresent()) {
@@ -278,7 +277,8 @@ public class AsistenciaService {
         Asistencia asistencia = asistenciaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
-        validateConvocatoriaNotInProgress(asistencia.getConvocatoria());
+        ConvocatoriaScheduleHelper.assertConvocatoriaActiveForSideEffects(
+                asistencia.getConvocatoria(), LocalDateTime.now());
 
         Long currentUserId = securityService.getCurrentUserId();
         boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
@@ -367,7 +367,8 @@ public class AsistenciaService {
         Asistencia asistencia = asistenciaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asistencia no encontrada con id: " + id));
 
-        validateConvocatoriaNotInProgress(asistencia.getConvocatoria());
+        ConvocatoriaScheduleHelper.assertConvocatoriaActiveForSideEffects(
+                asistencia.getConvocatoria(), LocalDateTime.now());
 
         Long currentUserId = securityService.getCurrentUserId();
         boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
@@ -409,7 +410,11 @@ public class AsistenciaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada"));
 
-        validateConvocatoriaNotInProgress(convocatoria);
+        ConvocatoriaScheduleHelper.assertConvocatoriaActiveForSideEffects(convocatoria, LocalDateTime.now());
+
+        if (!convocatoriaAccessService.isOrganizer(convocatoria, securityService.getCurrentUserId())) {
+            throw new ForbiddenException("Solo el organizador puede invitar jugadores.");
+        }
 
         List<Asistencia> existing = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
         Set<Long> existingUserIds = existing.stream()
@@ -449,7 +454,8 @@ public class AsistenciaService {
         List<Asistencia> asistencias = asistenciaRepository.findAllById(ids);
         
         if (!asistencias.isEmpty()) {
-            validateConvocatoriaNotInProgress(asistencias.get(0).getConvocatoria());
+            ConvocatoriaScheduleHelper.assertConvocatoriaActiveForSideEffects(
+                    asistencias.get(0).getConvocatoria(), LocalDateTime.now());
         }
         Long currentUserId = securityService.getCurrentUserId();
         
@@ -511,12 +517,4 @@ public class AsistenciaService {
         }
     }
 
-    private void validateConvocatoriaNotInProgress(Convocatoria c) {
-        if (c.getEstado() == EstadoConvocatoria.EN_PROGRESO || 
-            c.getEstado() == EstadoConvocatoria.FINALIZADA || 
-            c.getEstado() == EstadoConvocatoria.CANCELADA || 
-            (c.getFechaHora() != null && !c.getFechaHora().isAfter(LocalDateTime.now()))) {
-            throw new com.event.backend.exception.BusinessException("No se pueden realizar cambios en las asistencias de una convocatoria en progreso, finalizada o cancelada.");
-        }
-    }
 }

@@ -173,6 +173,7 @@ public class ConfiguracionRecurrenteService {
                 .grupoDestinoId(config.getGrupoDestino() != null ? config.getGrupoDestino().getId() : null)
                 .grupoDestinoNombre(config.getGrupoDestino() != null ? config.getGrupoDestino().getNombre() : null)
                 .activo(config.getActivo())
+                .creadoPorId(config.getCreadoPor() != null ? config.getCreadoPor().getId() : null)
                 .fechaCreacion(config.getFechaCreacion())
                 .build();
     }

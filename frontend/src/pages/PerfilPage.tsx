@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { InlineListSkeleton } from "@/components/ui/page-skeletons";
+import { DeporteIcon, PageCoverIcon } from "@/components/ui/page-icon";
+import { PageIconKind } from "@/lib/iconography";
 import { Badge } from "@/components/ui/badge";
 import { 
   User, 
@@ -20,12 +23,25 @@ import {
   X,
   Plus,
   Check,
-  ArrowUpDown
+  ListOrdered,
 } from "lucide-react";
 import { Deporte, PosicionesDeporte, UsuarioPosicionDto } from "@/types";
+import { useToast } from "@/components/ui/toast";
+import { InfoHint } from "@/components/ui/info-hint";
+import { PlayerIdentity } from "@/components/ui/player-identity";
+import { FieldError } from "@/components/ui/field-error";
+import { PresetChips } from "@/components/ui/preset-chips";
+import {
+  validateDorsal,
+  validateEmail,
+  validatePassword,
+  validatePasswordMatch,
+  validateRequiredTrim,
+} from "@/lib/formValidation";
 
 export default function PerfilPage() {
   const { user, updateUser } = useAuth();
+  const toast = useToast();
   
   const [formData, setFormData] = useState({
     nombre: user?.nombre || "",
@@ -47,6 +63,21 @@ export default function PerfilPage() {
   const [positionsSuccess, setPositionsSuccess] = useState("");
   const [positionsError, setPositionsError] = useState("");
   const [savingPositions, setSavingPositions] = useState(false);
+  const [dorsalError, setDorsalError] = useState<string | null>(null);
+  const savedPositionsRef = useRef<string>("");
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const positionsDirty =
+    savedPositionsRef.current !== "" &&
+    JSON.stringify(userPosiciones) !== savedPositionsRef.current;
 
   useEffect(() => {
     const fetchSportsAndUserPositions = async () => {
@@ -58,7 +89,8 @@ export default function PerfilPage() {
         ]);
         setDeportes(sportsRes.data);
         setUserPosiciones(userPositionsRes.data);
-        
+        savedPositionsRef.current = JSON.stringify(userPositionsRes.data);
+
         if (sportsRes.data.length > 0) {
           setSelectedDeporteId(sportsRes.data[0].id);
         }
@@ -89,6 +121,15 @@ export default function PerfilPage() {
 
   const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nameErr = validateRequiredTrim(formData.nombre, "El nombre");
+    const emailErr = validateEmail(formData.email);
+    const dorsalErr = formData.numeroCamiseta ? validateDorsal(formData.numeroCamiseta) : null;
+    if (nameErr || emailErr || dorsalErr) {
+      setDorsalError(dorsalErr);
+      setError(nameErr || emailErr || dorsalErr || "");
+      return;
+    }
+    setDorsalError(null);
     setSaving(true);
     setError("");
     setSuccess("");
@@ -102,8 +143,11 @@ export default function PerfilPage() {
       const { data } = await api.put("/api/usuarios/me", payload);
       updateUser(data);
       setSuccess("Perfil actualizado correctamente");
+      toast.success("Perfil actualizado", "Tus datos personales se guardaron correctamente.");
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al actualizar perfil");
+      const msg = getApiErrorMessage(err) || "Error al actualizar perfil";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -217,6 +261,62 @@ export default function PerfilPage() {
     setPositionSearch("");
   };
 
+  const handleSubmitPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const passErr = validatePassword(passwordForm.newPassword);
+    const matchErr = validatePasswordMatch(passwordForm.newPassword, passwordForm.confirmPassword);
+    if (!passwordForm.currentPassword) {
+      setPasswordError("La contraseña actual es obligatoria.");
+      return;
+    }
+    if (passErr || matchErr) {
+      setPasswordError(passErr || matchErr || "");
+      return;
+    }
+    setSavingPassword(true);
+    setPasswordError("");
+    setPasswordSuccess("");
+    try {
+      await api.post("/api/usuarios/me/password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordSuccess("Contraseña actualizada correctamente.");
+      toast.success("Contraseña actualizada", "Usa la nueva contraseña en tu próximo inicio de sesión.");
+    } catch (err: unknown) {
+      const msg = getApiErrorMessage(err) || "Error al cambiar la contraseña";
+      setPasswordError(msg);
+      toast.error(msg);
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const handleSelectAllVisible = () => {
+    if (!selectedDeporteId) return;
+    const activeSport = deportes.find((d) => d.id === selectedDeporteId);
+    if (!activeSport) return;
+    setUserPosiciones((prev) => {
+      const others = prev.filter((up) => up.deporteId !== selectedDeporteId);
+      const existing = prev.filter((up) => up.deporteId === selectedDeporteId);
+      const toAdd = filteredPositions.filter((p) => !existing.some((e) => e.posicionId === p.id));
+      const newItems = toAdd.map((p, idx) => ({
+        posicionId: p.id,
+        posicionNombre: p.nombre,
+        deporteId: selectedDeporteId,
+        deporteNombre: activeSport.nombre,
+        prioridad: existing.length + idx + 1,
+      }));
+      return [...others, ...existing, ...newItems];
+    });
+  };
+
+  const handleClearCurrentSport = () => {
+    if (!selectedDeporteId) return;
+    setUserPosiciones((prev) => prev.filter((up) => up.deporteId !== selectedDeporteId));
+  };
+
   const handleSavePositions = async () => {
     setSavingPositions(true);
     setPositionsSuccess("");
@@ -224,23 +324,28 @@ export default function PerfilPage() {
     try {
       const { data } = await api.put<UsuarioPosicionDto[]>("/api/usuarios/me/posiciones", userPosiciones);
       setUserPosiciones(data);
+      savedPositionsRef.current = JSON.stringify(data);
       setPositionsSuccess("Prioridades actualizadas");
+      toast.success(
+        "Posiciones guardadas",
+        "El autobalanceo de equipos tendrá en cuenta estas preferencias."
+      );
     } catch (err: unknown) {
-      setPositionsError(getApiErrorMessage(err) || "Error al guardar prioridades");
+      const msg = getApiErrorMessage(err) || "Error al guardar prioridades";
+      setPositionsError(msg);
+      toast.error(msg);
     } finally {
       setSavingPositions(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
+    <div className="page-shell space-y-6 notion-animate-fade">
       {/* Cover / Header section */}
       <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
         <div className="h-28 notion-cover notion-cover-sports" />
         <div className="p-6 relative pt-10">
-          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
-            👤
-          </div>
+          <PageCoverIcon kind={PageIconKind.PERFIL} />
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Ajustes de Perfil</h1>
             <p className="text-muted-foreground text-xs mt-1">
@@ -254,24 +359,12 @@ export default function PerfilPage() {
           {/* Tarjeta de Workspace de Usuario */}
           <div className="md:col-span-1 rounded-lg border border-border bg-card p-5 space-y-4">
             <div className="flex flex-col items-center text-center space-y-3 pt-2">
-              <div className="relative">
-                <div className="h-16 w-16 rounded-2xl bg-secondary flex items-center justify-center font-bold text-2xl text-foreground border border-border">
-                  {user?.nombre?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                {user?.numeroCamiseta !== undefined && user?.numeroCamiseta !== null && (
-                  <div className="absolute -bottom-1.5 -right-1.5 bg-background text-foreground rounded-full h-6 w-6 flex items-center justify-center font-bold text-xs border border-border">
-                    #{user.numeroCamiseta}
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <h3 className="font-semibold text-foreground text-sm">{user?.nombre}</h3>
-                {user?.username && (
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">@{user.username}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-0.5">{user?.email}</p>
-              </div>
+              <PlayerIdentity
+                nombre={user?.nombre}
+                username={user?.username}
+                email={user?.email}
+                variant="profile"
+              />
             </div>
             
             <div className="pt-4 border-t border-border space-y-2">
@@ -303,7 +396,7 @@ export default function PerfilPage() {
               </div>
             )}
             {success && (
-              <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
+              <div className="notion-callout tone-success p-3">
                 <div className="notion-callout-icon">
                   <UserCheck size={16} className="shrink-0" />
                 </div>
@@ -361,7 +454,13 @@ export default function PerfilPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="numeroCamiseta" className="text-xs font-semibold text-muted-foreground">Dorsal / Camiseta</Label>
+                  <Label htmlFor="numeroCamiseta" className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <span>Dorsal / Camiseta</span>
+                    <InfoHint side="right" maxWidth={260}>
+                      Número que prefieres usar en tu camiseta. Aparece junto a tu nombre en las
+                      alineaciones para que el equipo te identifique rápido.
+                    </InfoHint>
+                  </Label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50">
                       <Hash size={13} />
@@ -374,9 +473,11 @@ export default function PerfilPage() {
                       value={formData.numeroCamiseta} 
                       onChange={(e) => setFormData({ ...formData, numeroCamiseta: e.target.value })} 
                       placeholder="ej. 10" 
-                      className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border" 
+                      className="pl-9 h-9 text-xs border-border bg-background shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-border"
+                      aria-invalid={!!dorsalError}
                     />
                   </div>
+                  <FieldError message={dorsalError} />
                 </div>
               </div>
 
@@ -390,6 +491,63 @@ export default function PerfilPage() {
                 </Button>
               </div>
             </form>
+
+            <div className="border-t border-border pt-5 mt-2 space-y-4">
+              <h3 className="text-sm font-semibold tracking-tight">Cambiar contraseña</h3>
+              {passwordError && (
+                <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 text-xs font-medium">
+                  {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="notion-callout tone-success p-3 text-xs font-medium">
+                  {passwordSuccess}
+                </div>
+              )}
+              <form onSubmit={handleSubmitPassword} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="currentPassword">Contraseña actual</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newPassword">Nueva contraseña</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      autoComplete="new-password"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword">Confirmar nueva</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={savingPassword} size="sm">
+                    {savingPassword ? <Spinner size="sm" /> : "Actualizar contraseña"}
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
 
@@ -398,17 +556,30 @@ export default function PerfilPage() {
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
               <h3 className="text-sm font-semibold tracking-tight flex items-center gap-1.5">
-                <span>🏃‍♂️ Posiciones Preferidas</span>
+                <ListOrdered size={15} className="text-primary shrink-0" />
+                <span>Posiciones preferidas</span>
+                <InfoHint side="right" maxWidth={320}>
+                  El sistema usa estas posiciones (y su prioridad) para formar equipos balanceados
+                  automáticamente. <strong>Prioridad 1</strong> es tu posición favorita; las demás
+                  son alternativas en orden descendente.
+                </InfoHint>
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Selecciona tus posiciones habituales para cada deporte y define tu nivel de prioridad.
+                Indícanos en qué posiciones puedes jugar y en qué orden las prefieres.
               </p>
             </div>
-            {prioritizedPositions.length > 0 && (
-              <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded shadow-none border-border bg-secondary/30">
-                {prioritizedPositions.length} asignadas
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {positionsDirty && (
+                <Badge variant="warning" className="text-[10px] font-bold">
+                  Sin guardar
+                </Badge>
+              )}
+              {prioritizedPositions.length > 0 && (
+                <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded shadow-none border-border bg-secondary/30">
+                  {prioritizedPositions.length} asignadas
+                </Badge>
+              )}
+            </div>
           </div>
 
           {positionsError && (
@@ -420,7 +591,7 @@ export default function PerfilPage() {
             </div>
           )}
           {positionsSuccess && (
-            <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3">
+            <div className="notion-callout tone-success p-3">
               <div className="notion-callout-icon">
                 <UserCheck size={15} />
               </div>
@@ -429,7 +600,7 @@ export default function PerfilPage() {
           )}
 
           {loadingSports ? (
-            <div className="flex items-center justify-center py-8"><Spinner /></div>
+            <InlineListSkeleton rows={5} />
           ) : (
             <div className="space-y-4">
               {/* Deportes Tab Bar (Notion Style) */}
@@ -437,16 +608,6 @@ export default function PerfilPage() {
                 {deportes.map((d) => {
                   const count = userPosiciones.filter(up => up.deporteId === d.id).length;
                   const active = selectedDeporteId === d.id;
-                  
-                  const getSportEmojiName = (name: string) => {
-                    const l = name.toLowerCase();
-                    if (l.includes("futbol") || l.includes("fútbol") || l.includes("soccer")) return "⚽";
-                    if (l.includes("basquet") || l.includes("básquet") || l.includes("basketball") || l.includes("baloncesto")) return "🏀";
-                    if (l.includes("tenis") || l.includes("tennis")) return "🎾";
-                    if (l.includes("voley") || l.includes("voleibol") || l.includes("volleyball")) return "🏐";
-                    if (l.includes("running") || l.includes("correr")) return "🏃";
-                    return "🏆";
-                  };
                   
                   return (
                     <button
@@ -459,7 +620,7 @@ export default function PerfilPage() {
                           : "bg-transparent text-muted-foreground border-transparent hover:text-foreground hover:bg-secondary/40"
                       }`}
                     >
-                      <span>{getSportEmojiName(d.nombre)}</span>
+                      <DeporteIcon nombre={d.nombre} size={14} />
                       <span>{d.nombre}</span>
                       {count > 0 && (
                         <span className={`text-[10px] px-1 bg-border rounded-full font-bold ${active ? "text-foreground" : "text-muted-foreground"}`}>
@@ -474,8 +635,15 @@ export default function PerfilPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 {/* Available Positions Panel */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Posiciones Disponibles</Label>
+                    <PresetChips
+                      showIcon={false}
+                      options={[
+                        { id: "all", label: "Todas visibles", onClick: handleSelectAllVisible },
+                        { id: "clear", label: "Limpiar deporte", onClick: handleClearCurrentSport },
+                      ]}
+                    />
                   </div>
                   
                   <div className="relative">
@@ -490,7 +658,7 @@ export default function PerfilPage() {
                   </div>
 
                   {loadingPositions ? (
-                    <div className="flex items-center justify-center py-6"><Spinner size="sm" /></div>
+                    <InlineListSkeleton rows={6} />
                   ) : filteredPositions.length === 0 ? (
                     <div className="text-center py-10 border border-dashed border-border rounded-lg bg-secondary/10">
                       <p className="text-xs text-muted-foreground">

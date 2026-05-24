@@ -4,6 +4,9 @@ import { getApiErrorMessage } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { MasterDetailSkeleton, PageCoverHeaderSkeleton } from "@/components/ui/page-skeletons";
+import { PageCoverIcon } from "@/components/ui/page-icon";
+import { PageIconKind } from "@/lib/iconography";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,11 +19,36 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
-import { Users, Trash2, Edit, Plus, Check, X, Search, Settings } from "lucide-react";
+import { Users, UsersRound, Trash2, Edit, Plus, Check, X, Search, Settings, Sparkles } from "lucide-react";
 import { Grupo, Usuario } from "@/types";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
+import { Tooltip } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  DataListShell,
+  DataListHeader,
+  DataListBody,
+  DataListRow,
+  DataListCell,
+  DataListActions,
+  type DataListColumns,
+} from "@/components/ui/data-list";
+
+const GRUPO_MEMBER_COLUMNS: DataListColumns = {
+  jugador: 5,
+  posiciones: 4,
+  acciones: 3,
+};
+import { PlayerIdentity } from "@/components/ui/player-identity";
+import { PresetChips } from "@/components/ui/preset-chips";
+import { validateRequiredTrim } from "@/lib/formValidation";
 
 export default function GruposPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [selectedGrupo, setSelectedGrupo] = useState<Grupo | null>(null);
@@ -38,6 +66,8 @@ export default function GruposPage() {
   const [searchMemberQuery, setSearchMemberQuery] = useState("");
 
   const isOrganizer = hasPermission("crear_grupos") || hasPermission("editar_grupos");
+
+  const canDeleteGrupo = () => hasPermission("eliminar_grupos");
 
   const fetchData = useCallback(async (selectGroupIdToKeep?: number) => {
     try {
@@ -108,9 +138,11 @@ export default function GruposPage() {
     setError("");
   };
 
-  const handleSaveGrupo = async () => {
-    if (!nombre.trim()) {
-      setError("El nombre es obligatorio");
+  const handleSaveGrupo = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const nameErr = validateRequiredTrim(nombre, "El nombre del grupo");
+    if (nameErr) {
+      setError(nameErr);
       return;
     }
     setSaving(true);
@@ -125,39 +157,64 @@ export default function GruposPage() {
       if (selectedGrupo && selectedGrupo.id) {
         const { data } = await api.put(`/api/grupos/${selectedGrupo.id}`, payload);
         showSuccess("Grupo actualizado correctamente");
+        toast.success("Grupo actualizado", `"${nombre}" tiene ahora ${selectedUserIds.length} miembro(s).`);
         await fetchData(data.id);
       } else {
         const { data } = await api.post("/api/grupos", payload);
         showSuccess("Grupo creado correctamente");
+        toast.success("Grupo creado", `"${nombre}" listo con ${selectedUserIds.length} miembro(s).`);
         await fetchData(data.id);
       }
       setDialogOpen(false);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al guardar el grupo");
+      const msg = getApiErrorMessage(err) || "Error al guardar el grupo";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteGrupo = async (e: React.MouseEvent, id: number) => {
+  const handleDeleteGrupo = async (e: React.MouseEvent, grupo: Grupo) => {
     e.stopPropagation();
-    if (!confirm("¿Estás seguro de que deseas eliminar este grupo?")) return;
+    const ok = await confirm({
+      title: "Eliminar grupo",
+      description: (
+        <span>
+          ¿Eliminar el grupo <strong>"{grupo.nombre}"</strong>? Los jugadores no se eliminan, pero
+          ya no podrás usar este grupo para invitarlos en bloque a futuras convocatorias.
+        </span>
+      ),
+      confirmLabel: "Sí, eliminar",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
-      await api.delete(`/api/grupos/${id}`);
+      await api.delete(`/api/grupos/${grupo.id}`);
       showSuccess("Grupo eliminado correctamente");
-      if (selectedGrupo?.id === id) {
+      toast.success("Grupo eliminado", `"${grupo.nombre}" se eliminó.`);
+      if (selectedGrupo?.id === grupo.id) {
         setSelectedGrupo(null);
       }
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al eliminar el grupo");
+      const msg = getApiErrorMessage(err) || "Error al eliminar el grupo";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
-  const handleRemoveMember = async (userId: number) => {
+  const handleRemoveMember = async (user: Usuario) => {
     if (!selectedGrupo) return;
+    const ok = await confirm({
+      title: "Quitar del grupo",
+      description: `¿Quitar a ${user.nombre} de "${selectedGrupo.nombre}"? La cuenta no se elimina, solo deja de pertenecer a este grupo.`,
+      confirmLabel: "Sí, quitar",
+      variant: "warning",
+    });
+    if (!ok) return;
     try {
-      const updatedIds = selectedGrupo.miembroIds?.filter(id => id !== userId) || [];
+      const updatedIds = selectedGrupo.miembroIds?.filter(id => id !== user.id) || [];
       const payload = {
         nombre: selectedGrupo.nombre,
         descripcion: selectedGrupo.descripcion,
@@ -165,9 +222,12 @@ export default function GruposPage() {
       };
       await api.put(`/api/grupos/${selectedGrupo.id}`, payload);
       showSuccess("Jugador removido del grupo");
+      toast.success("Jugador removido", `${user.nombre} ya no pertenece a "${selectedGrupo.nombre}".`);
       await fetchData(selectedGrupo.id);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al remover jugador");
+      const msg = getApiErrorMessage(err) || "Error al remover jugador";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -197,15 +257,7 @@ export default function GruposPage() {
       );
   }, [selectedGrupo, usuarios, searchMemberQuery]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (!hasPermission("crear_grupos") && !hasPermission("editar_grupos")) {
+  if (!loading && !hasPermission("crear_grupos") && !hasPermission("editar_grupos")) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground text-xs">No tienes permiso para ver esta sección.</p>
@@ -214,18 +266,27 @@ export default function GruposPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
-      {/* Cover / Header section */}
+    <div className="page-shell space-y-6 notion-animate-fade">
+      {loading ? (
+        <PageCoverHeaderSkeleton showActions={isOrganizer} />
+      ) : (
       <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
         <div className="h-28 notion-cover notion-cover-sports" />
         <div className="p-6 relative pt-10">
-          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
-            👥
-          </div>
+          <PageCoverIcon kind={PageIconKind.GRUPOS} />
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Gestión de Grupos</h1>
-              <p className="text-muted-foreground text-xs mt-1">Crea y gestiona audiencias personalizadas de jugadores para realizar convocatorias en lote rápidamente.</p>
+              <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+                Gestión de Grupos
+                <InfoHint side="right" maxWidth={340}>
+                  Los <strong>grupos</strong> son listas reutilizables de jugadores (ej. "Plantilla
+                  Sub-18", "Amigos del barrio"). Al crear una convocatoria con invitación tipo
+                  <em> Grupo</em>, todos sus miembros reciben la invitación automáticamente.
+                </InfoHint>
+              </h1>
+              <p className="text-muted-foreground text-xs mt-1">
+                Crea listas reutilizables de jugadores para invitarlos en bloque a tus convocatorias.
+              </p>
             </div>
             {isOrganizer && (
               <Button onClick={openCreateDialog} className="gap-1.5 font-medium text-xs h-9 rounded-md shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
@@ -236,8 +297,9 @@ export default function GruposPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {error && (
+      {!loading && error && (
         <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 animate-fadeIn">
           <div className="notion-callout-icon">
             <X className="h-5 w-5" />
@@ -246,8 +308,8 @@ export default function GruposPage() {
         </div>
       )}
 
-      {success && (
-        <div className="notion-callout border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 p-3 animate-fadeIn">
+      {!loading && success && (
+        <div className="notion-callout tone-success p-3 animate-fadeIn">
           <div className="notion-callout-icon">
             <Check className="h-5 w-5" />
           </div>
@@ -255,10 +317,12 @@ export default function GruposPage() {
         </div>
       )}
 
-      {/* Split Workspace Layout */}
-      <div className="grid gap-6 md:grid-cols-12 items-start">
+      {loading ? (
+        <MasterDetailSkeleton />
+      ) : (
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-12 items-start">
         {/* Left Column: Groups list */}
-        <div className="md:col-span-5 border border-border rounded-lg bg-card overflow-hidden">
+        <div className="lg:col-span-5 border border-border rounded-lg bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between select-none">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Grupos</span>
             <span className="text-[10px] font-semibold text-muted-foreground bg-muted border border-border/80 px-2 py-0.5 rounded-full">
@@ -268,12 +332,19 @@ export default function GruposPage() {
 
           <div className="p-3 space-y-1.5">
             {grupos.length === 0 ? (
-              <div className="text-center py-12 select-none">
-                <p className="text-muted-foreground text-xs font-medium">Sin grupos configurados</p>
-                <Button onClick={openCreateDialog} className="h-7 text-[10px] font-bold px-3 mt-3" variant="outline">
-                  Crear primer grupo
-                </Button>
-              </div>
+              <EmptyState
+                icon={<Users size={28} />}
+                title="Aún no hay grupos"
+                description="Crea tu primer grupo para invitar a varios jugadores de una sola vez en tus convocatorias."
+                action={
+                  isOrganizer ? (
+                    <Button onClick={openCreateDialog} className="h-8 text-xs">
+                      <Plus size={12} className="mr-1" />Crear primer grupo
+                    </Button>
+                  ) : undefined
+                }
+                className="border-0 bg-transparent py-6"
+              />
             ) : (
               grupos.map((grupo) => {
                 const isSelected = selectedGrupo?.id === grupo.id;
@@ -288,7 +359,7 @@ export default function GruposPage() {
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-lg shrink-0">👥</span>
+                      <UsersRound size={18} className="shrink-0 text-muted-foreground" strokeWidth={1.75} />
                       <div className="min-w-0">
                         <span className={`text-sm font-semibold truncate block ${isSelected ? "text-foreground font-bold" : "text-muted-foreground"}`}>
                           {grupo.nombre}
@@ -299,22 +370,28 @@ export default function GruposPage() {
                     
                     {isOrganizer && (
                       <div className="flex gap-0.5 items-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6 rounded hover:bg-muted" 
-                          onClick={(e) => openEditDialog(e, grupo)}
-                        >
-                          <Edit size={11} className="text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6 rounded hover:bg-destructive/10" 
-                          onClick={(e) => handleDeleteGrupo(e, grupo.id)}
-                        >
-                          <Trash2 size={11} className="text-destructive" />
-                        </Button>
+                        <Tooltip content="Editar nombre, descripción y miembros">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 rounded hover:bg-muted" 
+                            onClick={(e) => openEditDialog(e, grupo)}
+                          >
+                            <Edit size={11} className="text-muted-foreground hover:text-foreground" />
+                          </Button>
+                        </Tooltip>
+                        {canDeleteGrupo() && (
+                          <Tooltip content="Eliminar grupo (las convocatorias quedarán sin grupo asignado)">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded hover:bg-destructive/10"
+                              onClick={(e) => handleDeleteGrupo(e, grupo)}
+                            >
+                              <Trash2 size={11} className="text-destructive" />
+                            </Button>
+                          </Tooltip>
+                        )}
                       </div>
                     )}
                   </div>
@@ -325,7 +402,7 @@ export default function GruposPage() {
         </div>
 
         {/* Right Column: Group Members */}
-        <div className="md:col-span-7 border border-border rounded-lg bg-card overflow-hidden">
+        <div className="lg:col-span-7 border border-border rounded-lg bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between select-none">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider truncate max-w-[220px]">
               {selectedGrupo ? `Miembros · ${selectedGrupo.nombre}` : "Miembros del Grupo"}
@@ -367,8 +444,7 @@ export default function GruposPage() {
                   )}
                 </div>
 
-                {/* Members list */}
-                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                <div className="max-h-[480px] overflow-y-auto pr-1">
                   {selectedGrupoMembers.length === 0 ? (
                     <div className="text-center py-12 select-none border border-dashed border-border rounded-lg bg-muted/[0.02]">
                       <p className="text-xs text-muted-foreground font-medium">
@@ -381,50 +457,63 @@ export default function GruposPage() {
                       )}
                     </div>
                   ) : (
-                    selectedGrupoMembers.map((user) => (
-                      <div 
-                        key={user.id} 
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border/60 bg-card gap-4 hover:border-border hover:bg-muted/10 transition-all shadow-xs"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-9 w-9 rounded-full bg-primary/[0.04] flex items-center justify-center font-bold text-xs text-primary border border-primary/10 shrink-0 select-none">
-                            {user.nombre.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-foreground truncate leading-tight">{user.nombre}</p>
-                            <p className="text-[10px] text-muted-foreground font-mono truncate mt-0.5">{user.email}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between sm:justify-end gap-3.5 shrink-0 ml-auto sm:ml-0">
-                          {/* Preferred positions */}
-                          <div className="flex flex-wrap sm:justify-end gap-1 max-w-[200px]">
-                            {user.posiciones && user.posiciones.length > 0 ? (
-                              user.posiciones.map(pos => (
-                                <div key={pos.posicionId} className="flex items-center bg-primary/[0.03] border border-primary/15 px-2 py-0.5 rounded-md select-none">
-                                  <span className="text-[9px] font-bold text-foreground/80">{pos.posicionNombre}</span>
-                                </div>
-                              ))
-                            ) : (
-                              <span className="text-[9px] text-muted-foreground italic font-medium">Sin posiciones</span>
-                            )}
-                          </div>
-
-                          {/* Action button */}
-                          {isOrganizer && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => handleRemoveMember(user.id)}
-                              className="h-6 w-6 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                              title="Quitar del grupo"
-                            >
-                              <X size={13} />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                    <DataListShell>
+                      <DataListHeader
+                        columns={GRUPO_MEMBER_COLUMNS}
+                        labels={{
+                          jugador: "Jugador",
+                          posiciones: "Posiciones",
+                          acciones: "Acciones",
+                        }}
+                      />
+                      <DataListBody>
+                        {selectedGrupoMembers.map((user) => (
+                          <DataListRow key={user.id} className="py-3">
+                            <DataListCell label="Jugador" span={GRUPO_MEMBER_COLUMNS.jugador} priority="primary">
+                              <PlayerIdentity
+                                nombre={user.nombre}
+                                username={user.username}
+                                email={user.email}
+                                variant="list"
+                              />
+                            </DataListCell>
+                            <DataListCell label="Posiciones" span={GRUPO_MEMBER_COLUMNS.posiciones} priority="secondary">
+                              <div className="flex flex-wrap gap-1">
+                                {user.posiciones && user.posiciones.length > 0 ? (
+                                  user.posiciones.map((pos) => (
+                                    <Badge
+                                      key={pos.posicionId}
+                                      variant="outline"
+                                      className="text-[9px] font-bold"
+                                    >
+                                      {pos.posicionNombre}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-[9px] text-muted-foreground italic">
+                                    Sin posiciones
+                                  </span>
+                                )}
+                              </div>
+                            </DataListCell>
+                            <DataListActions span={GRUPO_MEMBER_COLUMNS.acciones}>
+                              {isOrganizer && (
+                                <Tooltip content="Quitar este jugador del grupo">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveMember(user)}
+                                    className="h-6 w-6 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                                  >
+                                    <X size={13} />
+                                  </Button>
+                                </Tooltip>
+                              )}
+                            </DataListActions>
+                          </DataListRow>
+                        ))}
+                      </DataListBody>
+                    </DataListShell>
                   )}
                 </div>
               </>
@@ -432,13 +521,25 @@ export default function GruposPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Creation / Edition Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-popover border border-border shadow-none rounded-lg max-w-md p-5 space-y-4">
+          <form onSubmit={handleSaveGrupo}>
           <DialogHeader className="border-b border-border pb-3">
             <DialogTitle className="text-sm font-semibold tracking-tight">
-              {selectedGrupo ? "⚙️ Editar Grupo" : "✨ Crear Nuevo Grupo"}
+              <span className="flex items-center gap-2">
+                {selectedGrupo ? (
+                  <>
+                    <Settings size={14} /> Editar grupo
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} /> Crear nuevo grupo
+                  </>
+                )}
+              </span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
               Configura los detalles del grupo y selecciona los miembros que formarán parte.
@@ -471,6 +572,39 @@ export default function GruposPage() {
             </div>
 
             <div className="space-y-2 pt-2">
+              <div className="space-y-2">
+                <PresetChips
+                  showIcon={false}
+                  options={[
+                    {
+                      id: "all",
+                      label: "Todos filtrados",
+                      onClick: () =>
+                        setSelectedUserIds((prev) => [
+                          ...new Set([...prev, ...filteredUsers.map((u) => u.id)]),
+                        ]),
+                    },
+                    {
+                      id: "dorsal",
+                      label: "Con dorsal",
+                      onClick: () =>
+                        setSelectedUserIds((prev) => [
+                          ...new Set([
+                            ...prev,
+                            ...filteredUsers
+                              .filter((u) => u.numeroCamiseta != null && u.numeroCamiseta > 0)
+                              .map((u) => u.id),
+                          ]),
+                        ]),
+                    },
+                    {
+                      id: "clear",
+                      label: "Limpiar selección",
+                      onClick: () => setSelectedUserIds([]),
+                    },
+                  ]}
+                />
+              </div>
               <div className="flex items-center justify-between border-b border-border pb-1.5">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Seleccionar Jugadores ({selectedUserIds.length})
@@ -498,10 +632,13 @@ export default function GruposPage() {
                           isSelected ? "bg-primary/5 text-foreground font-semibold" : "hover:bg-secondary/30"
                         }`}
                       >
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-foreground truncate">{user.nombre}</p>
-                          <p className="text-[10px] text-muted-foreground font-mono truncate">{user.email}</p>
-                        </div>
+                        <PlayerIdentity
+                          nombre={user.nombre}
+                          username={user.username}
+                          email={user.email}
+                          variant="list"
+                          className="flex-1 min-w-0"
+                        />
                         <div className={`h-4.5 w-4.5 rounded border flex items-center justify-center transition-colors ${
                           isSelected ? "bg-primary border-primary text-primary-foreground" : "border-border bg-background"
                         }`}>
@@ -525,7 +662,7 @@ export default function GruposPage() {
               Cancelar
             </Button>
             <Button 
-              onClick={handleSaveGrupo} 
+              type="submit"
               disabled={saving || !nombre}
               className="h-8 text-xs font-semibold px-3 shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
             >
@@ -533,6 +670,7 @@ export default function GruposPage() {
               <span>{selectedGrupo ? "Guardar Cambios" : "Crear Grupo"}</span>
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

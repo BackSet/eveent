@@ -2,6 +2,7 @@ package com.event.backend.config;
 
 import com.event.backend.model.*;
 import com.event.backend.repository.*;
+import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,6 +29,7 @@ public class RecurrenciaScheduler {
     @Scheduled(fixedRate = 60000)
     public void runScheduler() {
         runLifecycleTriggers();
+        cancelExpiredDrafts();
         generarInstanciasProximas();
     }
 
@@ -57,11 +59,28 @@ public class RecurrenciaScheduler {
         }
     }
 
+    public void cancelExpiredDrafts() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Convocatoria> borradores = convocatoriaRepository.findByEstado(EstadoConvocatoria.BORRADOR);
+        for (Convocatoria c : borradores) {
+            if (c.getFechaHora() != null
+                    && ConvocatoriaScheduleHelper.shouldAutoCancelExpiredDraft(c.getFechaHora(), now)) {
+                c.setEstado(EstadoConvocatoria.CANCELADA);
+                convocatoriaRepository.save(c);
+                log.info(
+                        "Convocatoria {} → CANCELADA (borrador vencido, evento {})",
+                        c.getId(),
+                        c.getFechaHora());
+            }
+        }
+    }
+
     public void generarInstanciasProximas() {
         List<ConfiguracionRecurrente> activas = configuracionRepository.findByActivoTrue();
         if (activas.isEmpty()) return;
 
         LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
 
         for (ConfiguracionRecurrente rule : activas) {
             try {
@@ -83,10 +102,19 @@ public class RecurrenciaScheduler {
 
                 LocalDateTime eventTime = LocalDateTime.of(today, horaEvento);
 
+                if (ConvocatoriaScheduleHelper.isEventScheduleInPast(eventTime, now)) {
+                    log.debug(
+                            "Omitiendo instancia recurrente '{}' — hora del evento {} ya pasó",
+                            rule.getTitulo(),
+                            eventTime);
+                    continue;
+                }
+
                 if (convocatoriaRepository.existsByConfiguracionRecurrenteIdAndFechaHora(rule.getId(), eventTime)) continue;
 
                 log.info("Generando convocatoria: '{}' para fecha: {}", rule.getTitulo(), eventTime);
 
+                boolean hasGrupoDestino = rule.getGrupoDestino() != null;
                 Convocatoria newConv = Convocatoria.builder()
                         .titulo(rule.getTitulo())
                         .descripcion(rule.getDescripcion())
@@ -101,6 +129,8 @@ public class RecurrenciaScheduler {
                         .categoria(rule.getCategoria())
                         .configuracionRecurrente(rule)
                         .manejoExcedente("LISTA_ESPERA")
+                        .tipoInvitacion(hasGrupoDestino ? com.event.backend.model.TipoInvitacion.GRUPO : com.event.backend.model.TipoInvitacion.ABIERTA)
+                        .grupo(hasGrupoDestino ? rule.getGrupoDestino() : null)
                         .build();
 
                 if (horario != null && horario.getHoraApertura() != null) {

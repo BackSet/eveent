@@ -3,7 +3,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RRULE_DAYS, parseRrule, buildRrule, MONTHLY_OPTIONS, SETPOS_LABELS } from "@/lib/constants";
+import { humanizeRRule } from "@/lib/rruleHumanizer";
 import type { HorarioDia } from "@/types";
+import { InfoHint } from "@/components/ui/info-hint";
+import { Button } from "@/components/ui/button";
+import { validateHorarioDia } from "@/lib/convocatoriaSchedule";
+import { CalendarClock, AlertTriangle } from "lucide-react";
 
 interface RRuleBuilderProps {
   value: string;
@@ -117,10 +122,43 @@ export function RRuleBuilder({ value, horariosPorDia, onRruleChange, onHorariosC
     return RRULE_DAYS.find(d => d.value === key)?.label ?? key;
   };
 
+  const previewText = humanizeRRule(value || "FREQ=WEEKLY");
+  const dayKeys = getDaysForHorarios();
+
+  const copyFirstScheduleToAll = () => {
+    if (dayKeys.length < 2) return;
+    const source = horariosPorDia[dayKeys[0]] || DEFAULT_HORARIO;
+    const newHorarios = { ...horariosPorDia };
+    for (const key of dayKeys) {
+      newHorarios[key] = { ...source };
+    }
+    onHorariosChange(newHorarios);
+  };
+
+  const applyTypicalEvening = () => {
+    const typical: HorarioDia = {
+      horaApertura: "18:00",
+      horaEvento: "20:00",
+      duracionMinutos: 90,
+    };
+    const newHorarios = { ...horariosPorDia };
+    for (const key of dayKeys) {
+      newHorarios[key] = { ...typical };
+    }
+    onHorariosChange(newHorarios);
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Frecuencia</Label>
+        <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <span>Frecuencia</span>
+          <InfoHint side="right" maxWidth={300}>
+            Define cada cuánto se generará una convocatoria automáticamente.
+            Combínalo con los <strong>días</strong> y los <strong>horarios por día</strong> para
+            programar tu calendario.
+          </InfoHint>
+        </Label>
         <div className="flex gap-2">
           {FREQ_OPTIONS.map((opt) => (
             <button key={opt.value} type="button" onClick={() => handleFreqChange(opt.value)}
@@ -128,6 +166,16 @@ export function RRuleBuilder({ value, horariosPorDia, onRruleChange, onHorariosC
               {opt.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="rounded-md border border-primary/15 bg-primary/[0.04] px-3 py-2 text-[11px] text-foreground/85 flex items-start gap-2">
+        <CalendarClock size={16} className="shrink-0 text-primary mt-0.5" strokeWidth={1.75} />
+        <div>
+          <p className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+            Vista previa de la regla
+          </p>
+          <p className="leading-snug">{previewText}</p>
         </div>
       </div>
 
@@ -197,32 +245,93 @@ export function RRuleBuilder({ value, horariosPorDia, onRruleChange, onHorariosC
         </div>
       )}
 
-      {getDaysForHorarios().length > 0 && (
+      {dayKeys.length > 0 && (
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-muted-foreground">Horarios por día</Label>
-          {getDaysForHorarios().map((dayKey) => {
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <span>Horarios por día</span>
+              <InfoHint side="right" maxWidth={300}>
+                <strong>Apertura</strong>: desde cuándo pueden confirmar.
+                <strong> Evento</strong>: inicio del partido. La apertura siempre debe ser{" "}
+                <em>antes</em> que el evento.
+              </InfoHint>
+            </Label>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] font-semibold"
+                onClick={applyTypicalEvening}
+              >
+                Típico tarde (18→20h)
+              </Button>
+              {dayKeys.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] font-semibold"
+                  onClick={copyFirstScheduleToAll}
+                >
+                  Copiar {getDayLabel(dayKeys[0])} a todos
+                </Button>
+              )}
+            </div>
+          </div>
+          {dayKeys.map((dayKey) => {
             const h = horariosPorDia[dayKey] || DEFAULT_HORARIO;
-            const hasError = h.horaApertura && h.horaEvento && h.horaApertura >= h.horaEvento;
+            const horarioError = validateHorarioDia(h);
             return (
               <div key={dayKey} className="space-y-1 animate-fadeIn">
-                <div className={`grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center border rounded-lg p-2 transition-colors ${hasError ? 'border-destructive bg-destructive/[0.02]' : ''}`}>
-                  <span className="text-xs font-semibold text-primary min-w-[2rem]">{getDayLabel(dayKey)}</span>
+                <div
+                  className={`grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-end border rounded-lg p-2.5 transition-colors ${
+                    horarioError ? "border-destructive/50 bg-destructive/[0.02]" : "border-border bg-card"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-primary min-w-[2.5rem] pb-1">
+                    {getDayLabel(dayKey)}
+                  </span>
                   <div className="space-y-0.5">
-                    <Label className="text-[9px] text-muted-foreground">Apertura</Label>
-                    <Input type="time" value={h.horaApertura} onChange={(e) => updateHorario(dayKey, "horaApertura", e.target.value)} className="h-7 text-[11px] px-1.5" />
+                    <Label className="text-[9px] text-muted-foreground">Apertura inscripción</Label>
+                    <Input
+                      type="time"
+                      value={h.horaApertura}
+                      onChange={(e) => updateHorario(dayKey, "horaApertura", e.target.value)}
+                      className="h-8 text-xs"
+                    />
                   </div>
                   <div className="space-y-0.5">
-                    <Label className="text-[9px] text-muted-foreground">Evento</Label>
-                    <Input type="time" value={h.horaEvento} onChange={(e) => updateHorario(dayKey, "horaEvento", e.target.value)} className="h-7 text-[11px] px-1.5" />
+                    <Label className="text-[9px] text-muted-foreground">Inicio evento</Label>
+                    <Input
+                      type="time"
+                      value={h.horaEvento}
+                      onChange={(e) => updateHorario(dayKey, "horaEvento", e.target.value)}
+                      className="h-8 text-xs"
+                    />
                   </div>
                   <div className="space-y-0.5">
                     <Label className="text-[9px] text-muted-foreground">Duración (min)</Label>
-                    <Input type="number" min={1} value={h.duracionMinutos} onChange={(e) => updateHorario(dayKey, "duracionMinutos", parseInt(e.target.value) || 60)} className="h-7 text-[11px] px-1.5 w-16" />
+                    <Input
+                      type="number"
+                      min={1}
+                      step={15}
+                      value={h.duracionMinutos}
+                      onChange={(e) =>
+                        updateHorario(dayKey, "duracionMinutos", parseInt(e.target.value, 10) || 60)
+                      }
+                      className="h-8 text-xs w-full min-w-[4rem]"
+                    />
                   </div>
                 </div>
-                {hasError && (
-                  <p className="text-[10px] text-destructive font-medium pl-1.5">
-                    ⚠️ La hora de apertura debe ser estrictamente anterior a la hora del evento.
+                {horarioError ? (
+                  <p className="text-[10px] text-destructive font-medium pl-1.5 flex items-center gap-1">
+                    <AlertTriangle size={11} className="shrink-0" />
+                    {horarioError}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground pl-1.5">
+                    Inscripciones desde {h.horaApertura} · evento a las {h.horaEvento} ({h.duracionMinutos} min)
                   </p>
                 )}
               </div>

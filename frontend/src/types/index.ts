@@ -39,6 +39,8 @@ export interface PosicionesDeporte {
   categoriaLinea?: string;
 }
 
+export type TipoInvitacion = "ABIERTA" | "GRUPO" | "MANUAL";
+
 export enum EstadoConvocatoria {
   BORRADOR = "BORRADOR",
   ABIERTA = "ABIERTA",
@@ -68,6 +70,15 @@ export interface Convocatoria {
   configuracionRecurrenteId?: number;
   manejoExcedente?: string;
   deporteEsPorEquipos?: boolean;
+  tipoInvitacion?: TipoInvitacion;
+  grupoId?: number | null;
+  grupoNombre?: string | null;
+  puedeVer?: boolean;
+  puedeInscribirse?: boolean;
+  /** BORRADOR con fecha de evento ya pasada */
+  fechaEventoPasada?: boolean;
+  /** Si el borrador puede publicarse (PUT /abrir) */
+  puedePublicarse?: boolean;
 }
 
 export interface BandoConvocatoria {
@@ -88,8 +99,14 @@ export interface Asistencia {
   id: number;
   convocatoriaId: number;
   convocatoriaTitulo?: string;
+  convocatoriaFechaHora?: string;
+  convocatoriaFechaHoraFin?: string;
+  convocatoriaEstado?: string;
+  convocatoriaLugar?: string;
+  convocatoriaDeporteNombre?: string;
   usuarioId: number | null;
   usuarioNombre?: string | null;
+  usuarioUsername?: string | null;
   nombreExterno: string | null;
   invitadoPorId: number | null;
   invitadoPorNombre?: string | null;
@@ -144,6 +161,7 @@ export interface ConfiguracionRecurrente {
   grupoDestinoId?: number | null;
   grupoDestinoNombre?: string;
   activo: boolean;
+  creadoPorId?: number;
   fechaCreacion?: string;
 }
 

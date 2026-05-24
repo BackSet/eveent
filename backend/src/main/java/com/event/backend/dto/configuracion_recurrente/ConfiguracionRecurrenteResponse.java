@@ -19,6 +19,7 @@ public class ConfiguracionRecurrenteResponse {
     private Long grupoDestinoId;
     private String grupoDestinoNombre;
     private Boolean activo;
+    private Long creadoPorId;
     private LocalDateTime fechaCreacion;
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

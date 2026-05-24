@@ -2,14 +2,19 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "@/services/api";
 import { formatDateTime } from "@/lib/formatDate";
-import { ESTADO_COLORS, TEAM_COLORS, getTeamColorHex, getApiErrorMessage } from "@/lib/constants";
+import { TEAM_COLORS, getTeamColorHex, getApiErrorMessage } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { ConvocatoriaDetailSkeleton } from "@/components/ui/page-skeletons";
+import { PageCoverIcon } from "@/components/ui/page-icon";
+import { getDeporteIcon } from "@/lib/iconography";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PresetChips } from "@/components/ui/preset-chips";
 import {
   Dialog,
   DialogContent,
@@ -36,26 +41,88 @@ import {
   Activity,
   AlertTriangle,
   Shirt,
-  Compass,
   Share2,
-  Check
+  Check,
+  Lock,
+  Info,
+  Timer,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { Convocatoria, Asistencia, BandoConvocatoria } from "@/types";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
+import { Tooltip } from "@/components/ui/tooltip";
+import { LineupBoard } from "@/components/lineup/LineupBoard";
+import { PlayerIdentity, PlayerIdentityChip } from "@/components/ui/player-identity";
+import {
+  AsistenciaTableRow,
+  ASISTENCIA_TABLE_COLUMNS,
+} from "@/components/convocatoria/AsistenciaTableRow";
+import { DataListHeader, DataListShell, DataListBody } from "@/components/ui/data-list";
+import { useConvocatoriaCapabilities } from "@/hooks/useConvocatoriaCapabilities";
+import {
+  buildConvocatoriaDeleteConfirm,
+  countInscritosConvocatoria,
+} from "@/lib/convocatoriaDelete";
+import { canManageAsistencia } from "@/lib/permissions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ConvocatoriaEstadoCell } from "@/components/ui/entity-badges";
+import {
+  puedePublicarBorrador,
+  MENSAJE_BORRADOR_FECHA_PASADA,
+} from "@/lib/convocatoriaDraft";
+import { isEventScheduleInPast } from "@/lib/convocatoriaSchedule";
 
 interface bandoFormData {
   nombre: string;
   color: string;
 }
 
+function categoriaTooltip(cat: string): string {
+  switch (cat?.toUpperCase()) {
+    case "LIBRE":
+      return "Libre: sin límite de cupo, cualquier persona puede unirse.";
+    case "COMPETITIVO":
+      return "Competitivo: enfoque en rendimiento, con balanceo táctico estricto.";
+    case "AMISTOSO":
+      return "Amistoso: encuentro casual sin competencia formal.";
+    case "ENTRENAMIENTO":
+      return "Entrenamiento: práctica técnica o táctica.";
+    default:
+      return cat;
+  }
+}
+
+function estadoTooltip(estado: string): string {
+  switch (estado) {
+    case "BORRADOR":
+      return "Borrador: solo el organizador puede verla. No acepta inscripciones hasta que la publiques con una fecha futura.";
+    case "ABIERTA":
+      return "Abierta: publicada y aceptando inscripciones de los jugadores.";
+    case "EN_PROGRESO":
+      return "En progreso: el evento ya comenzó. La inscripción está cerrada.";
+    case "FINALIZADA":
+      return "Finalizada: el evento ya terminó. Solo lectura.";
+    case "CANCELADA":
+      return "Cancelada: el evento no se llevará a cabo.";
+    default:
+      return estado;
+  }
+}
+
 export default function ConvocatoriaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, hasPermission } = useAuth();
+  const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [convocatoria, setConvocatoria] = useState<Convocatoria | null>(null);
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
   const [bandos, setBandos] = useState<BandoConvocatoria[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [error, setError] = useState("");
   const [miAsistencia, setMiAsistencia] = useState<Asistencia | null>(null);
   const [responderLoading, setResponderLoading] = useState(false);
@@ -81,7 +148,10 @@ export default function ConvocatoriaDetailPage() {
   const [positionsDialogOpen, setPositionsDialogOpen] = useState(false);
 
   const handleShareLineup = () => {
-    if (!convocatoria) return;
+    if (!convocatoria) {
+      toast.error("No se pudo cargar la información para compartir.");
+      return;
+    }
 
     let shareText = `🏆 *Alineación: ${convocatoria.titulo}* 🏆\n`;
     if (convocatoria.fechaHora) {
@@ -106,11 +176,13 @@ export default function ConvocatoriaDetailPage() {
         shareText += `  _Sin jugadores asignados_\n`;
       } else {
         players.forEach((p) => {
-          const name = p.nombreExterno || p.usuarioNombre || "Invitado";
-          const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "👤";
-          const invBy = p.nombreExterno && p.invitadoPorNombre ? ` (Invitado de ${p.invitadoPorNombre})` : "";
+          const handle = p.usuarioUsername
+            ? `@${p.usuarioUsername}`
+            : p.nombreExterno || p.usuarioNombre || "Invitado";
+          const legend = p.usuarioUsername && p.usuarioNombre ? ` (${p.usuarioNombre})` : "";
+          const invBy = p.nombreExterno && p.invitadoPorNombre && !p.usuarioUsername ? ` (Invitado de ${p.invitadoPorNombre})` : "";
           const pos = p.posicionAsignadaNombre ? ` - ${p.posicionAsignadaNombre}` : p.posicionPreferidaNombre ? ` - ${p.posicionPreferidaNombre}` : "";
-          shareText += `  • ${number} ${name}${invBy}${pos}\n`;
+          shareText += `  • ${handle}${legend}${invBy}${pos}\n`;
         });
       }
       shareText += `\n`;
@@ -119,10 +191,12 @@ export default function ConvocatoriaDetailPage() {
     if (playerLists.comodines.length > 0) {
       shareText += `🌟 *RESERVAS / COMODINES* (${playerLists.comodines.length}):\n`;
       playerLists.comodines.forEach((p) => {
-        const name = p.nombreExterno || p.usuarioNombre || "Invitado";
-        const number = p.numeroCamiseta ? `#${p.numeroCamiseta}` : "👤";
-        const invBy = p.nombreExterno && p.invitadoPorNombre ? ` (Invitado de ${p.invitadoPorNombre})` : "";
-        shareText += `  • ${number} ${name}${invBy}\n`;
+        const handle = p.usuarioUsername
+          ? `@${p.usuarioUsername}`
+          : p.nombreExterno || p.usuarioNombre || "Invitado";
+        const legend = p.usuarioUsername && p.usuarioNombre ? ` (${p.usuarioNombre})` : "";
+        const invBy = p.nombreExterno && p.invitadoPorNombre && !p.usuarioUsername ? ` (Invitado de ${p.invitadoPorNombre})` : "";
+        shareText += `  • ${handle}${legend}${invBy}\n`;
       });
       shareText += `\n`;
     }
@@ -132,9 +206,11 @@ export default function ConvocatoriaDetailPage() {
     navigator.clipboard.writeText(shareText)
       .then(() => {
         setShareSuccess(true);
+        toast.success("Alineación copiada", "Ya puedes pegarla en WhatsApp o donde la necesites.");
         setTimeout(() => setShareSuccess(false), 3000);
       })
       .catch((err) => {
+        toast.error("No se pudo copiar al portapapeles. Intenta de nuevo.");
         console.error("Error al copiar al portapapeles", err);
       });
   };
@@ -142,14 +218,16 @@ export default function ConvocatoriaDetailPage() {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setError("");
+    setAccessDenied(false);
     try {
-      const [convRes, asisRes, equipRes, posRes] = await Promise.all([
-        api.get(`/api/convocatorias/${id}`),
+      const convRes = await api.get(`/api/convocatorias/${id}`);
+      setConvocatoria(convRes.data);
+
+      const [asisRes, equipRes, posRes] = await Promise.all([
         api.get(`/api/convocatorias/${id}/asistencias`),
         api.get(`/api/convocatorias/${id}/bandos`),
         api.get(`/api/usuarios/me/posiciones`),
       ]);
-      setConvocatoria(convRes.data);
       setAsistencias(asisRes.data);
       setBandos(equipRes.data);
       setUserPosiciones(posRes.data || []);
@@ -162,6 +240,10 @@ export default function ConvocatoriaDetailPage() {
       const miAsis = asisRes.data.find((a: Asistencia) => a.usuarioId === user?.id);
       setMiAsistencia(miAsis || null);
     } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setAccessDenied(true);
+      }
       setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
@@ -179,8 +261,14 @@ export default function ConvocatoriaDetailPage() {
       const url = `/api/convocatorias/${id}/matchmaking` + (teamsCount ? `?numEquipos=${teamsCount}` : "");
       await api.post(url);
       await fetchData();
+      toast.success(
+        "Equipos balanceados",
+        `Se generaron ${teamsCount ?? "los"} bandos con los jugadores confirmados.`
+      );
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err));
+      const msg = getApiErrorMessage(err);
+      toast.error(msg || "No se pudieron balancear los equipos.");
+      setError(msg);
     } finally {
       setMatchmakingLoading(false);
     }
@@ -222,14 +310,17 @@ export default function ConvocatoriaDetailPage() {
     setbandoDialogOpen(true);
   };
 
-  const handleSaveBando = async () => {
+  const handleSaveBando = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setbandoSaving(true);
     setbandoError("");
     try {
       if (editingBando) {
         await api.put(`/api/bandos/${editingBando.id}`, bandoForm);
+        toast.success("Bando actualizado");
       } else {
         await api.post(`/api/convocatorias/${id}/bandos`, bandoForm);
+        toast.success("Bando creado", "Ya puedes asignarle jugadores manualmente o con autobalanceo.");
       }
       setbandoDialogOpen(false);
       setbandoForm({ nombre: "", color: "" });
@@ -242,12 +333,25 @@ export default function ConvocatoriaDetailPage() {
     }
   };
 
-  const handleDeleteBando = async (bandoId: number) => {
-    if (!confirm("¿Eliminar este bando?")) return;
+  const handleDeleteBando = async (bandoId: number, nombre: string) => {
+    const ok = await confirm({
+      title: "Eliminar bando",
+      description: (
+        <>
+          Vas a eliminar el bando <strong>{nombre}</strong>. Los jugadores asignados quedarán como
+          comodines sin equipo.
+        </>
+      ),
+      confirmLabel: "Sí, eliminar",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/api/bandos/${bandoId}`);
+      toast.success("Bando eliminado");
       fetchData();
     } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudo eliminar el bando.");
       setError(getApiErrorMessage(err));
     }
   };
@@ -286,7 +390,8 @@ export default function ConvocatoriaDetailPage() {
     }
   };
 
-  const handleSaveInvitado = async () => {
+  const handleSaveInvitado = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!invitadoForm.nombreExterno.trim()) {
       setInvitadoError("El nombre o apodo es obligatorio");
       return;
@@ -306,8 +411,10 @@ export default function ConvocatoriaDetailPage() {
 
       if (editingInvitado) {
         await api.put(`/api/asistencias/${editingInvitado.id}`, payload);
+        toast.success("Invitado actualizado");
       } else {
         await api.post(`/api/convocatorias/${id}/asistencias`, payload);
+        toast.success("Invitado registrado", `${invitadoForm.nombreExterno.trim()} fue añadido a la convocatoria.`);
       }
 
       setInvitadoDialogOpen(false);
@@ -323,14 +430,22 @@ export default function ConvocatoriaDetailPage() {
 
   const handleDeleteBulk = async () => {
     if (selectedInvitados.length === 0) return;
-    if (!confirm(`¿Eliminar la asistencia de los ${selectedInvitados.length} invitados seleccionados?`)) return;
-    
+    const ok = await confirm({
+      title: "Eliminar invitados",
+      description: `Vas a eliminar a ${selectedInvitados.length} invitado(s) de esta convocatoria. Esta acción no se puede deshacer.`,
+      confirmLabel: `Eliminar ${selectedInvitados.length}`,
+      variant: "danger",
+    });
+    if (!ok) return;
+
     setBulkDeleting(true);
     try {
       await api.delete(`/api/asistencias/bulk?ids=${selectedInvitados.join(",")}`);
+      toast.success(`${selectedInvitados.length} invitado(s) eliminado(s)`);
       setSelectedInvitados([]);
       fetchData();
     } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudieron eliminar los invitados.");
       setError(getApiErrorMessage(err));
     } finally {
       setBulkDeleting(false);
@@ -360,12 +475,25 @@ export default function ConvocatoriaDetailPage() {
     }
   };
 
-  const handleDeleteInvitado = async (asistenciaId: number) => {
-    if (!confirm("¿Cancelar la asistencia de este invitado?")) return;
+  const handleDeleteInvitado = async (asistenciaId: number, nombre: string) => {
+    const ok = await confirm({
+      title: "Quitar invitado",
+      description: (
+        <>
+          Vas a quitar a <strong>{nombre}</strong> de la convocatoria. Si era un usuario registrado,
+          podrá volver a inscribirse por su cuenta.
+        </>
+      ),
+      confirmLabel: "Sí, quitar",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/api/asistencias/${asistenciaId}`);
+      toast.success("Invitado eliminado");
       fetchData();
     } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || "No se pudo eliminar al invitado.");
       setError(getApiErrorMessage(err));
     }
   };
@@ -416,7 +544,7 @@ export default function ConvocatoriaDetailPage() {
     };
   }, [asistencias, bandos, matchmakerRun]);
 
-  const isOrganizador = hasPermission("crear_convocatorias") || hasPermission("editar_convocatorias") || hasPermission("dividir_equipos");
+  const caps = useConvocatoriaCapabilities(convocatoria);
 
   const isUserSuspended = useMemo(() => {
     if (!user?.fechaFinSuspension) return false;
@@ -425,53 +553,58 @@ export default function ConvocatoriaDetailPage() {
 
   const isInProgressOrDone = useMemo(() => {
     if (!convocatoria) return false;
-    const isStateProgress = convocatoria.estado === 'EN_PROGRESO' || 
-                            convocatoria.estado === 'FINALIZADA' || 
-                            convocatoria.estado === 'CANCELADA';
-    const isPastTime = convocatoria.fechaHora && new Date(convocatoria.fechaHora) <= new Date();
-    return isStateProgress || isPastTime;
+    const isStateProgress =
+      convocatoria.estado === "EN_PROGRESO" ||
+      convocatoria.estado === "FINALIZADA" ||
+      convocatoria.estado === "CANCELADA";
+    if (isStateProgress) return true;
+    if (convocatoria.fechaEventoPasada === true) return true;
+    return isEventScheduleInPast(convocatoria.fechaHora);
   }, [convocatoria]);
 
   const managedInvitados = useMemo(() => {
-    return asistencias.filter(a => 
-      isOrganizador 
-        ? (a.invitadoPorId !== null || a.nombreExterno !== null) 
-        : (a.invitadoPorId === user?.id)
+    return asistencias.filter((a) =>
+      caps.canManageAllAttendance
+        ? a.invitadoPorId !== null || a.nombreExterno !== null
+        : a.invitadoPorId === user?.id
     );
-  }, [asistencias, isOrganizador, user?.id]);
+  }, [asistencias, caps.canManageAllAttendance, user?.id]);
 
   const slotsRemaining = (convocatoria?.cupoMaximo || 0) - playerLists.confirmadosTotales.length;
 
-  // Determine sport emoji helper
-  const getSportEmoji = (deporte: string) => {
-    const name = deporte.toLowerCase();
-    if (name.includes("futbol") || name.includes("fútbol") || name.includes("soccer")) return "⚽";
-    if (name.includes("basquet") || name.includes("básquet") || name.includes("basketball") || name.includes("baloncesto")) return "🏀";
-    if (name.includes("tenis") || name.includes("tennis")) return "🎾";
-    if (name.includes("voley") || name.includes("voleibol") || name.includes("volleyball")) return "🏐";
-    return "🏆";
-  };
-
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Spinner className="h-10 w-10 text-primary" />
-        <p className="text-sm text-muted-foreground animate-pulse">Cargando convocatoria...</p>
-      </div>
-    );
+    return <ConvocatoriaDetailSkeleton />;
   }
 
   if (!convocatoria) {
     return (
-      <Alert variant="destructive" className="max-w-xl mx-auto rounded">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>{error || "Convocatoria no encontrada."}</AlertDescription>
-      </Alert>
+      <div className="max-w-xl mx-auto space-y-4 pt-8">
+        {accessDenied ? (
+          <EmptyState
+            icon={<Lock size={28} className="text-muted-foreground" />}
+            title="Convocatoria restringida"
+            description={
+              error ||
+              "No tienes permiso para ver esta convocatoria. Puede ser solo para un grupo o para jugadores invitados."
+            }
+            action={
+              <Button variant="outline" size="sm" onClick={() => navigate("/convocatorias")}>
+                Volver a convocatorias
+              </Button>
+            }
+          />
+        ) : (
+          <Alert variant="destructive" className="rounded">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error || "Convocatoria no encontrada."}</AlertDescription>
+          </Alert>
+        )}
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto notion-animate-fade pb-12 px-4 sm:px-6">
+    <div className="page-shell space-y-6 notion-animate-fade">
       {/* Navigation / Actions Bar */}
       <div className="flex items-center justify-between pt-2">
         <Button
@@ -484,12 +617,15 @@ export default function ConvocatoriaDetailPage() {
         </Button>
 
         {/* Quick status badge */}
-        <Badge 
-          variant={ESTADO_COLORS[convocatoria.estado] || "default"} 
-          className="text-[10px] uppercase px-2.5 py-0.5 font-extrabold tracking-wider"
-        >
-          {convocatoria.estado}
-        </Badge>
+        <Tooltip content={estadoTooltip(convocatoria.estado)} maxWidth={260}>
+          <div className="cursor-help">
+            <ConvocatoriaEstadoCell
+              conv={convocatoria}
+              recurrente={!!convocatoria.configuracionRecurrenteId}
+              align="end"
+            />
+          </div>
+        </Tooltip>
       </div>
 
       {/* Cover / Header section */}
@@ -500,29 +636,55 @@ export default function ConvocatoriaDetailPage() {
             : "notion-cover-sports"
         }`} />
         <div className="p-6 relative pt-10">
-          <div className="absolute top-[-36px] left-6 text-5xl bg-background p-2 rounded-xl border border-border/80 shadow-sm select-none">
-            {getSportEmoji(convocatoria.deporteNombre || "")}
-          </div>
+          <PageCoverIcon icon={getDeporteIcon(convocatoria.deporteNombre)} />
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{convocatoria.titulo}</h1>
           </div>
         </div>
       </div>
 
-      {isInProgressOrDone && (
-        <div className="notion-callout border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10 items-center">
-          <div className="notion-callout-icon">ℹ️</div>
+      {isInProgressOrDone && (caps.canManageConvocatoria || caps.canManageLineup) && (
+        <div className="notion-callout tone-info items-center">
+          <div className="notion-callout-icon">
+            <Info size={15} />
+          </div>
           <div className="text-xs text-foreground/80 font-medium">
-            Esta convocatoria está en progreso, finalizada o cancelada. El registro de asistencia y la configuración táctica están en modo de solo lectura.
+            Esta convocatoria está en progreso, finalizada o cancelada. El registro de asistencia y la
+            configuración táctica están en modo de solo lectura.
           </div>
         </div>
       )}
 
       {/* Error Alert inside Notion style callout */}
       {error && (
-        <div className="notion-callout border-destructive/20 bg-destructive/5 dark:bg-destructive/10 items-center">
+        <div className="notion-callout tone-danger items-center">
           <div className="notion-callout-icon">⚠️</div>
           <div className="text-sm text-destructive">{error}</div>
+        </div>
+      )}
+
+      {convocatoria.estado === "BORRADOR" && !puedePublicarBorrador(convocatoria) && (
+        <div className="notion-callout tone-warning flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex gap-3 min-w-0">
+            <div className="notion-callout-icon shrink-0">
+              <Timer size={15} />
+            </div>
+            <div className="space-y-1 text-xs">
+              <p className="font-bold text-foreground">Borrador con fecha pasada</p>
+              <p className="text-muted-foreground leading-relaxed">{MENSAJE_BORRADOR_FECHA_PASADA}</p>
+            </div>
+          </div>
+          {caps.canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 h-8 text-xs font-semibold"
+              onClick={() => navigate(`/convocatorias/${id}/edit`)}
+            >
+              <Edit size={12} className="mr-1.5" />
+              Editar fecha
+            </Button>
+          )}
         </div>
       )}
 
@@ -534,17 +696,26 @@ export default function ConvocatoriaDetailPage() {
           <div className="notion-property-value flex items-center gap-2">
             <span className="font-semibold text-sm">{convocatoria.deporteNombre}</span>
             {convocatoria.categoria && (
-              <Badge variant="outline" className="text-[9px] uppercase font-extrabold py-0">
-                <Tag size={9} className="mr-0.5" />
-                {convocatoria.categoria}
-              </Badge>
+              <Tooltip content={categoriaTooltip(convocatoria.categoria)} maxWidth={260}>
+                <Badge variant="outline" className="text-[9px] uppercase font-extrabold py-0 cursor-help">
+                  <Tag size={9} className="mr-0.5" />
+                  {convocatoria.categoria}
+                </Badge>
+              </Tooltip>
             )}
           </div>
 
           <div className="notion-property-label">
             <Calendar size={13} /> Fecha y Hora
           </div>
-          <div className="notion-property-value text-sm font-semibold">
+          <div
+            className={cn(
+              "notion-property-value text-sm font-semibold",
+              convocatoria.estado === "BORRADOR" &&
+                !puedePublicarBorrador(convocatoria) &&
+                "text-amber-700/90 dark:text-amber-400/90 line-through decoration-amber-500/40"
+            )}
+          >
             {formatDateTime(convocatoria.fechaHora ?? null)}
           </div>
 
@@ -579,8 +750,8 @@ export default function ConvocatoriaDetailPage() {
                 <span>{playerLists.confirmadosTotales.length} / {convocatoria.cupoMaximo}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
                   slotsRemaining <= 3 && slotsRemaining > 0 
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 animate-pulse" 
-                    : "bg-muted text-muted-foreground"
+                    ? "pulse-soft-amber px-1.5 py-0.2 rounded" 
+                    : "bg-muted text-muted-foreground px-1.5 py-0.2 rounded"
                 }`}>
                   {slotsRemaining > 0 ? `${slotsRemaining} cupos` : "Lleno"}
                 </span>
@@ -593,6 +764,19 @@ export default function ConvocatoriaDetailPage() {
           </div>
           <div className="notion-property-value text-sm font-semibold">
             {convocatoria.creadoPorNombre}
+          </div>
+
+          <div className="notion-property-label">
+            <Users size={13} /> Acceso
+          </div>
+          <div className="notion-property-value">
+            <Badge variant="outline" className="text-[10px] font-semibold">
+              {convocatoria.tipoInvitacion === "GRUPO"
+                ? `Grupo${convocatoria.grupoNombre ? `: ${convocatoria.grupoNombre}` : ""}`
+                : convocatoria.tipoInvitacion === "MANUAL"
+                  ? "Solo invitados"
+                  : "Abierta (por deporte)"}
+            </Badge>
           </div>
         </div>
 
@@ -609,7 +793,7 @@ export default function ConvocatoriaDetailPage() {
 
         {/* RSVP Responsive Action Panel or Suspension Banner */}
         {isUserSuspended ? (
-          <div className="notion-callout border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive p-5 flex flex-col md:flex-row items-center gap-4 mb-8">
+          <div className="notion-callout tone-danger p-5 flex flex-col md:flex-row items-center gap-4 mb-8">
             <div className="text-3xl select-none shrink-0">🚫</div>
             <div className="space-y-1.5 flex-1 text-left">
               <div className="font-extrabold text-base tracking-tight">Acceso Restringido - Cuenta Suspendida</div>
@@ -628,8 +812,19 @@ export default function ConvocatoriaDetailPage() {
               </p>
             </div>
           </div>
+        ) : convocatoria.estado === "ABIERTA" && !isInProgressOrDone && convocatoria.puedeInscribirse === false ? (
+          <div className="notion-callout tone-warning mb-8 p-4">
+            <div className="font-bold text-sm text-tone-warning">No puedes confirmar asistencia</div>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              {convocatoria.tipoInvitacion === "ABIERTA"
+                ? `Solo jugadores con posiciones de ${convocatoria.deporteNombre} pueden inscribirse. Configúralas en tu perfil.`
+                : convocatoria.tipoInvitacion === "GRUPO"
+                  ? `Esta convocatoria es solo para miembros del grupo${convocatoria.grupoNombre ? ` «${convocatoria.grupoNombre}»` : ""}.`
+                  : "Esta convocatoria es solo para jugadores invitados individualmente por el organizador."}
+            </p>
+          </div>
         ) : (
-          <div className="notion-callout border-primary/20 bg-primary/[0.03] dark:bg-primary/[0.06] mb-8 items-center justify-between flex-col md:flex-row gap-4">
+          <div className="notion-callout bg-muted/30 border-border mb-8 items-center justify-between flex flex-col sm:flex-row gap-4">
             <div className="flex items-center gap-3">
               <div className="notion-callout-icon">📝</div>
               <div className="space-y-0.5">
@@ -642,12 +837,15 @@ export default function ConvocatoriaDetailPage() {
               </div>
             </div>
 
-            {convocatoria.estado === "ABIERTA" && !isInProgressOrDone ? (
-              <div className="flex gap-2 w-full md:w-auto">
+            {convocatoria.estado === "ABIERTA" &&
+            !isInProgressOrDone &&
+            convocatoria.puedeInscribirse !== false &&
+            caps.canRespondSelf ? (
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Button 
                   disabled={responderLoading}
                   onClick={() => handleRespondedAsistencia("ASISTIRE")}
-                  className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
+                  className={`w-full sm:w-auto flex-1 sm:flex-initial h-9 sm:h-8 px-4 text-xs font-semibold rounded border transition-all ${
                     miAsistencia?.estado === "ASISTIRE" 
                       ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" 
                       : miAsistencia?.estado === "LISTA_ESPERA"
@@ -666,7 +864,7 @@ export default function ConvocatoriaDetailPage() {
                 <Button 
                   disabled={responderLoading}
                   onClick={() => handleRespondedAsistencia("NO_ASISTIRE")}
-                  className={`flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all ${
+                  className={`w-full sm:w-auto flex-1 sm:flex-initial h-9 sm:h-8 px-4 text-xs font-semibold rounded border transition-all ${
                     miAsistencia?.estado === "NO_ASISTIRE" 
                       ? "bg-destructive hover:bg-destructive/90 text-white border-destructive" 
                       : "bg-background text-foreground hover:bg-muted border-border"
@@ -680,13 +878,25 @@ export default function ConvocatoriaDetailPage() {
                   No asistiré
                 </Button>
 
-                <Button 
-                  onClick={openInvitadoDialog}
-                  className="flex-1 md:flex-initial h-8 px-4 text-xs font-semibold rounded border transition-all bg-background text-foreground hover:bg-muted border-border"
-                >
-                  <Plus size={13} className="mr-1.5" />
-                  Llevar un invitado
-                </Button>
+                {caps.canInviteGuests && (
+                  <Tooltip
+                    content={
+                      <span>
+                        Registra a alguien externo (un amigo no registrado) que asistirá contigo. Tú te
+                        haces responsable de su asistencia.
+                      </span>
+                    }
+                    maxWidth={280}
+                  >
+                    <Button
+                      onClick={openInvitadoDialog}
+                      className="w-full sm:w-auto flex-1 sm:flex-initial h-9 sm:h-8 px-4 text-xs font-semibold rounded border transition-all bg-background text-foreground hover:bg-muted border-border"
+                    >
+                      <Plus size={13} className="mr-1.5" />
+                      Llevar un invitado
+                    </Button>
+                  </Tooltip>
+                )}
               </div>
             ) : (
               <Badge variant="secondary" className="px-2.5 py-0.5 font-bold text-xs">
@@ -709,87 +919,118 @@ export default function ConvocatoriaDetailPage() {
                 {matchmakerRun && bandos.length > 0 && (
                   <div className="flex items-center gap-2">
                     {shareSuccess && (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold animate-fadeIn flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <span className="status-pill status-pill--success text-[10px] font-bold animate-fadeIn">
                         <Check size={10} />
                         Copiado al portapapeles
                       </span>
                     )}
-                    <Button
-                      onClick={handleShareLineup}
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[10px] font-bold gap-1 px-2.5 rounded border border-border bg-background text-foreground hover:bg-muted"
-                    >
-                      <Share2 size={11} />
-                      Compartir Alineación
-                    </Button>
+                    <Tooltip content="Copia un resumen de los equipos para pegarlo en WhatsApp u otra app">
+                      <Button
+                        onClick={handleShareLineup}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px] font-bold gap-1 px-2.5 rounded border border-border bg-background text-foreground hover:bg-muted"
+                      >
+                        <Share2 size={11} />
+                        Compartir Alineación
+                      </Button>
+                    </Tooltip>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Intelligent Matchmaking Balance Callout */}
-            {isOrganizador && !isInProgressOrDone && (
+            {caps.showMatchmakingTools && !isInProgressOrDone && (
               <div className="notion-callout bg-primary/[0.03] border-primary/20 flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex gap-3">
                   <div className="notion-callout-icon">⚡</div>
                   <div>
-                    <div className="font-bold text-sm">Herramientas de Balanceo Táctico</div>
+                    <div className="font-bold text-sm flex items-center gap-1.5">
+                      <span>Autobalanceo de Equipos</span>
+                      <InfoHint side="right" maxWidth={300}>
+                        El <strong>autobalanceo</strong> distribuye automáticamente a los jugadores
+                        confirmados en bandos parejos, intentando respetar sus posiciones preferidas
+                        y mantener equipos del mismo tamaño. Puedes volver a ejecutarlo cuando
+                        cambien los confirmados.
+                      </InfoHint>
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Autobalancea los jugadores confirmados en bandos equitativos según su nivel y posición.
+                      Reparte a los jugadores confirmados en {convocatoria.deporteEsPorEquipos === false ? "duelos" : "bandos"} parejos según sus posiciones.
                     </p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end">
                   {/* Nuevo Bando Button */}
-                  {isOrganizador && (
-                    <Button 
-                      onClick={() => openBandoDialog()} 
-                      size="sm" 
-                      variant="outline" 
-                      className="h-8 gap-1 font-bold text-xs rounded border border-border hover:bg-muted bg-background text-foreground shrink-0"
+                  {caps.showMatchmakingTools && (
+                    <Tooltip
+                      content={
+                        <span>
+                          Un <strong>bando</strong> es uno de los lados del juego (ej. "Equipo Azul").
+                          Créalos manualmente o usa el autobalanceo para generarlos automáticamente.
+                        </span>
+                      }
+                      maxWidth={280}
                     >
-                      <Plus size={13} />
-                      Nuevo Bando
-                    </Button>
+                      <Button 
+                        onClick={() => openBandoDialog()} 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-8 gap-1 font-bold text-xs rounded border border-border hover:bg-muted bg-background text-foreground shrink-0"
+                      >
+                        <Plus size={13} />
+                        Nuevo Bando
+                      </Button>
+                    </Tooltip>
                   )}
 
-                  <div className="flex items-center gap-1.5 bg-background border border-border rounded px-2.5 py-1 h-8">
-                    <span className="text-[10px] text-muted-foreground font-black uppercase shrink-0 select-none">Equipos:</span>
-                    <select
-                      value={numEquipos}
-                      onChange={(e) => setNumEquipos(Number(e.target.value))}
-                      className="text-xs bg-transparent border-0 text-foreground cursor-pointer font-bold focus:outline-none py-0 pr-1 pl-0 shrink-0"
-                    >
-                      {Array.from({ length: 8 }, (_, i) => i + 1)
-                        .filter(n => {
-                          const isEquipos = convocatoria?.deporteEsPorEquipos !== false;
-                          return isEquipos ? n >= 2 : n >= 1;
-                        })
-                        .map((n) => (
-                          <option key={n} value={n}>{n}</option>
-                        ))}
-                    </select>
-                  </div>
+                  <Tooltip content="Cantidad de bandos que se formarán al autobalancear">
+                    <div className="flex items-center gap-1.5 bg-background border border-border rounded px-2.5 py-1 h-8">
+                      <span className="text-[10px] text-muted-foreground font-black uppercase shrink-0 select-none">Equipos:</span>
+                      <select
+                        value={numEquipos}
+                        onChange={(e) => setNumEquipos(Number(e.target.value))}
+                        className="text-xs bg-transparent border-0 text-foreground cursor-pointer font-bold focus:outline-none py-0 pr-1 pl-0 shrink-0"
+                        aria-label="Número de equipos"
+                      >
+                        {Array.from({ length: 8 }, (_, i) => i + 1)
+                          .filter(n => {
+                            const isEquipos = convocatoria?.deporteEsPorEquipos !== false;
+                            return isEquipos ? n >= 2 : n >= 1;
+                          })
+                          .map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                      </select>
+                    </div>
+                  </Tooltip>
                   
-                  <Button 
-                    onClick={() => handleMatchmaking(numEquipos)} 
-                    disabled={matchmakingLoading || playerLists.confirmadosTotales.length < numEquipos}
-                    className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
+                  <Tooltip
+                    content={
+                      playerLists.confirmadosTotales.length < numEquipos
+                        ? `Necesitas al menos ${numEquipos} confirmado(s) para formar ${numEquipos} equipo(s)`
+                        : "Genera los bandos automáticamente con los jugadores confirmados"
+                    }
                   >
-                    {matchmakingLoading ? (
-                      <>
-                        <Spinner size="sm" className="mr-1.5" />
-                        Calculando...
-                      </>
-                    ) : (
-                      <>
-                        <Activity size={14} className="mr-1.5" />
-                        Autobalancear Equipos
-                      </>
-                    )}
-                  </Button>
+                    <Button 
+                      onClick={() => handleMatchmaking(numEquipos)} 
+                      disabled={matchmakingLoading || playerLists.confirmadosTotales.length < numEquipos}
+                      className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
+                    >
+                      {matchmakingLoading ? (
+                        <>
+                          <Spinner size="sm" className="mr-1.5" />
+                          Calculando equipos...
+                        </>
+                      ) : (
+                        <>
+                          <Activity size={14} className="mr-1.5" />
+                          Autobalancear Equipos
+                        </>
+                      )}
+                    </Button>
+                  </Tooltip>
                 </div>
               </div>
             )}
@@ -800,19 +1041,22 @@ export default function ConvocatoriaDetailPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between w-full pb-3 border-b border-border/40 gap-3">
                   <div className="flex items-center gap-2">
                     <Users size={15} className="text-primary" />
-                    <div className="font-bold text-sm text-foreground">{isOrganizador ? "Gestión Global de Invitados" : "Mis Invitados"} ({managedInvitados.length})</div>
+                    <div className="font-bold text-sm text-foreground">
+                      {caps.canManageAllAttendance ? "Gestión Global de Invitados" : "Mis Invitados"} (
+                      {managedInvitados.length})
+                    </div>
                   </div>
                   
                   {/* Bulk actions bar */}
                   <div className="flex flex-wrap gap-2">
-                    {selectedInvitados.length > 0 && (
+                    {caps.canManageAllAttendance && selectedInvitados.length > 0 && (
                       <>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleUpdateBulkEstado("ASISTIRE")}
                           disabled={bulkDeleting}
-                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0"
+                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-[hsl(var(--success)/0.25)] hover:bg-[hsl(var(--success)/0.1)] text-tone-success flex items-center gap-1 shrink-0"
                         >
                           <CheckCircle2 size={11} />
                           Confirmar ({selectedInvitados.length})
@@ -822,7 +1066,7 @@ export default function ConvocatoriaDetailPage() {
                           size="sm"
                           onClick={() => handleUpdateBulkEstado("NO_ASISTIRE")}
                           disabled={bulkDeleting}
-                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-destructive/20 hover:bg-destructive/10 text-destructive-foreground dark:text-destructive flex items-center gap-1 shrink-0"
+                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-destructive/20 hover:bg-destructive/10 text-destructive flex items-center gap-1 shrink-0"
                         >
                           <XCircle size={11} />
                           Desconfirmar ({selectedInvitados.length})
@@ -832,7 +1076,7 @@ export default function ConvocatoriaDetailPage() {
                           size="sm"
                           onClick={handleDeleteBulk}
                           disabled={bulkDeleting}
-                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-destructive/20 hover:bg-destructive/10 text-destructive-foreground dark:text-destructive flex items-center gap-1 shrink-0"
+                          className="h-7 px-2.5 text-[10px] font-black uppercase rounded border-destructive/20 hover:bg-destructive/10 text-destructive flex items-center gap-1 shrink-0"
                         >
                           {bulkDeleting ? <Spinner className="w-3 h-3" /> : <Trash2 size={11} />}
                           Eliminar ({selectedInvitados.length})
@@ -845,6 +1089,7 @@ export default function ConvocatoriaDetailPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
                   {managedInvitados.map((asis) => {
                     const isSelected = selectedInvitados.includes(asis.id);
+                    const canManageThisGuest = canManageAsistencia(caps, asis, user?.id);
                     return (
                       <div 
                         key={asis.id} 
@@ -854,7 +1099,7 @@ export default function ConvocatoriaDetailPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 overflow-hidden flex-1">
-                            {!isInProgressOrDone && (
+                            {!isInProgressOrDone && caps.canManageAllAttendance && (
                               <input 
                                 type="checkbox"
                                 checked={isSelected}
@@ -868,21 +1113,21 @@ export default function ConvocatoriaDetailPage() {
                                 className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/20 shrink-0 cursor-pointer"
                               />
                             )}
-                            <div className="overflow-hidden">
-                              <span className="text-xs font-bold text-foreground block truncate">
-                                {asis.nombreExterno}
-                              </span>
-                              <span className="text-[9px] text-muted-foreground block truncate">
-                                {asis.usuarioNombre ? `Registrado: ${asis.usuarioNombre}` : `Invitado de: ${asis.invitadoPorNombre}`}
-                              </span>
-                            </div>
+                            <PlayerIdentity
+                              nombre={asis.usuarioNombre}
+                              nombreExterno={asis.nombreExterno}
+                              username={asis.usuarioUsername}
+                              invitadoPorNombre={asis.invitadoPorNombre}
+                              variant="card"
+                              className="flex-1 min-w-0"
+                            />
                           </div>
 
                           {/* Action badges based on state */}
                           <div className="flex items-center gap-1 shrink-0">
                             {asis.estado === 'ASISTIRE' && <Badge variant="success" className="text-[8px] font-black uppercase px-1.5 py-0.2">Confirmado</Badge>}
                             {asis.estado === 'NO_ASISTIRE' && <Badge variant="destructive" className="text-[8px] font-black uppercase px-1.5 py-0.2">No Asiste</Badge>}
-                            {asis.estado === 'LISTA_ESPERA' && <Badge variant="info" className="text-[8px] font-black uppercase px-1.5 py-0.2 bg-blue-500/10 text-blue-600 border-blue-500/20">En Espera</Badge>}
+                            {asis.estado === 'LISTA_ESPERA' && <Badge variant="info" className="text-[8px] font-black uppercase px-1.5 py-0.2">En Espera</Badge>}
                             {asis.estado === 'PENDIENTE' && <Badge variant="warning" className="text-[8px] font-black uppercase px-1.5 py-0.2">Pendiente</Badge>}
                           </div>
                         </div>
@@ -892,14 +1137,14 @@ export default function ConvocatoriaDetailPage() {
                           {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {asis.posicionesPreferidasNombres.map((name: string) => (
-                                <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                                <span key={name} className="text-[9px] font-bold text-primary bg-primary/10 uppercase tracking-widest px-1.5 py-0.5 rounded">
                                   {name}
                                 </span>
                               ))}
                             </div>
                           ) : asis.posicionPreferidaNombre ? (
                             <div className="flex">
-                              <span className="text-[9px] font-bold text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-widest px-1.5 py-0.5 rounded">
+                              <span className="text-[9px] font-bold text-primary bg-primary/10 uppercase tracking-widest px-1.5 py-0.5 rounded">
                                 {asis.posicionPreferidaNombre}
                               </span>
                             </div>
@@ -913,7 +1158,7 @@ export default function ConvocatoriaDetailPage() {
                         </div>
 
                         {/* Direct action buttons (hover actions / bottom actions) */}
-                        {!isInProgressOrDone && (
+                        {!isInProgressOrDone && canManageThisGuest && (
                           <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
                             <div className="flex gap-1.5">
                               {/* Toggle confirmation check */}
@@ -922,7 +1167,7 @@ export default function ConvocatoriaDetailPage() {
                                   size="icon"
                                   variant="ghost"
                                   onClick={() => handleUpdateInvitadoEstado(asis.id, 'ASISTIRE')}
-                                  className="h-6 w-6 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white"
+                                  className="h-6 w-6 rounded bg-[hsl(var(--success)/0.12)] text-tone-success hover:bg-[hsl(var(--success))] hover:text-primary-foreground"
                                   title="Confirmar Asistencia"
                                 >
                                   <CheckCircle2 size={11} />
@@ -932,7 +1177,7 @@ export default function ConvocatoriaDetailPage() {
                                   size="icon"
                                   variant="ghost"
                                   onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
-                                  className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
+                                  className="h-6 w-6 rounded bg-[hsl(var(--warning)/0.12)] text-tone-warning hover:bg-[hsl(var(--warning))] hover:text-primary-foreground"
                                   title="Marcar No Asistencia"
                                 >
                                   <XCircle size={11} />
@@ -945,7 +1190,7 @@ export default function ConvocatoriaDetailPage() {
                                   size="icon"
                                   variant="ghost"
                                   onClick={() => handleUpdateInvitadoEstado(asis.id, 'NO_ASISTIRE')}
-                                  className="h-6 w-6 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white"
+                                  className="h-6 w-6 rounded bg-[hsl(var(--warning)/0.12)] text-tone-warning hover:bg-[hsl(var(--warning))] hover:text-primary-foreground"
                                   title="Retirar de Espera"
                                 >
                                   <XCircle size={11} />
@@ -964,15 +1209,17 @@ export default function ConvocatoriaDetailPage() {
                               </Button>
                             </div>
 
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleDeleteInvitado(asis.id)}
-                              className="h-6 w-6 rounded bg-destructive/10 text-destructive hover:bg-destructive hover:text-white opacity-40 group-hover:opacity-100 transition-opacity"
-                              title="Eliminar Invitado de la lista"
-                            >
-                              <Trash2 size={11} />
-                            </Button>
+                            <Tooltip content="Quitar de la convocatoria">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDeleteInvitado(asis.id, asis.usuarioNombre || asis.nombreExterno || "este jugador")}
+                                className="h-6 w-6 rounded bg-destructive/10 text-destructive hover:bg-destructive hover:text-white opacity-40 group-hover:opacity-100 transition-opacity"
+                                aria-label="Quitar invitado"
+                              >
+                                <Trash2 size={11} />
+                              </Button>
+                            </Tooltip>
                           </div>
                         )}
                       </div>
@@ -993,230 +1240,20 @@ export default function ConvocatoriaDetailPage() {
               </div>
             ) : (
               <>
-                {/* Balanced Teams Kanban Board */}
+                {/* Alineación: equipos + banquillo */}
                 {matchmakerRun && bandos.length >= 2 ? (
                   <div className="space-y-6">
-                    <div className="notion-board">
-                      {playerLists.teamPlayersMap.map(({ team, players }) => {
-                        const teamColorHex = getTeamColorHex(team.color || "");
-                        return (
-                          <div key={team.id} className="notion-board-column" style={{ borderTop: `4px solid ${teamColorHex}` }}>
-                            {/* Board Column Header */}
-                            <div className="notion-board-column-header border-b border-border pb-2 mb-2">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <span 
-                                  className="w-3 h-3 rounded-full border shrink-0" 
-                                  style={{ backgroundColor: teamColorHex }} 
-                                />
-                                <span className="font-bold text-sm truncate text-foreground">{team.nombre}</span>
-                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.2 rounded font-normal">
-                                  {players.length}
-                                </span>
-                              </div>
-                              {isOrganizador && (
-                                <div className="flex items-center gap-0.5 shrink-0">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 text-muted-foreground hover:bg-muted"
-                                    onClick={() => openBandoDialog(team)}
-                                  >
-                                    <Edit size={11} />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                                    onClick={() => handleDeleteBando(team.id)}
-                                  >
-                                    <Trash2 size={11} />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Player cards inside column */}
-                            <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1 custom-column-scrollbar">
-                              {players.length === 0 ? (
-                                <p className="text-xs text-muted-foreground text-center py-6 italic font-medium">Sin jugadores asignados</p>
-                              ) : (
-                                players.map((asis) => (
-                                  <div key={asis.id} className="notion-board-card">
-                                    <div className="flex items-center justify-between gap-2 overflow-hidden">
-                                      <div className="flex items-center gap-2 overflow-hidden flex-1">
-                                        <span className="text-[10px] font-black px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-md shrink-0 monospace">
-                                          {asis.numeroCamiseta != null ? `#${asis.numeroCamiseta}` : "👤"}
-                                        </span>
-                                        <div className="overflow-hidden">
-                                          <span className="text-xs font-semibold text-foreground truncate block">
-                                            {asis.usuarioNombre || asis.nombreExterno}
-                                          </span>
-                                          {asis.nombreExterno && (
-                                            <span className="text-[9px] text-muted-foreground block truncate">
-                                              Invitado de {asis.invitadoPorNombre}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {asis.posicionesPreferidasNombres.map((name: string) => (
-                                          <span key={name} className="text-[9px] font-black text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                            {name}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : asis.posicionPreferidaNombre ? (
-                                      <div className="mt-2 flex">
-                                        <span className="text-[9px] font-black text-primary bg-primary/10 dark:bg-primary/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                          {asis.posicionPreferidaNombre}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <div className="mt-2 flex">
-                                        <span className="text-[9px] font-black text-muted-foreground/45 bg-muted/40 uppercase tracking-wider px-2 py-0.5 rounded-full border border-dashed border-border">
-                                          Comodín
-                                        </span>
-                                      </div>
-                                    )}
-                                    
-                                    {isOrganizador && !isInProgressOrDone && (
-                                      <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1">
-                                        <span className="text-[9px] text-muted-foreground font-medium shrink-0">Bando:</span>
-                                        <select
-                                          value={asis.bandoId || ""}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            handleMovePlayer(asis.id, val ? Number(val) : -1);
-                                          }}
-                                          className="text-[10px] bg-background border border-border rounded px-2 py-0.5 max-w-[115px] focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none notion-select-pill transition-all"
-                                        >
-                                          <option value="">Comodín / Sin asignar</option>
-                                          {bandos.map((b) => (
-                                            <option key={b.id} value={b.id}>{b.nombre}</option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Comodines & Waitlist side-by-side */}
-                    {(playerLists.comodines.length > 0 || playerLists.waitlist.length > 0) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                        {playerLists.comodines.length > 0 && (
-                          <div className="border border-amber-500/20 rounded-2xl bg-gradient-to-br from-amber-500/[0.02] to-amber-500/[0.07] backdrop-blur-md p-5 shadow-sm transition-all hover:border-amber-500/30">
-                            <h4 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-4 flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <Compass size={14} />
-                                <span>Reserva Táctica (Comodines)</span>
-                              </div>
-                              <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-extrabold text-[10px]">
-                                {playerLists.comodines.length}
-                              </span>
-                            </h4>
-                            <div className="space-y-2">
-                              {playerLists.comodines.map((asis) => (
-                                <div key={asis.id} className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/50 text-xs gap-3 shadow-sm hover:border-amber-500/30 hover:translate-y-[-2px] transition-all duration-300">
-                                  <div className="overflow-hidden flex-1">
-                                    <span className="font-bold text-foreground truncate block">
-                                      {asis.usuarioNombre || asis.nombreExterno}
-                                    </span>
-                                    {asis.nombreExterno && (
-                                      <span className="text-[9px] text-muted-foreground block truncate mt-0.5">
-                                        Invitado de {asis.invitadoPorNombre}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                                      <div className="flex flex-wrap gap-1">
-                                        {asis.posicionesPreferidasNombres.map((name: string) => (
-                                          <span key={name} className="text-[9px] font-bold text-amber-600 bg-amber-500/10 dark:bg-amber-500/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                            {name}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : asis.posicionPreferidaNombre ? (
-                                      <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 dark:bg-amber-500/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                        {asis.posicionPreferidaNombre}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[9px] font-bold text-muted-foreground/50 bg-muted px-2 py-0.5 rounded-full border border-dashed border-border">
-                                        Sin Posición
-                                      </span>
-                                    )}
-                                    
-                                    {isOrganizador && !isInProgressOrDone && (
-                                      <select
-                                        value=""
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          if (val) handleMovePlayer(asis.id, Number(val));
-                                        }}
-                                        className="text-[10px] bg-background border border-border rounded px-2 py-0.5 focus:ring-1 focus:ring-primary/20 text-foreground cursor-pointer font-bold focus:outline-none notion-select-pill transition-all"
-                                      >
-                                        <option value="">Asignar...</option>
-                                        {bandos.map((b) => (
-                                          <option key={b.id} value={b.id}>{b.nombre}</option>
-                                        ))}
-                                      </select>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {playerLists.waitlist.length > 0 && (
-                          <div className="border border-blue-500/20 rounded-2xl bg-gradient-to-br from-blue-500/[0.02] to-blue-500/[0.07] backdrop-blur-md p-5 shadow-sm transition-all hover:border-blue-500/30">
-                            <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-4 flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <Clock size={14} />
-                                <span>Sala de Espera (Lista de Espera)</span>
-                              </div>
-                              <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-extrabold text-[10px]">
-                                {playerLists.waitlist.length}
-                              </span>
-                            </h4>
-                            <div className="space-y-2">
-                              {playerLists.waitlist.map((asis, idx) => (
-                                <div key={asis.id} className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/50 text-xs gap-3 shadow-sm hover:border-blue-500/30 hover:translate-y-[-2px] transition-all duration-300">
-                                  <div className="flex items-center gap-2.5 overflow-hidden flex-1">
-                                    <span className="text-[10px] font-black bg-blue-500/10 text-blue-600 rounded-lg w-5 h-5 flex items-center justify-center border border-blue-500/20 shrink-0">
-                                      {idx + 1}
-                                    </span>
-                                    <div className="overflow-hidden">
-                                      <span className="font-bold text-foreground truncate block">
-                                        {asis.usuarioNombre || asis.nombreExterno}
-                                      </span>
-                                      {asis.nombreExterno && (
-                                        <span className="text-[9px] text-muted-foreground block truncate mt-0.5">
-                                          Invitado de {asis.invitadoPorNombre}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <span className="text-[9px] font-extrabold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                      En Espera
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <LineupBoard
+                      teamPlayersMap={playerLists.teamPlayersMap}
+                      comodines={playerLists.comodines}
+                      waitlist={playerLists.waitlist}
+                      bandos={bandos}
+                      isOrganizador={caps.showMatchmakingTools}
+                      canAssign={caps.canAssignPlayersToTeams && !isInProgressOrDone}
+                      onEditTeam={openBandoDialog}
+                      onDeleteTeam={handleDeleteBando}
+                      onMovePlayer={handleMovePlayer}
+                    />
 
                     {/* Not attending & pending list */}
                     {(playerLists.pendientes.length > 0 || playerLists.noAsistiran.length > 0) && (
@@ -1229,9 +1266,13 @@ export default function ConvocatoriaDetailPage() {
                             </span>
                             <div className="flex flex-wrap gap-2">
                               {playerLists.pendientes.map(p => (
-                                <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border">
-                                  {p.usuarioNombre}
-                                </span>
+                                <PlayerIdentityChip
+                                  key={p.id}
+                                  nombre={p.usuarioNombre}
+                                  nombreExterno={p.nombreExterno}
+                                  username={p.usuarioUsername}
+                                  invitadoPorNombre={p.invitadoPorNombre}
+                                />
                               ))}
                             </div>
                           </div>
@@ -1245,9 +1286,14 @@ export default function ConvocatoriaDetailPage() {
                             </span>
                             <div className="flex flex-wrap gap-2">
                               {playerLists.noAsistiran.map(p => (
-                                <span key={p.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border line-through">
-                                  {p.usuarioNombre}
-                                </span>
+                                <PlayerIdentityChip
+                                  key={p.id}
+                                  nombre={p.usuarioNombre}
+                                  nombreExterno={p.nombreExterno}
+                                  username={p.usuarioUsername}
+                                  invitadoPorNombre={p.invitadoPorNombre}
+                                  className="opacity-60 line-through decoration-muted-foreground/50"
+                                />
                               ))}
                             </div>
                           </div>
@@ -1266,7 +1312,7 @@ export default function ConvocatoriaDetailPage() {
                             <Trophy size={13} className="text-primary" />
                             <span>Bandos / Equipos Configurados ({bandos.length})</span>
                           </h4>
-                          {isOrganizador && (
+                          {caps.showMatchmakingTools && (
                             <Button 
                               onClick={() => openBandoDialog()} 
                               size="sm" 
@@ -1292,7 +1338,7 @@ export default function ConvocatoriaDetailPage() {
                                   <div className="w-2.5 h-2.5 rounded-full shrink-0 border border-border" style={{ backgroundColor: teamColorHex }} />
                                   <span className="text-xs font-semibold text-foreground truncate">{eq.nombre}</span>
                                 </div>
-                                {isOrganizador && (
+                                {caps.showMatchmakingTools && (
                                   <div className="flex gap-0.5 items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button 
                                       variant="ghost" 
@@ -1306,7 +1352,7 @@ export default function ConvocatoriaDetailPage() {
                                       variant="ghost" 
                                       size="icon" 
                                       className="h-5 w-5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
-                                      onClick={() => handleDeleteBando(eq.id)}
+                                      onClick={() => handleDeleteBando(eq.id, eq.nombre)}
                                     >
                                       <Trash2 size={10} />
                                     </Button>
@@ -1319,7 +1365,7 @@ export default function ConvocatoriaDetailPage() {
                       </div>
                     )}
 
-                    {bandos.length === 0 && isOrganizador && (
+                    {bandos.length === 0 && caps.showMatchmakingTools && (
                       <div className="text-center py-6 border border-dashed rounded-lg bg-muted/5">
                         <Trophy size={20} className="mx-auto text-muted-foreground/40 mb-1" />
                         <p className="text-xs text-muted-foreground font-semibold">No hay bandos configurados</p>
@@ -1354,40 +1400,23 @@ export default function ConvocatoriaDetailPage() {
                         {playerLists.confirmadosTotales.length === 0 ? (
                           <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">Nadie ha confirmado asistencia todavía.</p>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {playerLists.confirmadosTotales.map((asis) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[56px]">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                  <div className="h-7 w-7 rounded bg-primary/10 flex items-center justify-center font-black text-primary text-xs shrink-0 select-none">
-                                    {(asis.usuarioNombre || asis.nombreExterno || "?").charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="overflow-hidden">
-                                    <span className="text-xs font-semibold text-foreground truncate block">
-                                      {asis.usuarioNombre || asis.nombreExterno}
-                                    </span>
-                                    {asis.nombreExterno && (
-                                      <span className="text-[9px] text-muted-foreground block truncate">
-                                        Invitado de {asis.invitadoPorNombre}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {asis.posicionesPreferidasNombres && asis.posicionesPreferidasNombres.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {asis.posicionesPreferidasNombres.map((name: string) => (
-                                        <Badge key={name} variant="outline" className="text-[9px]">{name}</Badge>
-                                      ))}
-                                    </div>
-                                  ) : asis.posicionPreferidaNombre ? (
-                                    <Badge variant="outline" className="text-[9px]">{asis.posicionPreferidaNombre}</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-[9px] border-dashed text-muted-foreground/50 border-border bg-transparent">Comodín</Badge>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          <DataListShell className="border-border/80">
+                            <DataListHeader
+                              columns={ASISTENCIA_TABLE_COLUMNS}
+                              labels={{
+                                jugador: "Jugador",
+                                posicion: "Posición",
+                                bando: "Bando",
+                                invitado: "Invitado por",
+                                estado: "Estado",
+                              }}
+                            />
+                            <DataListBody>
+                              {playerLists.confirmadosTotales.map((asis) => (
+                                <AsistenciaTableRow key={asis.id} asis={asis} />
+                              ))}
+                            </DataListBody>
+                          </DataListShell>
                         )}
                       </TabsContent>
 
@@ -1395,28 +1424,27 @@ export default function ConvocatoriaDetailPage() {
                         {playerLists.waitlist.length === 0 ? (
                           <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">No hay jugadores en lista de espera.</p>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {playerLists.waitlist.map((asis, idx) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[56px]">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                  <span className="text-xs text-muted-foreground font-black shrink-0">{idx + 1}.</span>
-                                  <div className="overflow-hidden">
-                                    <span className="text-xs font-semibold text-foreground truncate block">
-                                      {asis.usuarioNombre || asis.nombreExterno}
-                                    </span>
-                                    {asis.nombreExterno && (
-                                      <span className="text-[9px] text-muted-foreground block truncate">
-                                        Invitado de {asis.invitadoPorNombre}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <Badge variant="outline" className="text-[9px] bg-blue-500/5 text-blue-600 border-blue-500/20 uppercase font-bold">En Espera</Badge>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          <DataListShell className="border-border/80">
+                            <DataListHeader
+                              columns={ASISTENCIA_TABLE_COLUMNS}
+                              labels={{
+                                jugador: "Jugador",
+                                posicion: "Posición",
+                                bando: "Bando",
+                                invitado: "Invitado por",
+                                estado: "Estado",
+                              }}
+                            />
+                            <DataListBody>
+                              {playerLists.waitlist.map((asis, idx) => (
+                                <AsistenciaTableRow
+                                  key={asis.id}
+                                  asis={asis}
+                                  showWaitlistIndex={idx}
+                                />
+                              ))}
+                            </DataListBody>
+                          </DataListShell>
                         )}
                       </TabsContent>
 
@@ -1424,20 +1452,30 @@ export default function ConvocatoriaDetailPage() {
                         {playerLists.pendientes.length === 0 && playerLists.noAsistiran.length === 0 ? (
                           <p className="text-xs text-muted-foreground italic py-8 text-center bg-muted/5 border rounded">Todos los invitados han respondido.</p>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {playerLists.pendientes.map((asis) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[50px]">
-                                <span className="text-xs font-semibold text-foreground truncate">{asis.usuarioNombre}</span>
-                                <Badge variant="warning" className="text-[8px] font-black uppercase shrink-0">Pendiente</Badge>
-                              </div>
-                            ))}
-                            {playerLists.noAsistiran.map((asis) => (
-                              <div key={asis.id} className="flex items-center justify-between p-3 rounded border border-border bg-background hover:bg-muted/10 transition-premium h-full min-h-[50px]">
-                                <span className="text-xs font-semibold text-muted-foreground line-through truncate">{asis.usuarioNombre}</span>
-                                <Badge variant="destructive" className="text-[8px] font-black uppercase shrink-0">No Asistirá</Badge>
-                              </div>
-                            ))}
-                          </div>
+                          <DataListShell className="border-border/80">
+                            <DataListHeader
+                              columns={ASISTENCIA_TABLE_COLUMNS}
+                              labels={{
+                                jugador: "Jugador",
+                                posicion: "Posición",
+                                bando: "Bando",
+                                invitado: "Invitado por",
+                                estado: "Estado",
+                              }}
+                            />
+                            <DataListBody>
+                              {playerLists.pendientes.map((asis) => (
+                                <AsistenciaTableRow key={asis.id} asis={asis} />
+                              ))}
+                              {playerLists.noAsistiran.map((asis) => (
+                                <AsistenciaTableRow
+                                  key={asis.id}
+                                  asis={asis}
+                                  className="opacity-75"
+                                />
+                              ))}
+                            </DataListBody>
+                          </DataListShell>
                         )}
                       </TabsContent>
                     </Tabs>
@@ -1448,42 +1486,70 @@ export default function ConvocatoriaDetailPage() {
           </div>
 
           {/* Admin Operations Callout (Shown below) */}
-          {isOrganizador && (
-            <div className="notion-callout border-destructive/20 bg-destructive/[0.02] dark:bg-destructive/[0.04] mt-8 flex-col">
+          {caps.showAdminPanel && (
+            <div className="notion-callout tone-danger mt-8 flex-col">
               <div className="flex gap-2 items-center">
-                <span className="notion-callout-icon">⚙️</span>
+                <span className="notion-callout-icon">
+                  <Settings size={15} />
+                </span>
                 <div className="font-bold text-xs text-muted-foreground uppercase tracking-widest">Panel de Administración</div>
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
-                {convocatoria.estado === "BORRADOR" && (
-                  <Button 
-                    onClick={async () => {
-                      try {
-                        await api.put(`/api/convocatorias/${id}/abrir`);
-                        fetchData();
-                      } catch (err: unknown) {
-                        setError(getApiErrorMessage(err));
-                      }
-                    }}
-                    className="h-8 px-3 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-premium cursor-pointer border border-emerald-600"
+                {caps.canPublish && (
+                  <Tooltip
+                    content={
+                      puedePublicarBorrador(convocatoria)
+                        ? "Publicar y abrir inscripciones"
+                        : MENSAJE_BORRADOR_FECHA_PASADA
+                    }
+                    maxWidth={300}
                   >
-                    <CheckCircle2 size={13} className="mr-1.5" />
-                    Abrir Convocatoria
-                  </Button>
+                    <span className="inline-flex">
+                      <Button
+                        onClick={async () => {
+                          try {
+                            await api.put(`/api/convocatorias/${id}/abrir`);
+                            toast.success(
+                              "Convocatoria publicada",
+                              "Los jugadores ya pueden confirmar asistencia."
+                            );
+                            fetchData();
+                          } catch (err: unknown) {
+                            const msg = getApiErrorMessage(err);
+                            setError(msg);
+                            toast.error(msg);
+                          }
+                        }}
+                        disabled={!puedePublicarBorrador(convocatoria)}
+                        className="h-8 px-3 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-premium cursor-pointer border border-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <CheckCircle2 size={13} className="mr-1.5" />
+                        Abrir Convocatoria
+                      </Button>
+                    </span>
+                  </Tooltip>
                 )}
 
-                {convocatoria.estado === "ABIERTA" && !isInProgressOrDone && (
+                {caps.canCancel && (
                   <Button 
                     variant="outline"
                     onClick={async () => {
-                      if (confirm("¿Estás seguro de cancelar esta convocatoria?")) {
-                        try {
-                          await api.put(`/api/convocatorias/${id}/cancelar`);
-                          const updated = await api.get(`/api/convocatorias/${id}`);
-                          setConvocatoria(updated.data);
-                        } catch (err: unknown) {
-                          setError(getApiErrorMessage(err));
-                        }
+                      const ok = await confirm({
+                        title: "Cancelar convocatoria",
+                        description:
+                          "La convocatoria quedará marcada como cancelada. Los jugadores confirmados ya no asistirán y no podrán volver a inscribirse.",
+                        confirmLabel: "Sí, cancelar",
+                        cancelLabel: "Volver",
+                        variant: "warning",
+                      });
+                      if (!ok) return;
+                      try {
+                        await api.put(`/api/convocatorias/${id}/cancelar`);
+                        await fetchData();
+                        toast.success("Convocatoria cancelada");
+                      } catch (err: unknown) {
+                        toast.error(getApiErrorMessage(err) || "No se pudo cancelar.");
+                        setError(getApiErrorMessage(err));
                       }
                     }}
                     className="h-8 px-3 font-semibold text-xs rounded border border-destructive/20 hover:bg-destructive/10 bg-background text-destructive cursor-pointer"
@@ -1493,7 +1559,7 @@ export default function ConvocatoriaDetailPage() {
                   </Button>
                 )}
 
-                {(convocatoria.estado === "BORRADOR" || convocatoria.estado === "ABIERTA") && !isInProgressOrDone && (
+                {caps.canEdit && !isInProgressOrDone && (
                   <Button 
                     variant="outline"
                     onClick={() => navigate(`/convocatorias/${id}/edit`)}
@@ -1504,23 +1570,48 @@ export default function ConvocatoriaDetailPage() {
                   </Button>
                 )}
 
-                {convocatoria.estado === "BORRADOR" && !isInProgressOrDone && (
-                  <Button 
+                {caps.canDelete && (
+                  <Button
                     variant="destructive"
                     onClick={async () => {
-                      if (confirm("¿Estás seguro de eliminar completamente esta convocatoria?")) {
+                      let inscritosCount = 0;
+                      if (convocatoria.estado === "ABIERTA") {
                         try {
-                          await api.delete(`/api/convocatorias/${id}`);
-                          navigate("/convocatorias");
-                        } catch (err: unknown) {
-                          setError(getApiErrorMessage(err));
+                          inscritosCount = await countInscritosConvocatoria(convocatoria.id);
+                        } catch {
+                          /* sin conteo */
                         }
+                      }
+                      const { title, description } = buildConvocatoriaDeleteConfirm(
+                        convocatoria,
+                        inscritosCount
+                      );
+                      const ok = await confirm({
+                        title,
+                        description,
+                        confirmLabel: "Sí, eliminar",
+                        variant: "danger",
+                      });
+                      if (!ok) return;
+                      try {
+                        await api.delete(`/api/convocatorias/${id}`);
+                        toast.success(
+                          convocatoria.estado === "BORRADOR"
+                            ? "Borrador eliminado"
+                            : "Convocatoria eliminada"
+                        );
+                        navigate("/convocatorias");
+                      } catch (err: unknown) {
+                        toast.error(getApiErrorMessage(err) || "No se pudo eliminar.");
+                        setError(getApiErrorMessage(err));
                       }
                     }}
                     className="h-8 px-3 font-semibold text-xs rounded border border-destructive/20 hover:bg-destructive/10 bg-background text-destructive cursor-pointer"
                   >
                     <Trash2 size={13} className="mr-1.5" />
-                    Eliminar Convocatoria
+                    {convocatoria.estado === "BORRADOR"
+                      ? "Eliminar Borrador"
+                      : "Eliminar Convocatoria"}
                   </Button>
                 )}
               </div>
@@ -1530,7 +1621,7 @@ export default function ConvocatoriaDetailPage() {
 
         {/* Configure Positions Warning Dialog */}
         <Dialog open={positionsDialogOpen} onOpenChange={setPositionsDialogOpen}>
-          <DialogContent className="max-w-[400px] border border-border bg-card text-foreground rounded-lg p-5">
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-[min(100%,25rem)] border border-border bg-card text-foreground rounded-lg p-5">
             <DialogHeader className="space-y-2 text-center">
               <div className="text-3xl select-none mb-1">🎯</div>
               <DialogTitle className="text-base font-extrabold tracking-tight">
@@ -1568,7 +1659,8 @@ export default function ConvocatoriaDetailPage() {
 
         {/* Invitado Dialog */}
         <Dialog open={invitadoDialogOpen} onOpenChange={setInvitadoDialogOpen}>
-          <DialogContent className="rounded-lg border bg-card p-6 max-w-md">
+          <DialogContent className="rounded-lg border bg-card p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[min(100%,28rem)] sm:max-w-md">
+            <form onSubmit={handleSaveInvitado}>
             <DialogHeader>
               <DialogTitle className="font-extrabold text-base tracking-tight">
                 {editingInvitado ? `Editar Datos de ${editingInvitado.nombreExterno}` : "Llevar un Invitado"}
@@ -1597,7 +1689,27 @@ export default function ConvocatoriaDetailPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-muted-foreground block mb-1">Posiciones Preferidas (Selecciona en orden de prioridad)</Label>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Label className="text-xs font-bold text-muted-foreground">Posiciones preferidas</Label>
+                  {deportePosiciones.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-[10px] font-semibold text-primary hover:underline"
+                      onClick={() => {
+                        const sorted = [...deportePosiciones].sort((a, b) =>
+                          a.nombre.localeCompare(b.nombre)
+                        );
+                        setInvitadoForm({
+                          ...invitadoForm,
+                          posicionesPreferidasIds: sorted.map((p) => p.id),
+                          posicionPreferidaId: String(sorted[0]?.id ?? ""),
+                        });
+                      }}
+                    >
+                      Ordenar A–Z
+                    </button>
+                  )}
+                </div>
                 {deportePosiciones.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">No hay posiciones configuradas para este deporte.</p>
                 ) : (
@@ -1645,6 +1757,7 @@ export default function ConvocatoriaDetailPage() {
             </div>
             <DialogFooter className="gap-2 border-t pt-4">
               <Button 
+                type="button"
                 variant="outline" 
                 onClick={() => setInvitadoDialogOpen(false)} 
                 className="font-bold text-xs rounded border hover:bg-muted"
@@ -1652,19 +1765,21 @@ export default function ConvocatoriaDetailPage() {
                 Cancelar
               </Button>
               <Button 
-                onClick={handleSaveInvitado} 
+                type="submit"
                 disabled={invitadoSaving || !invitadoForm.nombreExterno.trim()} 
                 className="font-bold text-xs rounded bg-primary text-primary-foreground hover:bg-primary/95"
               >
                 {invitadoSaving ? <Spinner className="text-white" /> : editingInvitado ? "Guardar Cambios" : "Confirmar Invitado"}
               </Button>
             </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
 
         {/* Bando Dialog */}
         <Dialog open={bandoDialogOpen} onOpenChange={setbandoDialogOpen}>
-          <DialogContent className="rounded-lg border bg-card p-6 max-w-md">
+          <DialogContent className="rounded-lg border bg-card p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[min(100%,28rem)] sm:max-w-md">
+            <form onSubmit={handleSaveBando}>
             <DialogHeader>
               <DialogTitle className="font-extrabold text-base tracking-tight">
                 {editingBando ? "Editar Bando" : "Nuevo Bando"}
@@ -1682,12 +1797,22 @@ export default function ConvocatoriaDetailPage() {
             <div className="space-y-4 py-3">
               <div className="space-y-1.5">
                 <Label htmlFor="equipo-nombre" className="text-xs font-bold text-muted-foreground">Nombre del Bando</Label>
+                <PresetChips
+                  showIcon={false}
+                  options={[
+                    { id: "a", label: "Equipo A", onClick: () => setbandoForm({ nombre: "Equipo A", color: "#3B82F6" }) },
+                    { id: "b", label: "Equipo B", onClick: () => setbandoForm({ nombre: "Equipo B", color: "#EF4444" }) },
+                    { id: "local", label: "Local", onClick: () => setbandoForm({ nombre: "Local", color: "#22C55E" }) },
+                    { id: "visit", label: "Visitante", onClick: () => setbandoForm({ nombre: "Visitante", color: "#F59E0B" }) },
+                  ]}
+                />
                 <Input 
                   id="equipo-nombre" 
                   value={bandoForm.nombre} 
                   onChange={(e) => setbandoForm({ ...bandoForm, nombre: e.target.value })} 
                   placeholder="Ej: Bando Rojo, Los Leones" 
                   className="rounded bg-background border border-border px-3 py-1.5 text-sm"
+                  required
                 />
               </div>
               <div className="space-y-1.5">
@@ -1711,6 +1836,7 @@ export default function ConvocatoriaDetailPage() {
             </div>
             <DialogFooter className="gap-2 border-t pt-4">
               <Button 
+                type="button"
                 variant="outline" 
                 onClick={() => setbandoDialogOpen(false)} 
                 className="font-bold text-xs rounded border hover:bg-muted"
@@ -1718,13 +1844,14 @@ export default function ConvocatoriaDetailPage() {
                 Cancelar
               </Button>
               <Button 
-                onClick={handleSaveBando} 
+                type="submit"
                 disabled={bandoSaving || !bandoForm.nombre} 
                 className="font-bold text-xs rounded bg-primary text-primary-foreground hover:bg-primary/95"
               >
                 {bandoSaving ? <Spinner className="text-white" /> : editingBando ? "Actualizar" : "Crear Bando"}
               </Button>
             </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

@@ -4,6 +4,7 @@ import { getApiErrorMessage } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { RolesGridSkeleton } from "@/components/ui/page-skeletons";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Shield, Plus, Pencil, Trash2, Key } from "lucide-react";
+import {
+  getPermissionModuleId,
+  PermissionModuleId,
+  PERMISSION_MODULES,
+} from "@/lib/iconography";
+import { ModuleIcon, PageHeaderIcon } from "@/components/ui/page-icon";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
+import { Tooltip } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PresetChips } from "@/components/ui/preset-chips";
+import { validateRequiredTrim } from "@/lib/formValidation";
 
 interface Permiso {
   id: number;
@@ -38,6 +52,8 @@ interface RolFormData {
 const PROTECTED_ROLES = ["SuperAdmin", "Organizador", "Jugador"];
 
 export default function RolesPage() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [roles, setRoles] = useState<Rol[]>([]);
   const [permisos, setPermisos] = useState<Permiso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,43 +63,16 @@ export default function RolesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const getModuleForPermission = (clave: string): string => {
-    if (clave.includes("convocatoria") || clave === "responder_asistencia" || clave === "invitar_externos" || clave === "dividir_equipos") {
-      return "📅 Convocatorias";
-    }
-    if (clave.includes("grupo")) {
-      return "👥 Grupos de Jugadores";
-    }
-    if (clave.includes("deporte") || clave.includes("posicion")) {
-      return "⚽ Deportes y Posiciones";
-    }
-    if (clave.includes("usuario")) {
-      return "👤 Usuarios del Sistema";
-    }
-    if (clave.includes("rol") || clave.includes("permiso")) {
-      return "🛡️ Roles y Privilegios";
-    }
-    return "📦 Otros Permisos";
-  };
-
   const groupedPermisos = useMemo(() => {
-    const groups: Record<string, Permiso[]> = {
-      "📅 Convocatorias": [],
-      "👥 Grupos de Jugadores": [],
-      "⚽ Deportes y Posiciones": [],
-      "👤 Usuarios del Sistema": [],
-      "🛡️ Roles y Privilegios": []
-    };
-
-    permisos.forEach(p => {
-      const category = getModuleForPermission(p.clave);
-      if (!groups[category]) {
-        groups[category] = [];
-      }
-      groups[category].push(p);
+    const groups = new Map<PermissionModuleId, Permiso[]>();
+    for (const id of Object.values(PermissionModuleId)) {
+      groups.set(id, []);
+    }
+    permisos.forEach((p) => {
+      const moduleId = getPermissionModuleId(p.clave);
+      groups.get(moduleId)!.push(p);
     });
-
-    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+    return Array.from(groups.entries()).filter(([, items]) => items.length > 0);
   }, [permisos]);
 
   const fetchData = useCallback(async () => {
@@ -122,31 +111,65 @@ export default function RolesPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const selectModulePermissions = (moduleId: PermissionModuleId, onlyVer = false) => {
+    const ids = permisos
+      .filter((p) => getPermissionModuleId(p.clave) === moduleId)
+      .filter((p) => !onlyVer || p.clave.startsWith("ver_"))
+      .map((p) => p.id);
+    setFormData((prev) => ({
+      ...prev,
+      permisoIds: [...new Set([...prev.permisoIds, ...ids])],
+    }));
+  };
+
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const nameErr = validateRequiredTrim(formData.nombre, "El nombre del rol");
+    if (nameErr) {
+      setError(nameErr);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       if (editingRol) {
         await api.put(`/api/roles/${editingRol.id}`, formData);
+        toast.success("Rol actualizado", `Los permisos de "${formData.nombre}" se guardaron.`);
       } else {
         await api.post("/api/roles", formData);
+        toast.success("Rol creado", `"${formData.nombre}" ya está disponible para asignar.`);
       }
       setDialogOpen(false);
       fetchData();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error al guardar rol");
+      const msg = getApiErrorMessage(err) || "Error al guardar rol";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number, nombre: string) => {
-    if (!confirm(`¿Eliminar el rol "${nombre}"?`)) return;
+    const ok = await confirm({
+      title: "Eliminar rol",
+      description: (
+        <span>
+          ¿Eliminar el rol <strong>"{nombre}"</strong>? Los usuarios que lo tenían asignado
+          perderán los permisos correspondientes. No podrás recuperarlo después.
+        </span>
+      ),
+      confirmLabel: "Sí, eliminar",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/api/roles/${id}`);
+      toast.success("Rol eliminado", `"${nombre}" se eliminó del sistema.`);
       fetchData();
     } catch (err: unknown) {
-      alert(getApiErrorMessage(err) || "Error al eliminar rol");
+      const msg = getApiErrorMessage(err) || "Error al eliminar rol";
+      toast.error(msg);
     }
   };
 
@@ -160,15 +183,22 @@ export default function RolesPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fadeIn pb-12 px-4 sm:px-6">
+    <div className="page-shell space-y-6 animate-fadeIn">
       {/* Cover/Header area */}
       <div className="flex items-center justify-between border-b border-border pb-4 pt-2">
         <div className="flex items-center gap-3">
-          <span className="text-3xl select-none">🛡️</span>
+          <PageHeaderIcon icon={PERMISSION_MODULES[PermissionModuleId.ROLES].icon} />
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Roles del Sistema</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              Roles del Sistema
+              <InfoHint side="right" maxWidth={320}>
+                Los <strong>roles</strong> agrupan permisos. Asignas un rol a un usuario y este
+                hereda todas sus capacidades. Los roles <em>de sistema</em> (SuperAdmin,
+                Organizador, Jugador) no pueden eliminarse, pero sí editar sus permisos.
+              </InfoHint>
+            </h1>
             <p className="text-muted-foreground text-xs mt-0.5">
-              Administración de roles y permisos de acceso para miembros del workspace.
+              Define qué puede hacer cada tipo de usuario en el workspace.
             </p>
           </div>
         </div>
@@ -179,7 +209,8 @@ export default function RolesPage() {
               <span>Nuevo Rol</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-popover border border-border shadow-none rounded-lg max-w-md p-5 space-y-4">
+          <DialogContent className="bg-popover border border-border shadow-none rounded-lg w-[calc(100vw-2rem)] max-w-[min(100%,28rem)] sm:max-w-md p-5 space-y-4">
+            <form onSubmit={handleSave}>
             <DialogHeader className="border-b border-border pb-3">
               <DialogTitle className="text-sm font-semibold tracking-tight">
                 {editingRol ? "Editar Rol" : "Nuevo Rol"}
@@ -210,10 +241,31 @@ export default function RolesPage() {
               </div>
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Permisos por Módulo</Label>
-                <div className="space-y-4 max-h-[300px] overflow-y-auto border border-border rounded-lg p-3 bg-secondary/10 pr-1 divide-y divide-border/30">
-                  {groupedPermisos.map(([moduleName, list]: [string, Permiso[]]) => (
-                    <div key={moduleName} className="space-y-2 pt-3 first:pt-0 first:border-0 border-t border-border/20">
-                      <h4 className="text-[10px] font-extrabold text-primary uppercase tracking-wider mb-1.5">{moduleName}</h4>
+                <PresetChips
+                  showIcon={false}
+                  options={[
+                    {
+                      id: "conv-all",
+                      label: "Todos convocatorias",
+                      onClick: () => selectModulePermissions(PermissionModuleId.CONVOCATORIAS),
+                    },
+                    {
+                      id: "conv-read",
+                      label: "Solo lectura conv.",
+                      onClick: () =>
+                        selectModulePermissions(PermissionModuleId.CONVOCATORIAS, true),
+                    },
+                  ]}
+                />
+                <div className="space-y-4 max-h-[min(50vh,300px)] overflow-y-auto overflow-x-hidden border border-border rounded-lg p-3 bg-secondary/10 pr-1 divide-y divide-border/30">
+                  {groupedPermisos.map(([moduleId, list]) => {
+                    const meta = PERMISSION_MODULES[moduleId];
+                    return (
+                    <div key={moduleId} className="space-y-2 pt-3 first:pt-0 first:border-0 border-t border-border/20">
+                      <h4 className="text-[10px] font-extrabold text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <ModuleIcon icon={meta.icon} size={12} className="p-0.5" />
+                        {meta.label}
+                      </h4>
                       <div className="grid grid-cols-2 gap-2">
                         {list.map((permiso: Permiso) => (
                           <div key={permiso.id} className="flex items-center space-x-2.5 px-1 py-1 rounded hover:bg-secondary/40 transition-colors">
@@ -234,7 +286,8 @@ export default function RolesPage() {
                         ))}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -247,21 +300,20 @@ export default function RolesPage() {
                 Cancelar
               </Button>
               <Button 
-                onClick={handleSave} 
+                type="submit"
                 disabled={saving || !formData.nombre}
                 className="h-8 text-xs font-semibold px-3 shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {saving ? <Spinner size="sm" /> : editingRol ? "Actualizar" : "Crear"}
               </Button>
             </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Spinner className="h-8 w-8" />
-        </div>
+        <RolesGridSkeleton />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {roles.map(rol => (
@@ -305,23 +357,27 @@ export default function RolesPage() {
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-border mt-auto">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => openDialog(rol)}
-                  className="h-7 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
-                >
-                  <Pencil size={11} /> Editar
-                </Button>
-                {!PROTECTED_ROLES.includes(rol.nombre) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(rol.id, rol.nombre)}
-                    className="h-7 px-2 text-[10px] font-semibold rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto gap-1"
+                <Tooltip content="Editar los permisos asignados a este rol">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => openDialog(rol)}
+                    className="h-7 px-2 text-[10px] font-semibold rounded border-border hover:bg-secondary gap-1"
                   >
-                    <Trash2 size={11} /> Eliminar
+                    <Pencil size={11} /> Editar
                   </Button>
+                </Tooltip>
+                {!PROTECTED_ROLES.includes(rol.nombre) && (
+                  <Tooltip content="Eliminar este rol (los usuarios perderán sus permisos)">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(rol.id, rol.nombre)}
+                      className="h-7 px-2 text-[10px] font-semibold rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto gap-1"
+                    >
+                      <Trash2 size={11} /> Eliminar
+                    </Button>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -330,10 +386,16 @@ export default function RolesPage() {
       )}
 
       {roles.length === 0 && !loading && (
-        <div className="bg-card border border-border rounded-lg p-12 text-center">
-          <Shield className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-          <p className="text-xs text-muted-foreground">No hay roles registrados en el workspace.</p>
-        </div>
+        <EmptyState
+          icon={<Shield size={32} />}
+          title="Sin roles definidos"
+          description="Crea un rol personalizado para agrupar permisos y asignárselos a varios usuarios de una vez."
+          action={
+            <Button onClick={() => openDialog()} className="h-8 text-xs">
+              <Plus size={12} className="mr-1" />Crear rol
+            </Button>
+          }
+        />
       )}
     </div>
   );

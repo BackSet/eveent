@@ -27,7 +27,7 @@ public class UsuarioController {
     private final RolesSistemaRepository rolesSistemaRepository;
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ver_usuarios', 'gestionar_usuarios')")
+    @PreAuthorize("hasAnyAuthority('ver_usuarios', 'crear_usuarios', 'editar_usuarios', 'dar_baja_usuarios')")
     public ResponseEntity<List<UsuarioResponse>> findAll() {
         return ResponseEntity.ok(usuarioService.findAll());
     }
@@ -65,7 +65,7 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ver_usuarios', 'gestionar_usuarios', 'ver_grupos')")
+    @PreAuthorize("hasAnyAuthority('ver_usuarios', 'crear_usuarios', 'editar_usuarios', 'dar_baja_usuarios', 'ver_grupos')")
     public ResponseEntity<UsuarioResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(usuarioService.findById(id));
     }

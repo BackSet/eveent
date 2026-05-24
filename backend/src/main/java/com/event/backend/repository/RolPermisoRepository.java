@@ -21,4 +21,7 @@ public interface RolPermisoRepository extends JpaRepository<RolPermiso, RolPermi
 
     void deleteByIdRolId(Long rolId);
     void deleteByIdPermisoId(Long permisoId);
+
+    @EntityGraph(attributePaths = {"rol"})
+    List<RolPermiso> findByIdPermisoId(Long permisoId);
 }

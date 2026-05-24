@@ -78,6 +78,15 @@ public class Convocatoria {
     @Builder.Default
     private String manejoExcedente = "LISTA_ESPERA";
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_invitacion", nullable = false, length = 20)
+    @Builder.Default
+    private TipoInvitacion tipoInvitacion = TipoInvitacion.ABIERTA;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "grupo_id")
+    private Grupo grupo;
+
     @OneToMany(mappedBy = "convocatoria", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private java.util.List<Asistencia> asistencias;
 }

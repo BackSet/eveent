@@ -1,6 +1,7 @@
 package com.event.backend.dto.convocatoria;
 
 import com.event.backend.model.EstadoConvocatoria;
+import com.event.backend.model.TipoInvitacion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -29,4 +30,6 @@ public class ConvocatoriaRequest {
     private LocalDateTime fechaAperturaInscripcion;
     private LocalDateTime fechaLimiteInscripcion;
     private String manejoExcedente;
+    private TipoInvitacion tipoInvitacion;
+    private Long grupoId;
 }

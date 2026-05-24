@@ -9,6 +9,7 @@ import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.Grupo;
 import com.event.backend.model.Usuario;
 import com.event.backend.model.UsuarioPosicion;
+import com.event.backend.repository.ConvocatoriaRepository;
 import com.event.backend.repository.GrupoRepository;
 import com.event.backend.repository.UsuarioRepository;
 import com.event.backend.repository.UsuarioPosicionRepository;
@@ -28,6 +29,7 @@ import java.util.List;
 public class GrupoService {
 
     private final GrupoRepository grupoRepository;
+    private final ConvocatoriaRepository convocatoriaRepository;
     private final UsuarioRepository usuarioRepository;
     private final SecurityService securityService;
     private final UsuarioPosicionRepository usuarioPosicionRepository;
@@ -107,6 +109,7 @@ public class GrupoService {
             throw new ForbiddenException("No tienes permiso para eliminar este grupo");
         }
 
+        convocatoriaRepository.nullifyGrupo(id);
         grupoRepository.delete(grupo);
     }
 
@@ -135,6 +138,7 @@ public class GrupoService {
                     return GrupoMiembroResponse.builder()
                             .id(u.getId())
                             .nombre(u.getNombre())
+                            .username(u.getUsername())
                             .email(u.getEmail())
                             .numeroCamiseta(u.getNumeroCamiseta())
                             .posiciones(userPosDtos)

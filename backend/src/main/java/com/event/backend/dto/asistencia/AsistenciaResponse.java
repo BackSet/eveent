@@ -9,8 +9,14 @@ public class AsistenciaResponse {
     private Long id;
     private Long convocatoriaId;
     private String convocatoriaTitulo;
+    private java.time.LocalDateTime convocatoriaFechaHora;
+    private java.time.LocalDateTime convocatoriaFechaHoraFin;
+    private String convocatoriaEstado;
+    private String convocatoriaLugar;
+    private String convocatoriaDeporteNombre;
     private Long usuarioId;
     private String usuarioNombre;
+    private String usuarioUsername;
     private String nombreExterno;
     private Long invitadoPorId;
     private String invitadoPorNombre;

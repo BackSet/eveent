@@ -39,8 +39,7 @@ public class SecurityService {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return false;
         return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("gestionar_usuarios")
-                        || a.getAuthority().equals("gestionar_roles")
+                .anyMatch(a -> a.getAuthority().equals("gestionar_roles")
                         || a.getAuthority().equals("ROLE_SUPERADMIN"));
     }
 

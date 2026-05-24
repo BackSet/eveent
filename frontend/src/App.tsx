@@ -4,7 +4,9 @@ import { AuthProvider } from './hooks/useAuth'
 import ProtectedRoute from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { Spinner } from '@/components/ui/spinner'
+import { SimplePageSkeleton } from '@/components/ui/page-skeletons'
+import { ToastProvider } from '@/components/ui/toast'
+import { ConfirmDialogProvider } from '@/components/ui/confirm-dialog'
 import { setOnUnauthorized } from './services/api'
 
 const Login = lazy(() => import('./pages/Login'))
@@ -23,8 +25,8 @@ const PermisosPage = lazy(() => import('./pages/PermisosPage'))
 
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center h-full min-h-[60vh]">
-      <Spinner className="h-10 w-10 text-primary" />
+    <div className="page-shell">
+      <SimplePageSkeleton />
     </div>
   )
 }
@@ -53,11 +55,19 @@ function AppWithApiSetup() {
               <ProtectedRoute requiredPermission="gestionar_deportes"><DeportesPage /></ProtectedRoute>
             } />
             <Route path="/convocatorias" element={<ConvocatoriasPage />} />
-            <Route path="/convocatorias/new" element={<ConvocatoriaFormPage />} />
-            <Route path="/convocatorias/recurrentes/new" element={<ConvocatoriaFormPage />} />
+            <Route path="/convocatorias/new" element={
+              <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
+            } />
+            <Route path="/convocatorias/recurrentes/new" element={
+              <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
+            } />
             <Route path="/convocatorias/:id" element={<ConvocatoriaDetailPage />} />
-            <Route path="/convocatorias/:id/edit" element={<ConvocatoriaFormPage />} />
-            <Route path="/convocatorias/recurrentes/:id/edit" element={<ConvocatoriaFormPage />} />
+            <Route path="/convocatorias/:id/edit" element={
+              <ProtectedRoute requiredPermission="editar_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
+            } />
+            <Route path="/convocatorias/recurrentes/:id/edit" element={
+              <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
+            } />
             <Route path="/mis-asistencias" element={<MisAsistenciasPage />} />
             <Route path="/perfil" element={<PerfilPage />} />
             <Route path="/usuarios" element={
@@ -86,7 +96,11 @@ function AppWithApiSetup() {
 function App() {
   return (
     <AuthProvider>
-      <AppWithApiSetup />
+      <ToastProvider>
+        <ConfirmDialogProvider>
+          <AppWithApiSetup />
+        </ConfirmDialogProvider>
+      </ToastProvider>
     </AuthProvider>
   )
 }

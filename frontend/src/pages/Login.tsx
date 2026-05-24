@@ -3,11 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
-import { Mail, Lock, User, ArrowRight, ShieldAlert, ArrowLeft, Hash, Check, X, Tag, Activity } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, ShieldAlert, ArrowLeft, Hash, Check, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { InlineListSkeleton } from "@/components/ui/page-skeletons";
+import { PageHeaderIcon } from "@/components/ui/page-icon";
+import { getPageIcon, PageIconKind } from "@/lib/iconography";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { PresetChips } from "@/components/ui/preset-chips";
+import { validateEmail, validatePassword, validateDorsal } from "@/lib/formValidation";
 
 interface Deporte {
   id: number;
@@ -40,6 +47,8 @@ export default function Login() {
 
   const { login, register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -111,47 +120,77 @@ export default function Login() {
     try {
       if (isRegister) {
         if (step === 1) {
-          // Validate Step 1
           if (!nombre.trim() || !email.trim() || !password.trim()) {
-            setError("Por favor completa todos los campos del Paso 1");
+            setError("Completa tu nombre, correo y contraseña para continuar.");
             return;
           }
-          if (password.length < 6) {
-            setError("La contraseña debe tener al menos 6 caracteres");
+          const emailErr = validateEmail(email);
+          const passErr = validatePassword(password);
+          if (emailErr || passErr) {
+            setError(emailErr || passErr || "");
             return;
           }
           setStep(2);
         } else {
-          // Validate Step 2
           if (!username.trim() || !numeroCamiseta.trim()) {
-            setError("Por favor completa los campos obligatorios del jugador");
+            setError("Elige un nombre de usuario y un dorsal para terminar tu ficha de jugador.");
+            return;
+          }
+          const dorsalErr = validateDorsal(numeroCamiseta);
+          if (dorsalErr) {
+            setError(dorsalErr);
             return;
           }
           const numCamiseta = parseInt(numeroCamiseta, 10);
-          if (isNaN(numCamiseta) || numCamiseta < 1 || numCamiseta > 99) {
-            setError("El número de camiseta debe ser un entero entre 1 y 99");
-            return;
-          }
 
           const posicionIds = selectedPositions.map((p) => p.id);
           await register(nombre, email, password, username, numCamiseta, posicionIds);
+          toast.success("¡Cuenta creada!", `Bienvenido a Event, ${nombre.split(" ")[0]}.`);
         }
       } else {
         await login(email, password);
+        toast.success("Sesión iniciada", "Bienvenido de vuelta.");
       }
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err) || "Error de autenticación");
+      const msg = getApiErrorMessage(err) || "No pudimos verificar tus credenciales. Revisa el correo/usuario y la contraseña.";
+      setError(msg);
+      toast.error(isRegister ? "No se pudo registrar" : "No se pudo iniciar sesión", msg);
     }
   }
 
   const activeSport = deportes.find((d) => d.id === selectedDeporteId);
 
+  const handleBackToStep1 = async () => {
+    const hasStep2Data =
+      username.trim() ||
+      numeroCamiseta.trim() ||
+      selectedPositions.length > 0;
+    if (hasStep2Data) {
+      const ok = await confirm({
+        title: "Volver al paso anterior",
+        description: "Perderás los datos del paso 2 (usuario, dorsal y posiciones). ¿Continuar?",
+        confirmLabel: "Sí, volver",
+        variant: "warning",
+      });
+      if (!ok) return;
+    }
+    setStep(1);
+    setError("");
+  };
+
+  const handleNextSport = () => {
+    if (deportes.length === 0) return;
+    const idx = deportes.findIndex((d) => d.id === selectedDeporteId);
+    const next = deportes[(idx + 1) % deportes.length];
+    setSelectedDeporteId(next.id);
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:px-6 bg-background">
       <div className="w-full max-w-[390px] space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2 flex flex-col items-center">
-          <div className="text-4xl select-none mb-1">🏆</div>
+          <PageHeaderIcon icon={getPageIcon(PageIconKind.LOGIN)} className="mb-1 h-14 w-14" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Event</h1>
           <p className="text-xs text-muted-foreground max-w-[280px]">
             Workspace de gestión y coordinación de eventos deportivos.
@@ -282,15 +321,32 @@ export default function Login() {
                       />
                     </div>
                   </div>
+                  <PresetChips
+                    showIcon={false}
+                    options={[
+                      {
+                        id: "random",
+                        label: "Dorsal aleatorio",
+                        onClick: () => setNumeroCamiseta(String(Math.floor(Math.random() * 99) + 1)),
+                      },
+                    ]}
+                  />
                 </div>
 
                 {/* Optional Sport Selection */}
                 <div className="space-y-2 border-t border-border/60 pt-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                       Deporte & Posición (Opcional)
                     </label>
-                    <span className="text-[9px] text-muted-foreground italic font-semibold">Configurable luego</span>
+                    {deportes.length > 1 && (
+                      <PresetChips
+                        showIcon={false}
+                        options={[
+                          { id: "next", label: "Siguiente deporte", onClick: handleNextSport },
+                        ]}
+                      />
+                    )}
                   </div>
 
                   <p className="text-[10px] text-muted-foreground/80 leading-relaxed bg-secondary/10 p-2 rounded border border-border/40 text-[9px]">
@@ -298,7 +354,7 @@ export default function Login() {
                   </p>
 
                   {loadingSports ? (
-                    <div className="flex justify-center py-2"><Spinner size="sm" /></div>
+                    <InlineListSkeleton rows={3} />
                   ) : (
                     <div className="space-y-2">
                       <select
@@ -319,12 +375,12 @@ export default function Login() {
                         <div className="space-y-1.5 animate-fadeIn">
                           <span className="text-[9px] text-muted-foreground font-semibold uppercase block">Posiciones en {activeSport.nombre}:</span>
                           {loadingPositions ? (
-                            <div className="flex justify-center py-4"><Spinner size="sm" /></div>
+                            <InlineListSkeleton rows={4} />
                           ) : posiciones.length === 0 ? (
                             <p className="text-[10px] text-muted-foreground italic text-center py-2">Sin posiciones disponibles.</p>
                           ) : (
                             <div className="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto border border-border/80 p-2 rounded bg-secondary/15">
-                              {posiciones.map((pos) => {
+                              {[...posiciones].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((pos) => {
                                 const isSelected = selectedPositions.some((p) => p.id === pos.id);
                                 return (
                                   <button
@@ -406,10 +462,7 @@ export default function Login() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    setStep(1);
-                    setError("");
-                  }}
+                  onClick={handleBackToStep1}
                   className="flex-1 h-9 font-semibold text-xs rounded border-border shadow-none hover:bg-secondary gap-1.5"
                 >
                   <ArrowLeft size={13} />

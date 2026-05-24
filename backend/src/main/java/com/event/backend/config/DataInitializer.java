@@ -1,7 +1,13 @@
 package com.event.backend.config;
 
-import com.event.backend.model.*;
+import com.event.backend.model.Deporte;
+import com.event.backend.model.PosicionesDeporte;
+import com.event.backend.model.RolesSistema;
+import com.event.backend.model.Usuario;
+import com.event.backend.model.UsuarioRol;
+import com.event.backend.model.UsuarioRolId;
 import com.event.backend.repository.*;
+import com.event.backend.service.PermisoRoleSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,9 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -22,9 +26,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
+    private final PermisoRoleSyncService permisoRoleSyncService;
     private final RolesSistemaRepository rolesRepo;
-    private final PermisosSistemaRepository permisosRepo;
-    private final RolPermisoRepository rolPermisoRepo;
     private final UsuarioRepository usuarioRepo;
     private final UsuarioRolRepository usuarioRolRepo;
     private final PasswordEncoder passwordEncoder;
@@ -63,125 +66,14 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("No se pudo agregar la columna prioridad a asistencias_posiciones_preferidas: {}", e.getMessage());
         }
 
+        permisoRoleSyncService.syncCatalog();
+
         if (!bootstrapEnabled) return;
         if (!environment.matchesProfiles("dev", "test", "default")) return;
-        seedRolesIfEmpty();
         seedAdminIfNoUsers();
         seedJugadoresIfEmpty();
         seedDeportesYPosicionesIfEmpty();
-        log.info("Seed completado: {} roles, {} permisos, {} deportes", rolesRepo.count(), permisosRepo.count(), deporteRepo.count());
-    }
-
-    private void seedRolesIfEmpty() {
-        Map<String, String> permisosData = new HashMap<>();
-        // Convocatorias
-        permisosData.put("ver_convocatorias", "Ver convocatorias");
-        permisosData.put("crear_convocatorias", "Crear convocatorias");
-        permisosData.put("editar_convocatorias", "Editar convocatorias");
-        permisosData.put("eliminar_convocatorias", "Eliminar convocatorias");
-        permisosData.put("cancelar_convocatorias", "Cancelar convocatorias (dar de baja)");
-        permisosData.put("responder_asistencia", "Responder asistencia (RSVP)");
-        permisosData.put("invitar_externos", "Invitar externos");
-        permisosData.put("dividir_equipos", "Dividir equipos y balanceo");
-        
-        // Grupos
-        permisosData.put("ver_grupos", "Ver grupos del sistema");
-        permisosData.put("crear_grupos", "Crear grupos de jugadores");
-        permisosData.put("editar_grupos", "Editar grupos y miembros");
-        permisosData.put("eliminar_grupos", "Eliminar grupos de jugadores");
-
-        // Deportes
-        permisosData.put("ver_deportes", "Ver disciplinas y posiciones");
-        permisosData.put("gestionar_deportes", "Gestionar disciplinas y posiciones");
-
-        // Usuarios
-        permisosData.put("ver_usuarios", "Ver lista de usuarios");
-        permisosData.put("crear_usuarios", "Crear nuevos usuarios");
-        permisosData.put("editar_usuarios", "Editar informacion de usuarios");
-        permisosData.put("dar_baja_usuarios", "Dar de baja usuarios");
-
-        // Roles
-        permisosData.put("ver_roles", "Ver roles y privilegios");
-        permisosData.put("gestionar_roles", "Gestionar roles y privilegios");
-        permisosData.put("ver_permisos", "Ver lista de permisos del sistema");
-        permisosData.put("suspender_jugadores", "Suspender jugadores del sistema");
-
-        Map<String, List<String>> rolesPermisos = new HashMap<>();
-        rolesPermisos.put("SuperAdmin", List.of(
-                "ver_convocatorias", "crear_convocatorias", "editar_convocatorias", "eliminar_convocatorias", "cancelar_convocatorias", "responder_asistencia", "invitar_externos", "dividir_equipos",
-                "ver_grupos", "crear_grupos", "editar_grupos", "eliminar_grupos",
-                "ver_deportes", "gestionar_deportes",
-                "ver_usuarios", "crear_usuarios", "editar_usuarios", "dar_baja_usuarios",
-                "ver_roles", "gestionar_roles", "ver_permisos", "suspender_jugadores"
-        ));
-        rolesPermisos.put("Organizador", List.of(
-                "ver_convocatorias", "crear_convocatorias", "editar_convocatorias", "cancelar_convocatorias", "responder_asistencia", "invitar_externos", "dividir_equipos",
-                "ver_grupos", "crear_grupos", "editar_grupos", "eliminar_grupos",
-                "ver_deportes", "gestionar_deportes", "suspender_jugadores"
-        ));
-        rolesPermisos.put("Jugador", List.of(
-                "ver_convocatorias", "responder_asistencia", "ver_grupos"
-        ));
-
-        List<String> rolNombres = rolesPermisos.keySet().stream().toList();
-        List<RolesSistema> existingRoles = rolesRepo.findAllByNombreIn(rolNombres);
-
-        for (String rolNombre : rolNombres) {
-            existingRoles.stream()
-                    .filter(r -> r.getNombre().equals(rolNombre))
-                    .findFirst()
-                    .orElseGet(() -> rolesRepo.save(RolesSistema.builder().nombre(rolNombre).build()));
-        }
-
-        List<String> permisosClaves = permisosData.keySet().stream().toList();
-        List<PermisosSistema> existingPermisos = permisosRepo.findByClaveIn(permisosClaves);
-
-        Map<String, PermisosSistema> permisosByClave = new HashMap<>();
-        existingPermisos.forEach(p -> permisosByClave.put(p.getClave(), p));
-
-        for (Map.Entry<String, String> entry : permisosData.entrySet()) {
-            String clave = entry.getKey();
-            if (!permisosByClave.containsKey(clave)) {
-                PermisosSistema nuevo = permisosRepo.save(
-                        PermisosSistema.builder().clave(clave).descripcion(entry.getValue()).build());
-                permisosByClave.put(clave, nuevo);
-            }
-        }
-
-        List<RolesSistema> allRoles = rolesRepo.findAllByNombreIn(rolNombres);
-        Map<String, RolesSistema> rolesByName = allRoles.stream()
-                .collect(Collectors.toMap(RolesSistema::getNombre, r -> r));
-
-        Map<String, PermisosSistema> finalPermisosByClave = permisosByClave;
-        List<RolPermiso> toSave = new ArrayList<>();
-
-        for (Map.Entry<String, List<String>> entry : rolesPermisos.entrySet()) {
-            RolesSistema rol = rolesByName.get(entry.getKey());
-            if (rol == null) continue;
-            Long rolId = rol.getId();
-
-            List<RolPermiso> existingRolPermisos = rolPermisoRepo.findByIdRolId(rolId);
-            var existingClaves = existingRolPermisos.stream()
-                    .map(rp -> rp.getPermiso().getClave())
-                    .collect(Collectors.toSet());
-
-            for (String clavePermiso : entry.getValue()) {
-                if (!existingClaves.contains(clavePermiso)) {
-                    PermisosSistema permiso = finalPermisosByClave.get(clavePermiso);
-                    if (permiso != null) {
-                        toSave.add(RolPermiso.builder()
-                                .id(new RolPermisoId(rolId, permiso.getId()))
-                                .rol(rol).permiso(permiso).build());
-                    }
-                }
-            }
-        }
-
-        if (!toSave.isEmpty()) {
-            rolPermisoRepo.saveAll(toSave);
-        }
-
-        log.info("Roles y permisos sembrados");
+        log.info("Seed completado: {} deportes", deporteRepo.count());
     }
 
     private void seedAdminIfNoUsers() {

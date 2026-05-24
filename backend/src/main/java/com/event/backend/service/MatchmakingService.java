@@ -4,7 +4,10 @@ import com.event.backend.dto.asistencia.AsistenciaResponse;
 import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.*;
 import com.event.backend.repository.*;
+import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
+
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +31,7 @@ public class MatchmakingService {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
 
-        if (convocatoria.getEstado() == EstadoConvocatoria.EN_PROGRESO || 
-            convocatoria.getEstado() == EstadoConvocatoria.FINALIZADA || 
-            convocatoria.getEstado() == EstadoConvocatoria.CANCELADA || 
-            (convocatoria.getFechaHora() != null && !convocatoria.getFechaHora().isAfter(java.time.LocalDateTime.now()))) {
-            throw new com.event.backend.exception.BusinessException("No se puede autobalancear una convocatoria en progreso, finalizada o cancelada.");
-        }
+        ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(convocatoria, LocalDateTime.now());
 
         List<Asistencia> allAsistencias = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
 
