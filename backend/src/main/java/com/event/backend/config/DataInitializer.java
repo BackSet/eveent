@@ -45,6 +45,9 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${app.admin.nombre}")
     private String adminNombre;
 
+    @Value("${admin.username:admin}")
+    private String adminUsername;
+
     @Value("${ADMIN_BOOTSTRAP_ENABLED:true}")
     private boolean bootstrapEnabled;
 
@@ -95,20 +98,42 @@ public class DataInitializer implements CommandLineRunner {
         RolesSistema superAdmin = rolesRepo.findByNombre("SuperAdmin")
                 .orElseThrow(() -> new RuntimeException("Rol SuperAdmin no encontrado"));
 
-        Usuario admin = usuarioRepo.findByEmail(adminEmail)
-                .orElseGet(() -> usuarioRepo.save(Usuario.builder()
-                        .nombre(adminNombre != null && !adminNombre.isBlank() ? adminNombre : "Super Admin")
-                        .email(adminEmail)
-                        .passwordHash(passwordEncoder.encode(adminPassword))
-                        .activo(true)
-                        .build()));
+        Usuario admin = usuarioRepo.findByEmail(adminEmail).orElse(null);
+        if (admin == null) {
+            admin = usuarioRepo.save(Usuario.builder()
+                    .nombre(adminNombre != null && !adminNombre.isBlank() ? adminNombre : "Super Admin")
+                    .email(adminEmail)
+                    .username(adminUsername)
+                    .passwordHash(passwordEncoder.encode(adminPassword))
+                    .activo(true)
+                    .build());
+            log.info("Admin creado: {} (usuario: {})", adminEmail, adminUsername);
+        } else {
+            boolean changed = false;
+            if (admin.getUsername() == null || admin.getUsername().isBlank()) {
+                admin.setUsername(adminUsername);
+                changed = true;
+            }
+            if (!passwordEncoder.matches(adminPassword, admin.getPasswordHash())) {
+                admin.setPasswordHash(passwordEncoder.encode(adminPassword));
+                changed = true;
+                log.info("Contrasena de admin sincronizada desde ADMIN_INITIAL_PASSWORD");
+            }
+            if (!admin.getActivo()) {
+                admin.setActivo(true);
+                changed = true;
+            }
+            if (changed) {
+                admin = usuarioRepo.save(admin);
+            }
+        }
 
         if (usuarioRolRepo.findByIdUsuarioId(admin.getId()).stream()
                 .noneMatch(ur -> ur.getRol().getNombre().equals("SuperAdmin"))) {
             usuarioRolRepo.save(UsuarioRol.builder()
                     .id(new UsuarioRolId(admin.getId(), superAdmin.getId()))
                     .usuario(admin).rol(superAdmin).build());
-            log.info("Admin listo: {} con rol SuperAdmin", adminEmail);
+            log.info("Rol SuperAdmin asignado a {}", adminEmail);
         }
     }
 
