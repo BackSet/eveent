@@ -74,7 +74,7 @@ export const Header = memo(function Header() {
           variant="ghost"
           size="icon"
           onClick={cycleTheme}
-          className="h-7.5 w-7.5 rounded-md hover:bg-[#efebee] dark:hover:bg-[#2c2c2c] transition-colors"
+          className="h-7.5 w-7.5 rounded-md hover:bg-muted transition-colors"
           title={`Tema: ${theme === "light" ? "Claro" : theme === "dark" ? "Oscuro" : "Sistema"}`}
         >
           {theme === "light" && <Sun size={13} className="text-amber-500 hover:text-amber-600" />}
