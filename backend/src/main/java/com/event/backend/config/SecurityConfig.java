@@ -22,8 +22,6 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.cors.CorsConfigurationSource;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.event.backend.dto.ErrorResponse;
 
 import java.nio.charset.StandardCharsets;
 
@@ -36,7 +34,9 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
     private final CorsConfigurationSource corsConfigurationSource;
-    private final ObjectMapper objectMapper;
+
+    private static final String FORBIDDEN_JSON =
+            "{\"status\":403,\"error\":\"Forbidden\",\"message\":\"No tienes permiso para realizar esta accion\"}";
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -66,8 +66,7 @@ public class SecurityConfig {
             response.setStatus(HttpStatus.FORBIDDEN.value());
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            objectMapper.writeValue(response.getWriter(),
-                    ErrorResponse.of(403, "Forbidden", "No tienes permiso para realizar esta accion"));
+            response.getWriter().write(FORBIDDEN_JSON);
         };
     }
 

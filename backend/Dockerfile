@@ -12,6 +12,8 @@ RUN chmod +x mvnw && ./mvnw -q dependency:go-offline -DskipTests
 
 COPY src src
 
+# Invalida caché de capas Maven cuando cambia el código o dependencias
+ARG APP_BUILD_ID=2
 RUN ./mvnw -q package -DskipTests
 
 FROM eclipse-temurin:25-jre-alpine
