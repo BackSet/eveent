@@ -44,4 +44,20 @@ class DatabaseUrlParserTest {
         assertThrows(IllegalArgumentException.class,
                 () -> DatabaseUrlParser.parse("jdbc:postgresql:///event"));
     }
+
+    @Test
+    void parseDoublePrefixedJdbcUrl() {
+        var parsed = DatabaseUrlParser.parse(
+                "jdbc:postgresql://postgresql://postgres:secret@postgres.railway.internal:5432/railway");
+        assertEquals("jdbc:postgresql://postgres.railway.internal:5432/railway", parsed.jdbcUrl());
+        assertEquals("postgres", parsed.username());
+        assertEquals("secret", parsed.password());
+    }
+
+    @Test
+    void normalizeConnectionStringStripsJdbcWrapper() {
+        assertEquals(
+                "postgresql://postgres:pass@host:5432/db",
+                DatabaseUrlParser.normalizeConnectionString("jdbc:postgresql://postgresql://postgres:pass@host:5432/db"));
+    }
 }

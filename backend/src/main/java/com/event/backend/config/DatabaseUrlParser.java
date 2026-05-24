@@ -18,11 +18,33 @@ final class DatabaseUrlParser {
         if (databaseUrl == null || databaseUrl.isBlank()) {
             throw new IllegalArgumentException("DATABASE_URL no puede estar vacía");
         }
-        String trimmed = databaseUrl.trim();
+        String trimmed = normalizeConnectionString(databaseUrl);
         if (trimmed.regionMatches(true, 0, "jdbc:", 0, 5)) {
             return parseJdbc(trimmed);
         }
         return parsePostgresUri(trimmed);
+    }
+
+    /**
+     * Corrige el error habitual {@code jdbc:postgresql://postgresql://…} al referenciar Railway.
+     */
+    static String normalizeConnectionString(String value) {
+        String v = value.trim();
+        boolean changed;
+        do {
+            changed = false;
+            if (v.startsWith("jdbc:postgresql://postgresql://")) {
+                v = v.substring("jdbc:postgresql://".length());
+                changed = true;
+            } else if (v.startsWith("jdbc:postgresql://postgres://")) {
+                v = v.substring("jdbc:postgresql://".length());
+                changed = true;
+            } else if (v.startsWith("jdbc:postgres://postgresql://")) {
+                v = v.substring("jdbc:postgres://".length());
+                changed = true;
+            }
+        } while (changed);
+        return v;
     }
 
     private static Parsed parsePostgresUri(String url) {
@@ -53,6 +75,10 @@ final class DatabaseUrlParser {
     private static Parsed parseJdbc(String jdbcUrl) {
         String prefix = jdbcPrefix(jdbcUrl);
         String remainder = jdbcUrl.substring(prefix.length());
+        if (remainder.regionMatches(true, 0, "postgresql://", 0, 13)
+                || remainder.regionMatches(true, 0, "postgres://", 0, 11)) {
+            return parsePostgresUri(remainder);
+        }
         if (remainder.isBlank()) {
             throw new IllegalArgumentException("DATABASE_URL JDBC sin host");
         }
