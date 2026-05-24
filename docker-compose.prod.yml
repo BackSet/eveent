@@ -26,11 +26,7 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      PGHOST: db
-      PGPORT: 5432
-      PGDATABASE: event
-      PGUSER: postgres
-      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/event
       JWT_SECRET: YWJjZGVmZ2hpamsKbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OWFiY2RlZg==
       ADMIN_BOOTSTRAP_ENABLED: "true"
       ADMIN_EMAIL: admin@event.com

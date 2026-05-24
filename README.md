@@ -246,6 +246,7 @@ Usuario → [Spring Boot :PORT]
 3. **Un servicio** desde la **raíz del repo** (Root Directory vacío o `/`).
    - Railway usará `Dockerfile` y `railway.toml` de la raíz.
 4. Variables (ver `railway.env.example`):
+   - `DATABASE_URL` — la inyecta Railway al vincular PostgreSQL (no la sobrescribas con JDBC ni `PGHOST` sueltos)
    - `SPRING_PROFILES_ACTIVE=prod`
    - `JWT_SECRET` (`openssl rand -base64 48`)
    - `ADMIN_BOOTSTRAP_ENABLED=true` solo en el primer despliegue
