@@ -7,12 +7,17 @@ export function setOnUnauthorized(cb: () => void) {
   onUnauthorized = cb;
 }
 
-function buildHeaders(extra?: Record<string, string>): Record<string, string> {
+function isPublicAuthPath(url: string): boolean {
+  const path = url.startsWith("http") ? new URL(url).pathname : url;
+  return path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register");
+}
+
+function buildHeaders(url: string, extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...extra,
   };
-  if (authToken) {
+  if (authToken && !isPublicAuthPath(url)) {
     headers["Authorization"] = `Bearer ${authToken}`;
   }
   return headers;
@@ -27,7 +32,7 @@ async function request<T = any>(
   const fullUrl = url.startsWith("http") ? url : `${baseURL}${url}`;
   const res = await fetch(fullUrl, {
     method,
-    headers: buildHeaders(),
+    headers: buildHeaders(fullUrl),
     body: body ? JSON.stringify(body) : undefined,
     signal,
   });

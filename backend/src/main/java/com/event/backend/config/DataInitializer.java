@@ -87,6 +87,10 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("No se ha configurado app.admin.email. Saltando creacion de admin.");
             return;
         }
+        if (adminPassword == null || adminPassword.isBlank()) {
+            log.warn("No se ha configurado app.admin.password / ADMIN_INITIAL_PASSWORD. Saltando creacion de admin.");
+            return;
+        }
 
         RolesSistema superAdmin = rolesRepo.findByNombre("SuperAdmin")
                 .orElseThrow(() -> new RuntimeException("Rol SuperAdmin no encontrado"));

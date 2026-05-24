@@ -38,7 +38,14 @@ public class CorsConfig {
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
                 .collect(Collectors.toList());
-        config.setAllowedOrigins(origins);
+        if (origins.isEmpty()) {
+            // Despliegue unificado (mismo host): sin orígenes explícitos no bloquear CORS
+            config.setAllowedOriginPatterns(List.of("*"));
+            config.setAllowCredentials(false);
+        } else {
+            config.setAllowedOrigins(origins);
+            config.setAllowCredentials(true);
+        }
 
         // Clean and parse methods
         List<String> methods = Arrays.stream(allowedMethods.split(","))
@@ -61,7 +68,6 @@ public class CorsConfig {
                 .collect(Collectors.toList());
         config.setExposedHeaders(exposed);
 
-        config.setAllowCredentials(true);
         config.setMaxAge(maxAge);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
