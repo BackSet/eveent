@@ -614,7 +614,7 @@ export default function Dashboard() {
               <div className="space-y-1 text-xs">
                 <Link 
                   to="/mis-asistencias" 
-                  className="flex items-center justify-between p-2 hover:bg-muted transition-colors rounded-md text-foreground group"
+                  className="flex items-center justify-between p-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors rounded-md text-foreground group"
                 >
                   <span className="flex items-center gap-2">
                     <Users size={12} className="text-muted-foreground" />
@@ -625,7 +625,7 @@ export default function Dashboard() {
 
                 <Link 
                   to="/perfil" 
-                  className="flex items-center justify-between p-2 hover:bg-muted transition-colors rounded-md text-foreground group"
+                  className="flex items-center justify-between p-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors rounded-md text-foreground group"
                 >
                   <span className="flex items-center gap-2">
                     <Shirt size={12} className="text-muted-foreground" />

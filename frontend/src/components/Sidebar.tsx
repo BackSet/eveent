@@ -90,7 +90,7 @@ export const Sidebar = memo(function Sidebar() {
       >
         {/* Workspace Selector */}
         <div className="p-3 border-b border-border">
-          <div className="flex items-center justify-between p-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer group">
+          <div className="flex items-center justify-between p-1.5 rounded-md hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors cursor-pointer group">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="flex items-center justify-center h-5.5 w-5.5 rounded bg-primary text-primary-foreground font-black text-xs shrink-0 shadow-sm">
                 E
@@ -116,7 +116,7 @@ export const Sidebar = memo(function Sidebar() {
         <div className="px-3 pt-3">
           <div 
             onClick={() => navigate("/dashboard")}
-            className="flex items-center justify-between px-2.5 py-1.5 rounded-md text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 rounded-md text-[13px] text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-foreground transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2">
               <Search size={14} />
