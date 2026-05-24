@@ -1,0 +1,44 @@
+# Stack de producción local (un solo servicio web + PostgreSQL).
+# Uso: docker compose -f docker-compose.prod.yml up --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: event
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d event"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: event
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      JWT_SECRET: YWJjZGVmZ2hpamsKbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OWFiY2RlZg==
+      ADMIN_BOOTSTRAP_ENABLED: "true"
+      ADMIN_EMAIL: admin@event.com
+      ADMIN_INITIAL_PASSWORD: admin123
+      ADMIN_NOMBRE: Super Admin
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

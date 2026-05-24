@@ -56,10 +56,14 @@ event/
 │       └── util/         # Reglas de convocatoria (fechas, eliminación, etc.)
 ├── frontend/         # SPA (React + Vite)
 │   └── src/
+├── Dockerfile        # Build producción (front + back)
+├── railway.toml
 │       ├── pages/        # Pantallas por ruta
 │       ├── components/   # UI reutilizable, lineup, convocatoria
 │       ├── hooks/        # Auth, API, capacidades por convocatoria
 │       └── lib/          # Permisos, fechas, iconografía, validaciones
+├── docker-compose.prod.yml
+├── railway.env.example
 └── README.md
 ```
 
@@ -190,11 +194,77 @@ Documentación de endpoints: controladores en `backend/src/main/java/com/event/b
 
 ---
 
-## Seguridad y despliegue
+## Seguridad
 
 - No subas archivos `.env` al repositorio (están en `.gitignore`).
-- En producción: desactiva `ADMIN_BOOTSTRAP_ENABLED`, usa `JWT_SECRET` fuerte, habilita HTTPS y restringe `CORS_ALLOWED_ORIGINS`.
-- Revisa `spring.jpa.hibernate.ddl-auto`: en producción conviene `validate` o migraciones controladas en lugar de `update`.
+- En producción: desactiva `ADMIN_BOOTSTRAP_ENABLED` tras el primer arranque y usa `JWT_SECRET` fuerte (Base64). Con el despliegue unificado, `CORS_ALLOWED_ORIGINS` solo hace falta si consumes la API desde otro dominio.
+
+---
+
+## Despliegue en Railway
+
+### Por qué un solo servicio (y no Nginx aparte)
+
+Para esta app (SPA + API REST en el mismo dominio), el enfoque recomendado es **un contenedor Spring Boot** que:
+
+1. Compila el frontend con Vite en el build de Docker.
+2. Embebe `dist/` en `classpath:/static/` dentro del JAR.
+3. Sirve la SPA y expone `/api/**` en el **mismo puerto y dominio**.
+
+| Enfoque | Ventajas | Inconvenientes |
+|---------|----------|----------------|
+| **Unificado (actual)** | Un servicio Railway, sin proxy Nginx, sin `BACKEND_URL`, sin CORS entre front y API, React Router con fallback en Spring | Imagen Docker algo más grande |
+| Nginx + API separados | Escala front y API por separado | Dos servicios, proxy, CORS, más variables y coste |
+
+Nginx sigue siendo excelente como CDN o reverse proxy de alto tráfico; para Railway y este tamaño de proyecto, **Spring + static embebido** es más simple y robusto.
+
+### Arquitectura
+
+```
+Usuario → [Spring Boot :PORT]
+              ├── /api/*     → controladores REST + JWT
+              ├── /assets/*  → ficheros Vite
+              └── /*         → index.html (React Router)
+              └── JDBC → [PostgreSQL]
+```
+
+### Archivos de despliegue
+
+| Archivo | Uso |
+|---------|-----|
+| `Dockerfile` (raíz) | Multi-stage: Node (Vite) + Maven (JAR con static) + JRE |
+| `railway.toml` (raíz) | Build Docker y healthcheck |
+| `backend/.../application-prod.properties` | Perfil `prod` |
+| `backend/.../SpaWebConfig.java` | Fallback SPA → `index.html` |
+| `railway.env.example` | Variables del panel Railway |
+| `docker-compose.prod.yml` | Prueba local (`app` + `db`) |
+
+### Pasos en Railway
+
+1. **Nuevo proyecto** → conectar el repositorio.
+2. **Añadir PostgreSQL** y vincularlo al servicio de la app.
+3. **Un servicio** desde la **raíz del repo** (Root Directory vacío o `/`).
+   - Railway usará `Dockerfile` y `railway.toml` de la raíz.
+4. Variables (ver `railway.env.example`):
+   - `SPRING_PROFILES_ACTIVE=prod`
+   - `JWT_SECRET` (`openssl rand -base64 48`)
+   - `ADMIN_BOOTSTRAP_ENABLED=true` solo en el primer despliegue
+5. Generar dominio público → esa URL sirve **login, dashboard y API**.
+
+### Perfil de producción
+
+- `spring.jpa.hibernate.ddl-auto=validate` + **Flyway**
+- Puerto: `PORT` (Railway)
+- Health: `GET /actuator/health`
+- `VITE_API_URL` vacío en build → peticiones a `/api/...` en el mismo host
+
+### Prueba local con Docker
+
+```bash
+docker compose -f docker-compose.prod.yml up --build
+```
+
+App: http://localhost:8080 (UI y API en el mismo puerto).
 
 ---
 

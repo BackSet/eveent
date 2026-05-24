@@ -1,0 +1,21 @@
+# Git y entorno
+.git/
+.gitignore
+**/.env
+**/.env.*
+!**/.env.example
+
+# Documentación y tooling local
+**/*.md
+.agents/
+.cursor/
+.vscode/
+.idea/
+skills-lock.json
+
+# Backend (se copia selectivamente en Dockerfile)
+backend/target/
+
+# Frontend (node_modules se instala en la imagen)
+frontend/node_modules/
+frontend/dist/

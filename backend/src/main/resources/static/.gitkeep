@@ -1,0 +1,1 @@
+# El build de producción (Dockerfile en la raíz) copia aquí el dist de Vite antes de empaquetar el JAR.
