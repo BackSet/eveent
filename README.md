@@ -227,7 +227,7 @@ El frontend llama al API con `VITE_API_URL`; el backend permite el origen del fr
 | [`backend/railway.toml`](backend/railway.toml) | Healthcheck `/actuator/health` |
 | [`backend/railway.env.example`](backend/railway.env.example) | Variables del servicio API |
 | [`frontend/Dockerfile`](frontend/Dockerfile) | Build Vite + Nginx |
-| [`frontend/nginx.conf`](frontend/nginx.conf) | Fallback SPA → `index.html` |
+| [`frontend/nginx.conf.template`](frontend/nginx.conf.template) | Nginx + fallback SPA (`listen ${PORT}`) |
 | [`frontend/railway.toml`](frontend/railway.toml) | Healthcheck `/` |
 | [`frontend/railway.env.example`](frontend/railway.env.example) | `VITE_API_URL`, `VITE_APP_NAME` |
 | [`docker-compose.prod.yml`](docker-compose.prod.yml) | Prueba local (`db` + `backend` + `frontend`) |
