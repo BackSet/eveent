@@ -69,6 +69,12 @@ public class DataInitializer implements CommandLineRunner {
         permisoRoleSyncService.syncCatalog();
 
         if (!bootstrapEnabled) return;
+
+        if (environment.matchesProfiles("prod")) {
+            seedAdminIfNoUsers();
+            return;
+        }
+
         if (!environment.matchesProfiles("dev", "test", "default")) return;
         seedAdminIfNoUsers();
         seedJugadoresIfEmpty();
