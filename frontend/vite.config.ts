@@ -29,7 +29,7 @@ function replaceSeoPlaceholders(content: string): string {
     .replaceAll('__SEO_GOOGLE_VERIFICATION_META__', googleMeta)
 }
 
-/** CSS del bundle antes que JS; scripts al final del body (solo assets de Vite). */
+/** Coloca el CSS del bundle tras el crítico y el JS al final del body. */
 function htmlAssetOrderPlugin(): Plugin {
   const bundleCss = /<link[^>]*rel="stylesheet"[^>]*href="\/assets\/[^"]*"[^>]*>/gi
   const bundleModule = /<script[^>]*type="module"[^>]*src="\/assets\/[^"]*"[^>]*><\/script>/gi
@@ -41,10 +41,10 @@ function htmlAssetOrderPlugin(): Plugin {
       order: 'post',
       handler(html) {
         const styles = [...html.matchAll(bundleCss)].map((m) => m[0])
-        let out = html.replace(bundleCss, '')
+        const moduleScripts = [...html.matchAll(bundleModule)].map((m) => m[0])
+        if (styles.length === 0 && moduleScripts.length === 0) return html
 
-        const moduleScripts = [...out.matchAll(bundleModule)].map((m) => m[0])
-        out = out.replace(bundleModule, '')
+        let out = html.replace(bundleCss, '').replace(bundleModule, '')
 
         if (styles.length > 0) {
           const anchor = '</style>'

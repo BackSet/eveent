@@ -18,8 +18,11 @@
       #root {
         min-height: 100dvh;
       }
-      html:not(.app-ready) #root {
+      html:not(.app-ready) {
         visibility: hidden;
+      }
+      html.app-ready {
+        visibility: visible;
       }
     </style>
     <title>__SEO_APP_NAME__ - Gestión Deportiva</title>
@@ -65,6 +68,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/bootstrap.ts"></script>
   </body>
 </html>

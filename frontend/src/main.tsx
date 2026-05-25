@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import App from './App'
-import './index.css'
 import { initAnalytics } from './lib/analytics'
 
 function markAppReady() {
@@ -20,7 +19,8 @@ function scheduleAnalytics() {
   window.addEventListener('load', run, { once: true })
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = ReactDOM.createRoot(document.getElementById('root')!)
+root.render(
   <React.StrictMode>
     <HelmetProvider>
       <BrowserRouter>
@@ -30,11 +30,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 
+// Mostrar página tras primer frame con estilos aplicados
 requestAnimationFrame(() => {
   requestAnimationFrame(markAppReady)
 })
-
-// Respaldo por si el paint se retrasa (evita pantalla en blanco indefinida)
 window.setTimeout(markAppReady, 4000)
 
 scheduleAnalytics()
