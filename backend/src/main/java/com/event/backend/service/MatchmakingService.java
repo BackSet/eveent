@@ -287,12 +287,4 @@ public class MatchmakingService {
         player.setBando(team);
         player.setPosicionAsignada(position);
     }
-
-    private static class Pair {
-        final Asistencia p1; final Asistencia p2;
-        final PosicionesDeporte pos1; final PosicionesDeporte pos2;
-        Pair(Asistencia p1, Asistencia p2, PosicionesDeporte pos1, PosicionesDeporte pos2) {
-            this.p1 = p1; this.p2 = p2; this.pos1 = pos1; this.pos2 = pos2;
-        }
-    }
 }

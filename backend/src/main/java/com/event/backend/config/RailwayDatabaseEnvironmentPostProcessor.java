@@ -12,6 +12,7 @@ import java.util.Map;
 /**
  * Normaliza URLs de BD mal formadas y evita perfil {@code dev} en Railway con credenciales de prod.
  */
+@SuppressWarnings("removal")
 public class RailwayDatabaseEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
     private static final List<String> URL_KEYS = List.of("DATABASE_URL", "DB_URL");
