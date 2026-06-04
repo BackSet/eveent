@@ -13,7 +13,7 @@ import { EventDateTimePicker } from "@/components/convocatoria/EventDateTimePick
 import { useToast } from "@/components/ui/toast";
 import { CalendarClock, ShieldAlert, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { cn } from "@/lib/utils";
+import { cn, logError } from "@/lib/utils";
 
 type ModoUi = AutoAceptacionModo | "OFF";
 
@@ -77,7 +77,7 @@ export function AutoAceptacionCard({ className }: AutoAceptacionCardProps) {
       setDiaLocal(toDateLocal(data.referencia));
       setDesdeLocal(toDateTimeLocal(data.referencia));
     } catch (err) {
-      console.error(err);
+      logError("Error", err);
       if (!loadErrorToastShownRef.current) {
         loadErrorToastShownRef.current = true;
         toastRef.current.error(

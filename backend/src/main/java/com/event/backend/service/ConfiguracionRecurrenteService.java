@@ -34,7 +34,7 @@ public class ConfiguracionRecurrenteService {
 
     @Transactional(readOnly = true)
     public List<ConfiguracionRecurrenteResponse> findAll() {
-        if (!securityService.isSuperAdmin()) {
+        if (!canManageAnyRecurrente()) {
             Long userId = securityService.getCurrentUserId();
             return configuracionRepository.findByCreadoPorId(userId).stream()
                     .map(this::toResponse)
@@ -49,7 +49,7 @@ public class ConfiguracionRecurrenteService {
     public ConfiguracionRecurrenteResponse findById(Long id) {
         ConfiguracionRecurrente config = configuracionRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Configuracion recurrente no encontrada con id: " + id));
-        if (!securityService.isOwnerOrAdmin(config.getCreadoPor().getId())) {
+        if (!canManageRecurrente(config)) {
             throw new ForbiddenException("No tienes permiso para ver esta configuracion");
         }
         return toResponse(config);
@@ -90,7 +90,7 @@ public class ConfiguracionRecurrenteService {
         ConfiguracionRecurrente config = configuracionRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Configuracion no encontrada"));
 
-        if (!securityService.isOwnerOrAdmin(config.getCreadoPor().getId())) {
+        if (!canManageRecurrente(config)) {
             throw new ForbiddenException("No tienes permiso para editar esta configuracion");
         }
 
@@ -125,11 +125,21 @@ public class ConfiguracionRecurrenteService {
         ConfiguracionRecurrente config = configuracionRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Configuracion no encontrada"));
 
-        if (!securityService.isOwnerOrAdmin(config.getCreadoPor().getId())) {
+        if (!canManageRecurrente(config)) {
             throw new ForbiddenException("No tienes permiso para eliminar esta configuracion");
         }
 
         configuracionRepository.delete(config);
+    }
+
+    private boolean canManageAnyRecurrente() {
+        return securityService.isSuperAdmin() || securityService.hasAuthority("editar_convocatorias");
+    }
+
+    private boolean canManageRecurrente(ConfiguracionRecurrente config) {
+        Long currentUserId = securityService.getCurrentUserId();
+        boolean isOwner = config.getCreadoPor() != null && config.getCreadoPor().getId().equals(currentUserId);
+        return isOwner || canManageAnyRecurrente();
     }
 
     private Map<String, HorarioDia> convertHorarios(Map<String, ConfiguracionRecurrenteRequest.HorarioDiaRequest> requestMap) {

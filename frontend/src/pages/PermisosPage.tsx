@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
+import { logError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { PermisosPageSkeleton } from "@/components/ui/page-skeletons";
@@ -37,6 +38,12 @@ const DESCRIPCION_TEMPLATES = [
   { id: "eliminar", label: "Eliminar", text: "Permite eliminar o desactivar registros." },
 ];
 
+const PERMISSION_POLICY_NOTES = [
+  "Las pantallas y acciones operativas se habilitan por permisos, no por el nombre del rol.",
+  "Crear, editar, cancelar y eliminar convocatorias son permisos separados; crear no administra eventos ajenos.",
+  "SuperAdmin es la única excepción global: puede acceder aunque no tenga un permiso marcado manualmente.",
+];
+
 interface Permiso {
   id: number;
   clave: string;
@@ -71,7 +78,7 @@ export default function PermisosPage() {
       const { data } = await api.get("/api/roles/permisos");
       setPermisos(data);
     } catch (err) {
-      console.error("Error al cargar permisos", err);
+      logError("Error al cargar permisos", err);
     } finally {
       setLoading(false);
     }
@@ -173,6 +180,20 @@ export default function PermisosPage() {
         <div>
           Los permisos se incorporan mediante <strong>código y migraciones</strong>. No es posible crear,
           eliminar ni modificar la clave desde esta pantalla.
+        </div>
+      </div>
+
+      <div className="notion-callout p-3 rounded-lg text-[11px] leading-relaxed">
+        <div className="notion-callout-icon">
+          <Shield size={14} className="shrink-0" />
+        </div>
+        <div className="space-y-1">
+          <div className="font-bold text-foreground">Política de acceso actual</div>
+          <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
+            {PERMISSION_POLICY_NOTES.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
         </div>
       </div>
 

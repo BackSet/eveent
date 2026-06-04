@@ -44,7 +44,7 @@ const getDayLabel = (key: string): string => {
   return RRULE_DAYS.find(d => d.value === key)?.label ?? key;
 };
 
-export default function ConvocatoriaFormPage() {
+export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,7 +52,9 @@ export default function ConvocatoriaFormPage() {
   const confirm = useConfirm();
 
   const isEditing = Boolean(id);
-  const isRecurrentRoute = location.pathname.includes("recurrentes");
+  // El modo recurrente llega como prop explícito desde el router; sólo recurrimos a
+  // inspeccionar la ruta como respaldo para no romper enlaces directos.
+  const isRecurrentRoute = recurrente ?? location.pathname.includes("recurrentes");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

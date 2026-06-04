@@ -146,8 +146,12 @@ public class AsistenciaService {
 
         // Si es un jugador externo (invitado por el usuario actual)
         if (request.getNombreExterno() != null && !request.getNombreExterno().trim().isEmpty()) {
-            if (!convocatoriaAccessService.isOrganizer(convocatoria, usuario.getId())) {
-                throw new ForbiddenException("Solo el organizador puede registrar invitados externos.");
+            boolean isOwnerOrSuperAdmin = convocatoriaAccessService.isOwnerOrSuperAdmin(convocatoria, usuario.getId());
+            if (!isOwnerOrSuperAdmin && !hasAuthority("invitar_externos")) {
+                throw new ForbiddenException("No tienes permiso para registrar invitados externos.");
+            }
+            if (!isOwnerOrSuperAdmin) {
+                convocatoriaAccessService.assertCanSelfRegister(convocatoria, usuario.getId());
             }
             EstadoAsistencia requestedEstado = request.getEstado() != null 
                     ? EstadoAsistencia.valueOf(request.getEstado()) 
@@ -297,7 +301,8 @@ public class AsistenciaService {
         boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
         boolean isHost = asistencia.getInvitadoPor() != null && asistencia.getInvitadoPor().getId().equals(currentUserId);
 
-        if (!isOwner && !isHost && !hasAdminPermission()) {
+        if (!isOwner && !isHost
+                && !convocatoriaAccessService.canManageAttendance(asistencia.getConvocatoria(), currentUserId)) {
             throw new ForbiddenException("No tienes permiso para editar esta asistencia");
         }
 
@@ -387,7 +392,8 @@ public class AsistenciaService {
         boolean isOwner = asistencia.getUsuario() != null && asistencia.getUsuario().getId().equals(currentUserId);
         boolean isHost = asistencia.getInvitadoPor() != null && asistencia.getInvitadoPor().getId().equals(currentUserId);
 
-        if (!isOwner && !isHost && !hasAdminPermission()) {
+        if (!isOwner && !isHost
+                && !convocatoriaAccessService.canManageAttendance(asistencia.getConvocatoria(), currentUserId)) {
             throw new ForbiddenException("No tienes permiso para eliminar esta asistencia");
         }
 
@@ -401,12 +407,11 @@ public class AsistenciaService {
         }
     }
 
-    private boolean hasAdminPermission() {
+    private boolean hasAuthority(String authority) {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return false;
         return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("gestionar_convocatorias")
-                        || a.getAuthority().equals("ROLE_SUPERADMIN"));
+                .anyMatch(a -> a.getAuthority().equals(authority));
     }
 
     private void promoteFromWaitlist(Long convocatoriaId) {
@@ -425,8 +430,8 @@ public class AsistenciaService {
 
         ConvocatoriaScheduleHelper.assertConvocatoriaActiveForSideEffects(convocatoria, LocalDateTime.now());
 
-        if (!convocatoriaAccessService.isOrganizer(convocatoria, securityService.getCurrentUserId())) {
-            throw new ForbiddenException("Solo el organizador puede invitar jugadores.");
+        if (!convocatoriaAccessService.canInviteRegisteredPlayers(convocatoria, securityService.getCurrentUserId())) {
+            throw new ForbiddenException("No tienes permiso para invitar jugadores a esta convocatoria.");
         }
 
         List<Asistencia> existing = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
@@ -479,7 +484,8 @@ public class AsistenciaService {
         for (Asistencia a : asistencias) {
             boolean isOwner = a.getUsuario() != null && a.getUsuario().getId().equals(currentUserId);
             boolean isHost = a.getInvitadoPor() != null && a.getInvitadoPor().getId().equals(currentUserId);
-            if (!isOwner && !isHost && !hasAdminPermission()) {
+            if (!isOwner && !isHost
+                    && !convocatoriaAccessService.canManageAttendance(a.getConvocatoria(), currentUserId)) {
                 throw new ForbiddenException("No tienes permiso para eliminar esta asistencia: " + a.getId());
             }
         }

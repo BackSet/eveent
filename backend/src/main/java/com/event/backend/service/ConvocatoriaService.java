@@ -36,9 +36,13 @@ public class ConvocatoriaService {
     private final SecurityService securityService;
     private final ConvocatoriaAccessService convocatoriaAccessService;
 
+    public boolean canManageAny() {
+        return convocatoriaAccessService.canManageAny();
+    }
+
     @Transactional(readOnly = true)
     public List<ConvocatoriaResponse> findAll() {
-        if (!securityService.isSuperAdmin()) {
+        if (!convocatoriaAccessService.canManageAny()) {
             Long userId = securityService.getCurrentUserId();
             return convocatoriaRepository.findByCreadoPorId(userId).stream()
                     .map(this::toResponse)
@@ -61,12 +65,10 @@ public class ConvocatoriaService {
     @Transactional(readOnly = true)
     public List<ConvocatoriaResponse> findByEstado(EstadoConvocatoria estado) {
         Long userId = securityService.getCurrentUserId();
-        boolean isOrganizer = org.springframework.security.core.context.SecurityContextHolder.getContext()
-                .getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("crear_convocatorias"));
+        boolean canManageAny = convocatoriaAccessService.canManageAny();
 
         return convocatoriaRepository.findByEstado(estado).stream()
-                .filter(c -> isOrganizer || convocatoriaAccessService.canView(c, userId))
+                .filter(c -> canManageAny || convocatoriaAccessService.canView(c, userId))
                 .map(c -> toResponse(c, true))
                 .toList();
     }
@@ -136,7 +138,7 @@ public class ConvocatoriaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + id));
 
-        if (!securityService.isOwnerOrAdmin(convocatoria.getCreadoPor().getId())) {
+        if (!convocatoriaAccessService.canEdit(convocatoria, securityService.getCurrentUserId())) {
             throw new ForbiddenException("No tienes permiso para editar esta convocatoria");
         }
 
@@ -178,7 +180,7 @@ public class ConvocatoriaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + id));
 
-        if (!securityService.isOwnerOrAdmin(convocatoria.getCreadoPor().getId())) {
+        if (!convocatoriaAccessService.canPublish(convocatoria, securityService.getCurrentUserId())) {
             throw new ForbiddenException("No tienes permiso para abrir esta convocatoria");
         }
 
@@ -202,7 +204,7 @@ public class ConvocatoriaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + id));
 
-        if (!securityService.isOwnerOrAdmin(convocatoria.getCreadoPor().getId())) {
+        if (!convocatoriaAccessService.canCancel(convocatoria, securityService.getCurrentUserId())) {
             throw new ForbiddenException("No tienes permiso para cancelar esta convocatoria");
         }
 
@@ -218,7 +220,7 @@ public class ConvocatoriaService {
         Convocatoria convocatoria = convocatoriaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + id));
 
-        if (!securityService.isOwnerOrAdmin(convocatoria.getCreadoPor().getId())) {
+        if (!convocatoriaAccessService.canDelete(convocatoria, securityService.getCurrentUserId())) {
             throw new ForbiddenException("No tienes permiso para eliminar esta convocatoria");
         }
 

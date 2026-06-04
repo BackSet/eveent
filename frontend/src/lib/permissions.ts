@@ -53,7 +53,7 @@ export function canPublishConvocatoria(
   );
 }
 
-/** Cancelar convocatoria: solo ABIERTA; dueño o permisos de cancelación/edición/creación. */
+/** Cancelar convocatoria: solo ABIERTA y con permiso de cancelación. */
 export function canCancelConvocatoria(
   conv: { estado: string; creadoPorId?: number },
   hasPermission: HasPermissionFn,
@@ -62,15 +62,10 @@ export function canCancelConvocatoria(
   if (conv.estado !== "ABIERTA") {
     return false;
   }
-  return (
-    isConvocatoriaOwner(conv, userId) ||
-    hasPermission("cancelar_convocatorias") ||
-    hasPermission("editar_convocatorias") ||
-    hasPermission("crear_convocatorias")
-  );
+  return hasPermission("cancelar_convocatorias");
 }
 
-/** Eliminar borrador/abierta/cancelada: permiso global o dueño del evento. */
+/** Eliminar borrador/abierta/cancelada: requiere permiso específico. */
 export function canDeleteConvocatoria(
   conv: { estado: string; creadoPorId?: number },
   hasPermission: HasPermissionFn,
@@ -79,10 +74,10 @@ export function canDeleteConvocatoria(
   if (!isConvocatoriaDeletableEstado(conv.estado)) {
     return false;
   }
-  return hasPermission("eliminar_convocatorias") || isConvocatoriaOwner(conv, userId);
+  return hasPermission("eliminar_convocatorias");
 }
 
-/** Editar metadatos: BORRADOR o ABIERTA; dueño o permisos de edición/creación. */
+/** Editar metadatos: BORRADOR o ABIERTA y con permiso de edición. */
 export function canEditConvocatoria(
   conv: { estado: string; creadoPorId?: number },
   hasPermission: HasPermissionFn,
@@ -91,11 +86,7 @@ export function canEditConvocatoria(
   if (conv.estado !== "BORRADOR" && conv.estado !== "ABIERTA") {
     return false;
   }
-  return (
-    isConvocatoriaOwner(conv, userId) ||
-    hasPermission("editar_convocatorias") ||
-    hasPermission("crear_convocatorias")
-  );
+  return hasPermission("editar_convocatorias");
 }
 
 function canManageRecurrenteByPermission(
@@ -130,11 +121,10 @@ export function canDeleteRecurrente(
   return canManageRecurrenteByPermission(config, hasPermission, userId);
 }
 
-/** Puede gestionar convocatorias ajenas (crear, editar, cancelar, eliminar). */
+/** Puede gestionar convocatorias ajenas (editar, cancelar, eliminar). */
 export function canManageConvocatoriasGlobally(hasPermission: HasPermissionFn): boolean {
   return hasAnyPermission(
     hasPermission,
-    "crear_convocatorias",
     "editar_convocatorias",
     "cancelar_convocatorias",
     "eliminar_convocatorias"
@@ -174,7 +164,7 @@ export function getConvocatoriaCapabilities(
   const canDivide = canDivideTeams(hasPermission);
 
   const canManageConvocatoria =
-    canEdit || canCancelPerm || canDeletePerm || isOwner;
+    canEdit || canCancelPerm || canDeletePerm;
   const convWithEstado =
     convocatoria?.estado != null
       ? (convocatoria as { creadoPorId?: number; estado: string })

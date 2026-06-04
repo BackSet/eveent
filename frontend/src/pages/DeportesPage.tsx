@@ -473,8 +473,9 @@ export default function DeportesPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6 rounded hover:bg-muted" 
+                            className="h-6 w-6 rounded hover:bg-muted"
                             onClick={() => openDeporteDialog(deporte)}
+                            aria-label={`Editar deporte ${deporte.nombre}`}
                           >
                             <Edit size={11} className="text-muted-foreground hover:text-foreground" />
                           </Button>
@@ -483,8 +484,9 @@ export default function DeportesPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6 rounded hover:bg-destructive/10" 
+                            className="h-6 w-6 rounded hover:bg-destructive/10"
                             onClick={() => handleDeleteDeporte(deporte)}
+                            aria-label={`Eliminar deporte ${deporte.nombre}`}
                           >
                             <Trash2 size={11} className="text-destructive" />
                           </Button>
@@ -556,8 +558,9 @@ export default function DeportesPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-7 w-7 rounded-lg hover:bg-muted" 
+                            className="h-7 w-7 rounded-lg hover:bg-muted"
                             onClick={() => openPosicionDialog(pos)}
+                            aria-label={`Editar posición ${pos.nombre}`}
                           >
                             <Edit size={12} className="text-muted-foreground hover:text-foreground" />
                           </Button>
@@ -566,8 +569,9 @@ export default function DeportesPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive" 
+                            className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => handleDeletePosicion(pos)}
+                            aria-label={`Eliminar posición ${pos.nombre}`}
                           >
                             <Trash2 size={12} className="text-destructive" />
                           </Button>

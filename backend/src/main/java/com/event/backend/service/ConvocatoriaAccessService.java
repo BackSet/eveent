@@ -21,23 +21,62 @@ public class ConvocatoriaAccessService {
     private final GrupoRepository grupoRepository;
     private final UsuarioPosicionRepository usuarioPosicionRepository;
 
-    public boolean isOrganizer(Convocatoria convocatoria, Long userId) {
+    public boolean isOwnerOrSuperAdmin(Convocatoria convocatoria, Long userId) {
+        return isOwner(convocatoria, userId) || securityService.isSuperAdmin();
+    }
+
+    public boolean isOwner(Convocatoria convocatoria, Long userId) {
         if (userId == null) return false;
-        if (securityService.isSuperAdmin()) return true;
-        if (convocatoria.getCreadoPor() != null && convocatoria.getCreadoPor().getId().equals(userId)) {
-            return true;
-        }
-        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return false;
-        return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("gestionar_convocatorias")
-                        || a.getAuthority().equals("editar_convocatorias")
-                        || a.getAuthority().equals("crear_convocatorias"));
+        return convocatoria.getCreadoPor() != null && convocatoria.getCreadoPor().getId().equals(userId);
+    }
+
+    public boolean canManageAny() {
+        return securityService.isSuperAdmin()
+                || securityService.hasAnyAuthority(
+                        "editar_convocatorias",
+                        "cancelar_convocatorias",
+                        "eliminar_convocatorias");
+    }
+
+    public boolean canEdit(Convocatoria convocatoria, Long userId) {
+        return isOwner(convocatoria, userId)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("editar_convocatorias");
+    }
+
+    public boolean canPublish(Convocatoria convocatoria, Long userId) {
+        return isOwner(convocatoria, userId)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("editar_convocatorias");
+    }
+
+    public boolean canCancel(Convocatoria convocatoria, Long userId) {
+        return isOwner(convocatoria, userId)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("cancelar_convocatorias");
+    }
+
+    public boolean canDelete(Convocatoria convocatoria, Long userId) {
+        return isOwner(convocatoria, userId)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("eliminar_convocatorias");
+    }
+
+    public boolean canManageAttendance(Convocatoria convocatoria, Long userId) {
+        return isOwner(convocatoria, userId)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("editar_convocatorias");
+    }
+
+    public boolean canInviteRegisteredPlayers(Convocatoria convocatoria, Long userId) {
+        return isOwner(convocatoria, userId)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("editar_convocatorias");
     }
 
     public boolean canView(Convocatoria convocatoria, Long userId) {
         if (convocatoria == null || userId == null) return false;
-        if (isOrganizer(convocatoria, userId)) return true;
+        if (isOwnerOrSuperAdmin(convocatoria, userId) || canManageAny()) return true;
 
         if (convocatoria.getEstado() == EstadoConvocatoria.BORRADOR) {
             return false;
@@ -54,7 +93,7 @@ public class ConvocatoriaAccessService {
 
     public boolean canSelfRegister(Convocatoria convocatoria, Long userId) {
         if (convocatoria == null || userId == null) return false;
-        if (isOrganizer(convocatoria, userId)) return true;
+        if (isOwnerOrSuperAdmin(convocatoria, userId)) return true;
 
         if (convocatoria.getEstado() != EstadoConvocatoria.ABIERTA
                 && convocatoria.getEstado() != EstadoConvocatoria.EN_PROGRESO) {

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "@/services/api";
 import { formatDateTime } from "@/lib/formatDate";
 import { TEAM_COLORS, getTeamColorHex, getApiErrorMessage } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, logError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -160,12 +160,15 @@ export default function ConvocatoriaDetailPage() {
   const [userPosiciones, setUserPosiciones] = useState<any[]>([]);
   const [positionsDialogOpen, setPositionsDialogOpen] = useState(false);
 
+  const isMountedRef = useRef(true);
+
   const fetchData = useCallback(async () => {
     if (!user) return;
     setError("");
     setAccessDenied(false);
     try {
       const convRes = await api.get(`/api/convocatorias/${id}`);
+      if (!isMountedRef.current) return;
       setConvocatoria(convRes.data);
 
       const [asisRes, equipRes, posRes] = await Promise.all([
@@ -173,6 +176,7 @@ export default function ConvocatoriaDetailPage() {
         api.get(`/api/convocatorias/${id}/bandos`),
         api.get(`/api/usuarios/me/posiciones`),
       ]);
+      if (!isMountedRef.current) return;
       setAsistencias(asisRes.data);
       setBandos(equipRes.data);
       setUserPosiciones(posRes.data || []);
@@ -196,7 +200,11 @@ export default function ConvocatoriaDetailPage() {
   }, [id, user?.id]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     if (user) fetchData();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [id, user?.id, fetchData]);
 
   const handleMatchmaking = async (teamsCount?: number) => {
@@ -311,7 +319,7 @@ export default function ConvocatoriaDetailPage() {
         const res = await api.get(`/api/deportes/${convocatoria.deporteId}/posiciones`);
         setDeportePosiciones(res.data);
       } catch (err: unknown) {
-        console.error("Error al cargar posiciones", err);
+        logError("Error al cargar posiciones", err);
       }
     }
   };
@@ -330,7 +338,7 @@ export default function ConvocatoriaDetailPage() {
         const res = await api.get(`/api/deportes/${convocatoria.deporteId}/posiciones`);
         setDeportePosiciones(res.data);
       } catch (err: unknown) {
-        console.error("Error al cargar posiciones", err);
+        logError("Error al cargar posiciones", err);
       }
     }
   };
@@ -558,7 +566,7 @@ export default function ConvocatoriaDetailPage() {
       setTimeout(() => setShareSuccess(false), 3000);
     } catch (err) {
       toast.error("No se pudo copiar al portapapeles. Intenta de nuevo.");
-      console.error("Error al copiar al portapapeles", err);
+      logError("Error al copiar al portapapeles", err);
     }
   };
 
@@ -776,7 +784,7 @@ export default function ConvocatoriaDetailPage() {
               "notion-property-value text-sm font-semibold",
               convocatoria.estado === "BORRADOR" &&
                 !puedePublicarBorrador(convocatoria) &&
-                "text-amber-700/90 dark:text-amber-400/90 line-through decoration-amber-500/40"
+                "text-warning line-through decoration-warning/40"
             )}
           >
             {formatDateTime(convocatoria.fechaHora ?? null)}
@@ -910,9 +918,9 @@ export default function ConvocatoriaDetailPage() {
                   onClick={() => handleRespondedAsistencia("ASISTIRE")}
                   className={`w-full sm:w-auto flex-1 sm:flex-initial h-9 sm:h-8 px-4 text-xs font-semibold rounded border transition-all ${
                     miAsistencia?.estado === "ASISTIRE" 
-                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" 
+                      ? "bg-success hover:bg-success/90 text-white border-success"
                       : miAsistencia?.estado === "LISTA_ESPERA"
-                        ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                        ? "bg-info hover:bg-info/90 text-white border-info"
                         : "bg-background text-foreground hover:bg-muted border-border"
                   }`}
                 >
@@ -1340,7 +1348,7 @@ export default function ConvocatoriaDetailPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 border-t border-border pt-6">
                         {playerLists.pendientes.length > 0 && (
                           <div className="space-y-2">
-                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1">
+                            <span className="text-[10px] font-black text-warning uppercase tracking-widest flex items-center gap-1">
                               <Clock size={11} />
                               <span>Sin Confirmar ({playerLists.pendientes.length})</span>
                             </span>
@@ -1423,16 +1431,18 @@ export default function ConvocatoriaDetailPage() {
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className="h-5 w-5 rounded text-muted-foreground hover:text-primary hover:bg-muted" 
+                                      className="h-5 w-5 rounded text-muted-foreground hover:text-primary hover:bg-muted"
                                       onClick={() => openBandoDialog(eq)}
+                                      aria-label={`Editar bando ${eq.nombre}`}
                                     >
                                       <Edit size={10} />
                                     </Button>
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className="h-5 w-5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
+                                      className="h-5 w-5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                       onClick={() => handleDeleteBando(eq.id, eq.nombre)}
+                                      aria-label={`Eliminar bando ${eq.nombre}`}
                                     >
                                       <Trash2 size={10} />
                                     </Button>
@@ -1601,7 +1611,7 @@ export default function ConvocatoriaDetailPage() {
                           }
                         }}
                         disabled={!puedePublicarBorrador(convocatoria)}
-                        className="h-8 px-3 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-premium cursor-pointer border border-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="h-8 px-3 font-semibold text-xs bg-success hover:bg-success/90 text-white rounded transition-premium cursor-pointer border border-success disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <CheckCircle2 size={13} className="mr-1.5" />
                         Abrir Convocatoria

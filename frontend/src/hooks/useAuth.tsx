@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import api from "@/services/api";
+import { safeJsonParse, logError } from "@/lib/utils";
 
 interface User {
   id: number;
@@ -45,7 +46,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
     token: localStorage.getItem("token"),
-    user: JSON.parse(localStorage.getItem("user") || "null"),
+    user: safeJsonParse<User | null>(localStorage.getItem("user"), null),
     isAuthenticated: !!localStorage.getItem("token"),
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -122,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [authState.user]);
 
   const hasPermission = useCallback((permission: string) => {
+    if (authState.user?.roles?.some(r => r.toLowerCase() === "superadmin")) return true;
     return authState.user?.permissions?.some(p => p.toLowerCase() === permission.toLowerCase()) || false;
   }, [authState.user]);
 
@@ -137,9 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         })
         .catch(err => {
-          console.error("Error al sincronizar el perfil del usuario:", err);
-          if (err.response?.status === 401) {
+          if (err?.response?.status === 401) {
             logout();
+          } else {
+            logError("Error al sincronizar el perfil del usuario:", err);
           }
         });
     }

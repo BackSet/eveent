@@ -175,9 +175,13 @@ export default function MisAsistenciasPage() {
       </DataListCell>
 
       <DataListActions span={ASIST_LIST_COLUMNS.detalle}>
-        <span className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground group-hover:text-primary transition-colors">
+        <Link
+          to={`/convocatorias/${asis.convocatoriaId}`}
+          aria-label={`Ver detalle de ${asis.convocatoriaTitulo ?? "la convocatoria"}`}
+          className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground group-hover:text-primary transition-colors"
+        >
           <Eye size={13} />
-        </span>
+        </Link>
       </DataListActions>
     </DataListRow>
   );

@@ -91,7 +91,7 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
                     pending.variant === "danger"
                       ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       : pending.variant === "warning"
-                      ? "bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+                      ? "bg-warning text-white hover:bg-warning/90"
                       : "bg-primary text-primary-foreground hover:bg-primary/90"
                   )}
                 >

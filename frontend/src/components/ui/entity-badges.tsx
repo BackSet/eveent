@@ -74,7 +74,7 @@ export function ConvocatoriaEstadoCell({
         <span
           className={cn(
             badgeXs,
-            "normal-case tracking-normal gap-1 border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+            "normal-case tracking-normal gap-1 border border-warning/30 bg-warning/10 text-warning"
           )}
           title="La fecha del evento ya pasó; edita o elimina este borrador"
         >

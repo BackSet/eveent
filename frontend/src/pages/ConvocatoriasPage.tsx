@@ -28,7 +28,7 @@ import {
   TOOLTIP_PUBLICAR_BORRADOR,
 } from "@/lib/convocatoriaDraft";
 import { getApiErrorMessage } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, logError } from "@/lib/utils";
 import { DataListSkeleton } from "@/components/ui/page-skeletons";
 import { DeporteIcon } from "@/components/ui/page-icon";
 import { PageHeader } from "@/components/ui/page-header";
@@ -139,7 +139,7 @@ export default function ConvocatoriasPage() {
       fetchConvocatorias();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) || "No se pudo eliminar la convocatoria.");
-      console.error("Error al eliminar convocatoria", err);
+      logError("Error al eliminar convocatoria", err);
     }
   };
 
@@ -151,7 +151,7 @@ export default function ConvocatoriasPage() {
       fetchConvocatorias();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) || "No se pudo abrir la convocatoria.");
-      console.error("Error al abrir convocatoria", err);
+      logError("Error al abrir convocatoria", err);
     }
   };
 
@@ -168,7 +168,7 @@ export default function ConvocatoriasPage() {
       fetchRecurrentes();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) || "No se pudo cambiar el estado de la regla.");
-      console.error("Error al cambiar estado de la regla", err);
+      logError("Error al cambiar estado de la regla", err);
     }
   };
 
@@ -193,7 +193,7 @@ export default function ConvocatoriasPage() {
       fetchConvocatorias();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) || "No se pudo cancelar la convocatoria.");
-      console.error("Error al cancelar convocatoria", err);
+      logError("Error al cancelar convocatoria", err);
     }
   };
 
@@ -202,7 +202,7 @@ export default function ConvocatoriasPage() {
       const { data } = await api.get<Convocatoria[]>("/api/convocatorias");
       setConvocatorias(filterConvocatoriasForUser(data, hasPermission, user?.id));
     } catch (err) {
-      console.error("Error al cargar convocatorias", err);
+      logError("Error al cargar convocatorias", err);
     } finally {
       setLoading(false);
     }
@@ -214,7 +214,7 @@ export default function ConvocatoriasPage() {
       const { data } = await api.get("/api/configuraciones-recurrentes");
       setRecurrentes(data);
     } catch (err) {
-      console.error("Error al cargar recurrentes", err);
+      logError("Error al cargar recurrentes", err);
     } finally {
       setLoadingRecurrentes(false);
     }
@@ -249,7 +249,7 @@ export default function ConvocatoriasPage() {
       fetchRecurrentes();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) || "No se pudo eliminar la regla recurrente.");
-      console.error("Error", err);
+      logError("Error", err);
     }
   };
 
@@ -381,7 +381,7 @@ export default function ConvocatoriasPage() {
               className={cn(
                 "font-medium",
                 isBorradorConFechaPasada(conv)
-                  ? "text-amber-700/90 dark:text-amber-400/90 line-through decoration-amber-500/40"
+                  ? "text-warning line-through decoration-warning/40"
                   : "text-foreground/90"
               )}
             >
@@ -422,7 +422,7 @@ export default function ConvocatoriasPage() {
               type="button"
               onClick={(e) => handleAbrir(e, conv.id)}
               disabled={!puedePublicarBorrador(conv)}
-              className="h-7 w-7 flex items-center justify-center rounded hover:bg-green-500/10 text-green-600 hover:text-green-700 transition-colors disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent"
+              className="h-7 w-7 flex items-center justify-center rounded hover:bg-success/10 text-success hover:text-success transition-colors disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent"
               aria-label="Publicar convocatoria"
             >
               <CheckCircle size={13} />
@@ -766,7 +766,7 @@ export default function ConvocatoriasPage() {
                       {canManageRecurrente(rec, hasPermission, user?.id) && (
                         <Tooltip content="Editar regla">
                           <Link to={`/convocatorias/recurrentes/${rec.id}/edit`}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-muted">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-muted" aria-label="Editar regla recurrente">
                               <Edit size={13} className="text-muted-foreground hover:text-foreground" />
                             </Button>
                           </Link>

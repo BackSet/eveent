@@ -369,9 +369,10 @@ export default function GruposPage() {
                         <Tooltip content="Editar nombre, descripción y miembros">
                           <Button 
                             variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 rounded hover:bg-muted" 
+                            size="icon"
+                            className="h-6 w-6 rounded hover:bg-muted"
                             onClick={(e) => openEditDialog(e, grupo)}
+                            aria-label={`Editar grupo ${grupo.nombre}`}
                           >
                             <Edit size={11} className="text-muted-foreground hover:text-foreground" />
                           </Button>
@@ -383,6 +384,7 @@ export default function GruposPage() {
                               size="icon"
                               className="h-6 w-6 rounded hover:bg-destructive/10"
                               onClick={(e) => handleDeleteGrupo(e, grupo)}
+                              aria-label={`Eliminar grupo ${grupo.nombre}`}
                             >
                               <Trash2 size={11} className="text-destructive" />
                             </Button>
@@ -500,6 +502,7 @@ export default function GruposPage() {
                                     size="icon"
                                     onClick={() => handleRemoveMember(user)}
                                     className="h-6 w-6 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                                    aria-label="Quitar jugador del grupo"
                                   >
                                     <X size={13} />
                                   </Button>

@@ -36,7 +36,7 @@ public class GrupoService {
 
     @Transactional(readOnly = true)
     public List<GrupoResponse> findAll() {
-        if (securityService.isSuperAdmin()) {
+        if (canManageAnyGroup()) {
             return grupoRepository.findAll().stream()
                     .map(this::toResponse)
                     .toList();
@@ -56,7 +56,7 @@ public class GrupoService {
         boolean isCreator = grupo.getCreadoPor().getId().equals(currentUserId);
         boolean isMember = grupo.getMiembros().stream().anyMatch(m -> m.getId().equals(currentUserId));
         
-        if (!isCreator && !isMember && !securityService.isSuperAdmin()) {
+        if (!isCreator && !isMember && !canManageAnyGroup()) {
             throw new ForbiddenException("No tienes permiso para ver este grupo");
         }
         return toResponse(grupo);
@@ -84,7 +84,7 @@ public class GrupoService {
         Grupo grupo = grupoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Grupo no encontrado con id: " + id));
 
-        if (!securityService.isOwnerOrAdmin(grupo.getCreadoPor().getId())) {
+        if (!canEditGroup(grupo)) {
             throw new ForbiddenException("No tienes permiso para editar este grupo");
         }
 
@@ -105,12 +105,34 @@ public class GrupoService {
         Grupo grupo = grupoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Grupo no encontrado con id: " + id));
 
-        if (!securityService.isOwnerOrAdmin(grupo.getCreadoPor().getId())) {
+        if (!canDeleteGroup(grupo)) {
             throw new ForbiddenException("No tienes permiso para eliminar este grupo");
         }
 
         convocatoriaRepository.nullifyGrupo(id);
         grupoRepository.delete(grupo);
+    }
+
+    private boolean canManageAnyGroup() {
+        return securityService.isSuperAdmin()
+                || securityService.hasAnyAuthority("editar_grupos", "eliminar_grupos");
+    }
+
+    private boolean canEditGroup(Grupo grupo) {
+        return isGroupOwner(grupo)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("editar_grupos");
+    }
+
+    private boolean canDeleteGroup(Grupo grupo) {
+        return isGroupOwner(grupo)
+                || securityService.isSuperAdmin()
+                || securityService.hasAuthority("eliminar_grupos");
+    }
+
+    private boolean isGroupOwner(Grupo grupo) {
+        Long currentUserId = securityService.getCurrentUserId();
+        return grupo.getCreadoPor() != null && grupo.getCreadoPor().getId().equals(currentUserId);
     }
 
     private GrupoResponse toResponse(Grupo grupo) {

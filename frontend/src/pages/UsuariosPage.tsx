@@ -437,6 +437,7 @@ export default function UsuariosPage() {
                       size="icon"
                       onClick={() => handleToggleActivo(usuario)}
                       className="h-7 w-7 rounded hover:bg-secondary text-muted-foreground"
+                      aria-label={usuario.activo ? `Desactivar a ${usuario.nombre}` : `Reactivar a ${usuario.nombre}`}
                     >
                       {usuario.activo ? (
                         <UserX size={13} className="text-tone-warning" />
@@ -456,6 +457,7 @@ export default function UsuariosPage() {
                         size="icon"
                         onClick={() => handleLevantarSuspension(usuario)}
                         className="h-7 w-7 rounded hover:bg-[hsl(var(--success)/0.12)] text-tone-success"
+                        aria-label={`Levantar suspensión de ${usuario.nombre}`}
                       >
                         <Unlock size={13} />
                       </Button>
@@ -471,6 +473,7 @@ export default function UsuariosPage() {
                           setError("");
                         }}
                         className="h-7 w-7 rounded hover:bg-destructive/10 text-destructive"
+                        aria-label={`Suspender a ${usuario.nombre}`}
                       >
                         <Ban size={13} />
                       </Button>
@@ -498,6 +501,7 @@ export default function UsuariosPage() {
                       size="icon"
                       onClick={() => handleDeleteUser(usuario)}
                       className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      aria-label={`Dar de baja a ${usuario.nombre}`}
                     >
                       <Trash2 size={13} />
                     </Button>

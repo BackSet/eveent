@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
+import { logError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -84,7 +85,7 @@ export default function RolesPage() {
       setRoles(rolesRes.data);
       setPermisos(permisosRes.data);
     } catch (err) {
-      console.error("Error al cargar datos", err);
+      logError("Error al cargar datos", err);
     } finally {
       setLoading(false);
     }

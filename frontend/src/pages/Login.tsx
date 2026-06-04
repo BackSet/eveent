@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import api from "@/services/api";
 import { getApiErrorMessage } from "@/lib/constants";
+import { logError } from "@/lib/utils";
 import { Mail, Lock, User, ArrowRight, ShieldAlert, ArrowLeft, Hash, Check, X, Megaphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -48,7 +49,7 @@ export default function Login() {
   const [loadingSports, setLoadingSports] = useState(false);
   const [loadingPositions, setLoadingPositions] = useState(false);
 
-  const { login, register, isAuthenticated } = useAuth();
+  const { login, register, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const confirm = useConfirm();
@@ -80,7 +81,7 @@ export default function Login() {
           setSelectedDeporteId(res.data[0].id);
         }
       } catch (err) {
-        console.error("Error al cargar deportes", err);
+        logError("Error al cargar deportes", err);
       } finally {
         setLoadingSports(false);
       }
@@ -101,7 +102,7 @@ export default function Login() {
         const res = await api.get<Posicion[]>(`/api/deportes/${selectedDeporteId}/posiciones`);
         setPosiciones(res.data);
       } catch (err) {
-        console.error("Error al cargar posiciones", err);
+        logError("Error al cargar posiciones", err);
       } finally {
         setLoadingPositions(false);
       }
@@ -284,7 +285,7 @@ export default function Login() {
 
                 {isRegister && (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    <label htmlFor="register-nombre" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                       Nombre Completo
                     </label>
                     <div className="relative">
@@ -292,6 +293,7 @@ export default function Login() {
                         <User size={13} />
                       </span>
                       <Input
+                        id="register-nombre"
                         type="text"
                         value={nombre}
                         onChange={(e) => setNombre(e.target.value)}
@@ -304,7 +306,7 @@ export default function Login() {
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  <label htmlFor="login-email" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                     {isRegister ? "Correo Electrónico" : "Correo o Usuario"}
                   </label>
                   <div className="relative">
@@ -312,6 +314,7 @@ export default function Login() {
                       {isRegister ? <Mail size={13} /> : <User size={13} />}
                     </span>
                     <Input
+                      id="login-email"
                       type={isRegister ? "email" : "text"}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -323,10 +326,11 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  <label htmlFor="login-password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                     Contraseña
                   </label>
                   <PasswordInput
+                    id="login-password"
                     leftIcon={<Lock size={13} />}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -354,12 +358,13 @@ export default function Login() {
                 <div className={registerAsOrganizador ? "space-y-3" : "grid grid-cols-2 gap-3"}>
                   {/* Username (Mandatory) */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    <label htmlFor="register-username" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                       Nombre de Usuario *
                     </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground/50 font-bold text-xs">@</span>
                       <Input
+                        id="register-username"
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
@@ -372,7 +377,7 @@ export default function Login() {
 
                   {/* Shirt Number */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    <label htmlFor="register-dorsal" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                       Nº Camiseta{registerAsOrganizador ? " (opcional)" : " *"}
                     </label>
                     <div className="relative">
@@ -380,6 +385,7 @@ export default function Login() {
                         <Hash size={13} />
                       </span>
                       <Input
+                        id="register-dorsal"
                         type="number"
                         min="1"
                         max="99"
@@ -548,8 +554,10 @@ export default function Login() {
 
               <Button
                 type="submit"
+                disabled={isLoading}
                 className="flex-1 h-9 font-semibold text-xs rounded shadow-none bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5"
               >
+                {isLoading && <Spinner size="sm" />}
                 <span>
                   {!isRegister
                     ? "Continuar"
@@ -557,7 +565,7 @@ export default function Login() {
                     ? "Siguiente"
                     : "Completar Registro"}
                 </span>
-                {(!isRegister || step === 1) && <ArrowRight size={13} />}
+                {!isLoading && (!isRegister || step === 1) && <ArrowRight size={13} />}
               </Button>
             </div>
           </form>

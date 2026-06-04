@@ -135,6 +135,7 @@ export interface NavItemConfig {
   label: string;
   icon: LucideIcon;
   permission?: string;
+  anyPermissions?: string[];
 }
 
 export const NAV_GENERAL: NavItemConfig[] = [
@@ -185,7 +186,7 @@ export const NAV_ADMIN: NavItemConfig[] = [
     path: "/permisos",
     label: "Permisos del sistema",
     icon: KeyRound,
-    permission: "ver_permisos",
+    anyPermissions: ["ver_permisos", "gestionar_roles"],
   },
 ];
 

@@ -125,9 +125,9 @@ export const Header = memo(function Header() {
           className="touch-target h-9 w-9 sm:h-7.5 sm:w-7.5 rounded-md interactive-hover transition-colors"
           title={`Tema: ${theme === "light" ? "Claro" : theme === "dark" ? "Oscuro" : "Sistema"}`}
         >
-          {theme === "light" && <Sun size={13} className="text-amber-500 hover:text-amber-600" />}
+          {theme === "light" && <Sun size={13} className="text-warning" />}
           {theme === "dark" && <Moon size={13} className="text-muted-foreground hover:text-foreground" />}
-          {theme === "system" && <Laptop size={13} className="text-blue-500 hover:text-blue-600" />}
+          {theme === "system" && <Laptop size={13} className="text-info" />}
         </Button>
       </div>
     </header>

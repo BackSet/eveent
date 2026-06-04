@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/services/api";
+import { logError } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { InlineListSkeleton } from "@/components/ui/page-skeletons";
@@ -25,7 +25,6 @@ import {
   Plus,
   Check,
   ListOrdered,
-  Lock,
   UserCircle2,
 } from "lucide-react";
 import { Deporte, PosicionesDeporte, UsuarioPosicionDto } from "@/types";
@@ -34,13 +33,12 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { FieldError } from "@/components/ui/field-error";
 import { AutoAceptacionCard } from "@/components/perfil/AutoAceptacionCard";
 import { ProfileSectionCard } from "@/components/perfil/ProfileSectionCard";
+import { PasswordChangeCard } from "@/components/perfil/PasswordChangeCard";
 import { ProfileHero } from "@/components/perfil/ProfileHero";
 import { PresetChips } from "@/components/ui/preset-chips";
 import {
   validateDorsal,
   validateEmail,
-  validatePassword,
-  validatePasswordMatch,
   validateRequiredTrim,
 } from "@/lib/formValidation";
 
@@ -71,14 +69,6 @@ export default function PerfilPage() {
   const [dorsalError, setDorsalError] = useState<string | null>(null);
   const savedPositionsRef = useRef<string>("");
 
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState("");
-  const [savingPassword, setSavingPassword] = useState(false);
 
   const positionsDirty =
     savedPositionsRef.current !== "" &&
@@ -100,7 +90,7 @@ export default function PerfilPage() {
           setSelectedDeporteId(sportsRes.data[0].id);
         }
       } catch (err) {
-        console.error("Error al cargar deportes o posiciones del usuario", err);
+        logError("Error al cargar deportes o posiciones del usuario", err);
       } finally {
         setLoadingSports(false);
       }
@@ -116,7 +106,7 @@ export default function PerfilPage() {
         const { data } = await api.get<PosicionesDeporte[]>(`/api/deportes/${selectedDeporteId}/posiciones`);
         setPosiciones(data);
       } catch (err) {
-        console.error("Error al cargar posiciones del deporte", err);
+        logError("Error al cargar posiciones del deporte", err);
       } finally {
         setLoadingPositions(false);
       }
@@ -264,38 +254,6 @@ export default function PerfilPage() {
   const handleSportChange = (deporteId: number) => {
     setSelectedDeporteId(deporteId);
     setPositionSearch("");
-  };
-
-  const handleSubmitPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const passErr = validatePassword(passwordForm.newPassword);
-    const matchErr = validatePasswordMatch(passwordForm.newPassword, passwordForm.confirmPassword);
-    if (!passwordForm.currentPassword) {
-      setPasswordError("La contraseña actual es obligatoria.");
-      return;
-    }
-    if (passErr || matchErr) {
-      setPasswordError(passErr || matchErr || "");
-      return;
-    }
-    setSavingPassword(true);
-    setPasswordError("");
-    setPasswordSuccess("");
-    try {
-      await api.post("/api/usuarios/me/password", {
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-      });
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      setPasswordSuccess("Contraseña actualizada correctamente.");
-      toast.success("Contraseña actualizada", "Usa la nueva contraseña en tu próximo inicio de sesión.");
-    } catch (err: unknown) {
-      const msg = getApiErrorMessage(err) || "Error al cambiar la contraseña";
-      setPasswordError(msg);
-      toast.error(msg);
-    } finally {
-      setSavingPassword(false);
-    }
   };
 
   const handleSelectAllVisible = () => {
@@ -474,69 +432,7 @@ export default function PerfilPage() {
             </form>
           </ProfileSectionCard>
 
-          <ProfileSectionCard
-            title="Seguridad"
-            description="Actualiza tu contraseña de acceso al workspace."
-            icon={Lock}
-          >
-            {passwordError && (
-              <div className="notion-callout border-destructive/20 bg-destructive/5 text-destructive p-3 mb-4 text-xs font-medium">
-                {passwordError}
-              </div>
-            )}
-            {passwordSuccess && (
-              <div className="notion-callout tone-success p-3 mb-4 text-xs font-medium">
-                {passwordSuccess}
-              </div>
-            )}
-            <form onSubmit={handleSubmitPassword} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="currentPassword" className="text-xs font-semibold text-muted-foreground">
-                  Contraseña actual
-                </Label>
-                <PasswordInput
-                  id="currentPassword"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  autoComplete="current-password"
-                  className="h-9 text-xs"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="newPassword" className="text-xs font-semibold text-muted-foreground">
-                  Nueva contraseña
-                </Label>
-                <PasswordInput
-                  id="newPassword"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  autoComplete="new-password"
-                  minLength={6}
-                  className="h-9 text-xs"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword" className="text-xs font-semibold text-muted-foreground">
-                  Confirmar nueva
-                </Label>
-                <PasswordInput
-                  id="confirmPassword"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  autoComplete="new-password"
-                  className="h-9 text-xs"
-                  required
-                />
-              </div>
-              <div className="flex justify-end pt-1 border-t border-border/60">
-                <Button type="submit" disabled={savingPassword} className="mt-4 h-9 px-5 text-xs font-semibold shadow-none">
-                  {savingPassword ? <Spinner size="sm" /> : "Actualizar contraseña"}
-                </Button>
-              </div>
-            </form>
-          </ProfileSectionCard>
+          <PasswordChangeCard />
       </div>
 
       <ProfileSectionCard
@@ -675,6 +571,7 @@ export default function PerfilPage() {
                               variant="ghost"
                               disabled={isAdded}
                               onClick={() => handleAddPosition(pos.id)}
+                              aria-label={isAdded ? `${pos.nombre} ya añadida` : `Añadir posición ${pos.nombre}`}
                               className={`shrink-0 h-6 w-6 rounded border border-border hover:bg-secondary ${
                                 isAdded ? "opacity-40" : ""
                               }`}
@@ -725,8 +622,9 @@ export default function PerfilPage() {
                                 size="icon" 
                                 variant="ghost" 
                                 type="button"
-                                disabled={isFirst} 
-                                onClick={() => handleMoveUp(index)} 
+                                disabled={isFirst}
+                                onClick={() => handleMoveUp(index)}
+                                aria-label={`Subir prioridad de ${up.posicionNombre}`}
                                 className="h-5.5 w-5.5 rounded hover:bg-secondary disabled:opacity-25"
                               >
                                 <ChevronUp size={12} />
@@ -735,8 +633,9 @@ export default function PerfilPage() {
                                 size="icon" 
                                 variant="ghost" 
                                 type="button"
-                                disabled={isLast} 
-                                onClick={() => handleMoveDown(index)} 
+                                disabled={isLast}
+                                onClick={() => handleMoveDown(index)}
+                                aria-label={`Bajar prioridad de ${up.posicionNombre}`}
                                 className="h-5.5 w-5.5 rounded hover:bg-secondary disabled:opacity-25"
                               >
                                 <ChevronDown size={12} />
@@ -745,7 +644,8 @@ export default function PerfilPage() {
                                 size="icon" 
                                 variant="ghost" 
                                 type="button"
-                                onClick={() => handleRemovePosition(up.posicionId)} 
+                                onClick={() => handleRemovePosition(up.posicionId)}
+                                aria-label={`Quitar posición ${up.posicionNombre}`}
                                 className="h-5.5 w-5.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                               >
                                 <X size={11} />

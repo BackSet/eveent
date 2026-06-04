@@ -36,16 +36,23 @@ public class SecurityService {
     }
 
     public boolean isSuperAdmin() {
+        return hasAuthority("ROLE_SUPERADMIN");
+    }
+
+    public boolean hasAuthority(String authority) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return false;
         return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("gestionar_roles")
-                        || a.getAuthority().equals("ROLE_SUPERADMIN"));
+                .anyMatch(a -> a.getAuthority().equals(authority));
     }
 
-    public boolean isOwnerOrAdmin(Long ownerId) {
-        Long currentId = getCurrentUserId();
-        if (currentId.equals(ownerId)) return true;
-        return isSuperAdmin();
+    public boolean hasAnyAuthority(String... authorities) {
+        for (String authority : authorities) {
+            if (hasAuthority(authority)) {
+                return true;
+            }
+        }
+        return false;
     }
+
 }

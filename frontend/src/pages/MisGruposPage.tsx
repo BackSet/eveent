@@ -287,6 +287,7 @@ export default function MisGruposPage() {
                                     type="button"
                                     onClick={() => openUserProfile(miembro.id)}
                                     className="h-6 w-6 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground"
+                                    aria-label={`Ver perfil de ${miembro.nombre}`}
                                   >
                                     <Eye size={12} />
                                   </Button>
@@ -301,6 +302,7 @@ export default function MisGruposPage() {
                                         type="button"
                                         onClick={() => handleLevantarSuspension(miembro)}
                                         className="h-6 w-6 rounded-md hover:bg-[hsl(var(--success)/0.12)] text-tone-success animate-pulse"
+                                        aria-label={`Levantar suspensión de ${miembro.nombre}`}
                                       >
                                         <Unlock size={12} />
                                       </Button>
@@ -317,6 +319,7 @@ export default function MisGruposPage() {
                                           setError("");
                                         }}
                                         className="h-6 w-6 rounded-md hover:bg-destructive/10 text-destructive"
+                                        aria-label={`Suspender a ${miembro.nombre}`}
                                       >
                                         <Ban size={12} />
                                       </Button>

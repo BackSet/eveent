@@ -65,7 +65,11 @@ export const Sidebar = memo(function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const filterByPermission = (items: NavItemConfig[]) =>
-    items.filter((item) => !item.permission || hasPermission(item.permission));
+    items.filter((item) => {
+      if (item.permission && !hasPermission(item.permission)) return false;
+      if (item.anyPermissions?.length && !item.anyPermissions.some(hasPermission)) return false;
+      return true;
+    });
 
   const filteredGeneralItems = useMemo(
     () => filterByPermission(NAV_GENERAL),

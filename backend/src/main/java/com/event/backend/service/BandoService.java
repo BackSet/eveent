@@ -7,6 +7,7 @@ import com.event.backend.model.BandoConvocatoria;
 import com.event.backend.model.Convocatoria;
 import com.event.backend.repository.BandoConvocatoriaRepository;
 import com.event.backend.repository.ConvocatoriaRepository;
+import com.event.backend.security.SecurityService;
 import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,8 @@ public class BandoService {
 
     private final BandoConvocatoriaRepository bandoRepository;
     private final ConvocatoriaRepository convocatoriaRepository;
+    private final SecurityService securityService;
+    private final ConvocatoriaAccessService convocatoriaAccessService;
 
     @Transactional(readOnly = true)
     public List<BandoResponse> findByConvocatoriaId(Long convocatoriaId) {
@@ -42,6 +45,7 @@ public class BandoService {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
 
+        assertCanManageLineup(convocatoria);
         ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(convocatoria, LocalDateTime.now());
 
         BandoConvocatoria bando = BandoConvocatoria.builder()
@@ -57,6 +61,7 @@ public class BandoService {
         BandoConvocatoria bando = bandoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + id));
 
+        assertCanManageLineup(bando.getConvocatoria());
         ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(
                 bando.getConvocatoria(), LocalDateTime.now());
 
@@ -71,10 +76,19 @@ public class BandoService {
         BandoConvocatoria bando = bandoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Bando no encontrado con id: " + id));
 
+        assertCanManageLineup(bando.getConvocatoria());
         ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(
                 bando.getConvocatoria(), LocalDateTime.now());
 
         bandoRepository.delete(bando);
+    }
+
+    private void assertCanManageLineup(Convocatoria convocatoria) {
+        Long currentUserId = securityService.getCurrentUserId();
+        if (!convocatoriaAccessService.canManageAttendance(convocatoria, currentUserId)) {
+            throw new com.event.backend.exception.ForbiddenException(
+                    "No tienes permiso para gestionar los bandos de esta convocatoria.");
+        }
     }
 
     private BandoResponse toResponse(BandoConvocatoria bando) {

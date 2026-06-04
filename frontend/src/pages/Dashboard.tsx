@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { cn } from "@/lib/utils";
+import { cn, logError } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/services/api";
 import { formatDateTime } from "@/lib/formatDate";
@@ -89,6 +89,8 @@ export default function Dashboard() {
     return "¡Buenas noches!";
   };
 
+  const isMountedRef = useRef(true);
+
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
     setError("");
@@ -99,6 +101,8 @@ export default function Dashboard() {
         api.get<Deporte[]>("/api/deportes"),
         api.get<UsuarioPosicionDto[]>("/api/usuarios/me/posiciones").catch(() => ({ data: [] }))
       ]);
+
+      if (!isMountedRef.current) return;
 
       // Filter visible/active convocatorias
       const filteredConvs = filterConvocatoriasForUser(convRes.data, hasPermission, user.id);
@@ -125,11 +129,12 @@ export default function Dashboard() {
       const assistancesPromises = activeConvs.map(async (conv) => {
         try {
           const { data } = await api.get<Asistencia[]>(`/api/convocatorias/${conv.id}/asistencias`);
+          if (!isMountedRef.current) return;
           setConvocatoriaAsistencias(prev => ({ ...prev, [conv.id]: data }));
         } catch (err) {
-          console.error(`Error loading assistances for convocatoria ${conv.id}`, err);
+          logError(`Error loading assistances for convocatoria ${conv.id}`, err);
         } finally {
-          setLoadingDetails(prev => ({ ...prev, [conv.id]: false }));
+          if (isMountedRef.current) setLoadingDetails(prev => ({ ...prev, [conv.id]: false }));
         }
       });
 
@@ -137,14 +142,18 @@ export default function Dashboard() {
 
     } catch (err: unknown) {
       setError("Error al cargar la información del panel.");
-      console.error(err);
+      logError("Error", err);
     } finally {
       setLoading(false);
     }
   }, [user, hasPermission]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     fetchDashboardData();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [fetchDashboardData]);
 
   // Handle Quick RSVP action
@@ -177,7 +186,7 @@ export default function Dashboard() {
         toast.info("Te marcaste como ausente", conv ? `No asistirás a "${conv.titulo}".` : undefined);
       }
     } catch (err) {
-      console.error("Error setting quick RSVP", err);
+      logError("Error setting quick RSVP", err);
       toast.error("No se pudo registrar tu respuesta", "Inténtalo de nuevo en unos segundos.");
     } finally {
       setRsvpSubmitting(prev => ({ ...prev, [key]: false }));
@@ -205,7 +214,7 @@ export default function Dashboard() {
       <PageHeader
         iconKind={PageIconKind.DASHBOARD}
         title={`${getGreeting()}, ${user?.nombre}`}
-        description="Mi espacio personal"
+        description="Tu resumen: próximas convocatorias y respuestas pendientes. Para ver todas, ve a Explorar convocatorias."
         actions={
           <>
             {canCreate && (
@@ -398,6 +407,7 @@ export default function Dashboard() {
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => handleQuickRsvp(conv.id, "ASISTIRE")}
+                                aria-label={`Confirmar asistencia a ${conv.titulo}`}
                                 disabled={
                                   isSuspended ||
                                   rsvpSubmitting[`${conv.id}-ASISTIRE`] ||
@@ -426,6 +436,7 @@ export default function Dashboard() {
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => handleQuickRsvp(conv.id, "NO_ASISTIRE")}
+                                aria-label={`Marcar que no asistirás a ${conv.titulo}`}
                                 disabled={
                                   isSuspended ||
                                   rsvpSubmitting[`${conv.id}-ASISTIRE`] ||

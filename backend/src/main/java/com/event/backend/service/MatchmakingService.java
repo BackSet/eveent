@@ -4,6 +4,7 @@ import com.event.backend.dto.asistencia.AsistenciaResponse;
 import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.*;
 import com.event.backend.repository.*;
+import com.event.backend.security.SecurityService;
 import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
 
@@ -26,10 +27,18 @@ public class MatchmakingService {
     private final PosicionesDeporteRepository posicionesDeporteRepository;
     private final AsistenciaMapper asistenciaMapper;
     private final AsistenciaService asistenciaService;
+    private final SecurityService securityService;
+    private final ConvocatoriaAccessService convocatoriaAccessService;
 
     public List<AsistenciaResponse> runMatchmaking(Long convocatoriaId, Integer numEquipos) {
         Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
                 .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
+
+        Long currentUserId = securityService.getCurrentUserId();
+        if (!convocatoriaAccessService.canManageAttendance(convocatoria, currentUserId)) {
+            throw new com.event.backend.exception.ForbiddenException(
+                    "No tienes permiso para generar bandos en esta convocatoria.");
+        }
 
         ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(convocatoria, LocalDateTime.now());
 

@@ -72,14 +72,14 @@ function AppWithApiSetup() {
               <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
             } />
             <Route path="/convocatorias/recurrentes/new" element={
-              <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage recurrente /></ProtectedRoute>
             } />
             <Route path="/convocatorias/:id" element={<ConvocatoriaDetailPage />} />
             <Route path="/convocatorias/:id/edit" element={
               <ProtectedRoute requiredPermission="editar_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
             } />
             <Route path="/convocatorias/recurrentes/:id/edit" element={
-              <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="crear_convocatorias"><ConvocatoriaFormPage recurrente /></ProtectedRoute>
             } />
             <Route path="/mis-asistencias" element={<MisAsistenciasPage />} />
             <Route path="/perfil" element={<PerfilPage />} />
@@ -96,7 +96,7 @@ function AppWithApiSetup() {
               <ProtectedRoute requiredPermission="ver_roles"><RolesPage /></ProtectedRoute>
             } />
             <Route path="/permisos" element={
-              <ProtectedRoute requiredPermission="ver_permisos"><PermisosPage /></ProtectedRoute>
+              <ProtectedRoute requiredAnyPermissions={["ver_permisos", "gestionar_roles"]}><PermisosPage /></ProtectedRoute>
             } />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

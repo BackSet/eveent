@@ -20,6 +20,15 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  /* Tokens semánticos de estado/superficie (necesarios para que utilidades como
+     text-info, bg-warning, bg-success-muted, etc. generen CSS en Tailwind v4) */
+  --color-success: hsl(var(--success));
+  --color-success-muted: hsl(var(--success-muted));
+  --color-warning: hsl(var(--warning));
+  --color-warning-muted: hsl(var(--warning-muted));
+  --color-info: hsl(var(--info));
+  --color-info-muted: hsl(var(--info-muted));
+  --color-surface-subtle: hsl(var(--surface-subtle));
   --radius: var(--radius);
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'Sora', 'Outfit', sans-serif;
