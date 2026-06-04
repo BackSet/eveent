@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "@/services/api";
 import { getApiErrorMessage, parseRrule, RRULE_DAYS } from "@/lib/constants";
 import { RRuleBuilder } from "@/components/RRuleBuilder";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { FormPageSkeleton } from "@/components/ui/page-skeletons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Repeat, UserPlus, Check, X, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Check,
+  ChevronRight,
+  Clock,
+  Dumbbell,
+  ListChecks,
+  MapPin,
+  Repeat,
+  Search,
+  ShieldCheck,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageIconKind } from "@/lib/iconography";
 import { Deporte, Grupo, Usuario, HorarioDia } from "@/types";
@@ -45,6 +60,43 @@ const getDayLabel = (key: string): string => {
   if (key === "DEFAULT") return "Cada ocurrencia";
   return RRULE_DAYS.find(d => d.value === key)?.label ?? key;
 };
+
+function SectionTitle({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
+        {number}
+      </span>
+      <div className="min-w-0">
+        <CardTitle className="text-base font-semibold leading-tight tracking-tight">{title}</CardTitle>
+        <CardDescription className="mt-1 text-xs leading-relaxed">{description}</CardDescription>
+      </div>
+    </div>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-border/60 py-2.5 last:border-b-0">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="max-w-[60%] text-right text-xs font-semibold leading-relaxed text-foreground">{value}</span>
+    </div>
+  );
+}
 
 export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
@@ -400,10 +452,54 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
       ? validateInscripcionDeadline(formData.fechaLimiteInscripcion, formData.fechaHora)
       : null;
   const canSubmit = !singleDateError && !deadlineError;
+  const activeData = isRecurrent ? recurrenteData : formData;
+  const selectedSportName = deportes.find((dep) => dep.id === activeData.deporteId)?.nombre ?? "Sin deporte";
+  const selectedCategory = activeData.categoria
+    ? CATEGORIAS.find((cat) => cat.value === activeData.categoria)?.label ?? activeData.categoria
+    : "Sin categoría";
+  const statusLabel = isRecurrent
+    ? recurrenteData.estado === "ABIERTA" ? "Programado" : "Borrador"
+    : formData.estado === "ABIERTA" ? "Publicado" : "Borrador";
+  const accessLabel = isRecurrent
+    ? recurrenteData.modoFormacion === "EQUIPOS_POR_GRUPO"
+      ? `${selectedGrupoEquipoIds.length} grupo(s) participante(s)`
+      : recurrenteData.grupoDestinoId && recurrenteData.grupoDestinoId !== "0"
+        ? grupos.find((g) => g.id === Number(recurrenteData.grupoDestinoId))?.nombre ?? "Grupo seleccionado"
+        : "Abierto"
+    : formData.modoFormacion === "EQUIPOS_POR_GRUPO"
+      ? `${selectedGrupoEquipoIds.length} grupo(s) participante(s)`
+      : invitationMode === "GROUP"
+        ? selectedGrupoId
+          ? grupos.find((g) => g.id === Number(selectedGrupoId))?.nombre ?? "Grupo seleccionado"
+          : "Grupo pendiente"
+        : invitationMode === "MANUAL"
+          ? `${selectedUserIds.length} jugador(es)`
+          : "Abierto";
+  const scheduleLabel = isRecurrent
+    ? parseRrule(recurrenteData.rruleExpression || "FREQ=WEEKLY").freq === "WEEKLY"
+      ? parseRrule(recurrenteData.rruleExpression || "FREQ=WEEKLY").byday.map(getDayLabel).join(", ") || "Semanal"
+      : parseRrule(recurrenteData.rruleExpression || "FREQ=WEEKLY").freq === "DAILY"
+        ? "Diario"
+        : "Personalizado"
+    : formData.fechaHora
+      ? new Date(formData.fechaHora).toLocaleString("es-EC", {
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Sin fecha";
+  const submitLabel = isEditing
+    ? "Guardar cambios"
+    : isRecurrent
+      ? "Crear regla recurrente"
+      : formData.estado === "ABIERTA"
+        ? "Crear y publicar"
+        : "Guardar como borrador";
 
   return (
-    <div className="page-shell space-y-5 max-w-3xl animate-fadeIn">
-      <Button variant="ghost" onClick={() => navigate("/convocatorias")} className="gap-1 font-medium text-muted-foreground hover:text-foreground">
+    <div className="page-shell max-w-6xl animate-fadeIn">
+      <Button variant="ghost" onClick={() => navigate("/convocatorias")} className="mb-4 gap-1 font-medium text-muted-foreground hover:text-foreground">
         <ArrowLeft size={15} /> Volver
       </Button>
 
@@ -418,16 +514,16 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
       />
 
       {!isEditing && (
-        <div>
-          <div className="grid grid-cols-2 p-1 bg-muted rounded-lg">
-            <button type="button" onClick={() => setIsRecurrent(false)} className={`py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${!isRecurrent ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
-              <Calendar size={13} /> Convocatoria Única
+        <div className="mt-5 rounded-lg border border-border bg-card/70 p-1.5 shadow-sm">
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" onClick={() => setIsRecurrent(false)} className={`rounded-md px-3 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${!isRecurrent ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}>
+              <Calendar size={14} /> Convocatoria única
             </button>
-            <button type="button" onClick={() => setIsRecurrent(true)} className={`py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${isRecurrent ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
-              <Repeat size={13} /> Ciclo Recurrente
+            <button type="button" onClick={() => setIsRecurrent(true)} className={`rounded-md px-3 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${isRecurrent ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}>
+              <Repeat size={14} /> Ciclo recurrente
             </button>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1.5 px-1 leading-relaxed">
+          <p className="px-2 pb-1 pt-2 text-[11px] leading-relaxed text-muted-foreground">
             {isRecurrent
               ? "Un ciclo recurrente genera convocatorias automáticamente según un calendario (ej. cada martes y jueves a las 8pm)."
               : "Una convocatoria única es un solo evento con fecha y hora específica."}
@@ -435,12 +531,17 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-5">
         {error && <Alert variant="destructive" className="text-xs"><AlertDescription>{error}</AlertDescription></Alert>}
 
-        <Card>
+        <Card className="rounded-lg bg-card shadow-sm hover:shadow-md">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">{isRecurrent ? "Plantilla Recurrente" : "Convocatoria Única"}</CardTitle>
+            <SectionTitle
+              number="01"
+              title={isRecurrent ? "Plantilla recurrente" : "Datos del evento"}
+              description="Define la información que verán los jugadores antes de confirmar."
+            />
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
@@ -632,9 +733,13 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         </Card>
 
         {isRecurrent && (
-          <Card>
+          <Card className="rounded-lg bg-card shadow-sm hover:shadow-md">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Programación y Horarios</CardTitle>
+              <SectionTitle
+                number="02"
+                title="Programación y horarios"
+                description="Configura la recurrencia y las horas de apertura por día."
+              />
             </CardHeader>
             <CardContent className="space-y-4">
               <RRuleBuilder value={recurrenteData.rruleExpression} horariosPorDia={recurrenteData.horariosPorDia} onRruleChange={handleRruleChange} onHorariosChange={handleHorariosChange} />
@@ -643,9 +748,13 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         )}
 
         {isRecurrent && (
-          <Card>
+          <Card className="rounded-lg bg-card shadow-sm hover:shadow-md">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Formación de equipos</CardTitle>
+              <SectionTitle
+                number="03"
+                title="Formación de equipos"
+                description="Define cómo se arman los bandos en cada convocatoria generada."
+              />
             </CardHeader>
             <CardContent className="space-y-4">
               <TeamFormationFields
@@ -680,18 +789,23 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         )}
 
         {!isRecurrent && !isEditing && formData.modoFormacion !== "EQUIPOS_POR_GRUPO" && (
-          <Card>
+          <Card className="rounded-lg bg-card shadow-sm hover:shadow-md">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+              <SectionTitle
+                number="02"
+                title="Acceso e invitaciones"
+                description="Decide quién puede ver la convocatoria y deja invitaciones pendientes si aplica."
+              />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                 <UserPlus size={15} />
-                <span>Invitaciones (solo al crear)</span>
+                <span>Invitaciones solo al crear</span>
                 <InfoHint side="right" maxWidth={320}>
                   Define quién puede ver y confirmar asistencia. En grupo y manual puedes pre-cargar
                   invitaciones como pendientes. Al editar, el modo de acceso no se puede cambiar.
                 </InfoHint>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {(["NONE", "GROUP", "MANUAL"] as const).map((mode) => (
                   <button key={mode} type="button" onClick={() => setInvitationMode(mode)}
@@ -774,28 +888,71 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
             </CardContent>
           </Card>
         )}
-
-        <div className="flex items-center gap-2 pt-3 border-t">
-          {isDirty && (
-            <span className="text-[10px] text-tone-warning font-medium mr-auto">
-              Cambios sin guardar
-            </span>
-          )}
-          <Button type="submit" disabled={saving || (!isRecurrent && !canSubmit)} className="font-semibold rounded-lg px-5">
-            {saving
-              ? <Spinner />
-              : isEditing
-                ? "Guardar cambios"
-                : isRecurrent
-                  ? "Crear regla recurrente"
-                  : formData.estado === "ABIERTA"
-                    ? "Crear y publicar"
-                    : "Guardar como borrador"}
-          </Button>
-          <Button type="button" variant="outline" onClick={handleCancel} className="font-medium rounded-lg">
-            Cancelar
-          </Button>
         </div>
+
+        <aside className="lg:sticky lg:top-5">
+          <Card className="overflow-hidden rounded-lg bg-card shadow-sm hover:shadow-md">
+            <div className="border-b border-border bg-muted/35 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <ListChecks size={15} />
+                <span>Resumen</span>
+              </div>
+              <h2 className="mt-2 break-words text-lg font-bold tracking-tight">
+                {activeData.titulo.trim() || (isRecurrent ? "Plantilla recurrente" : "Nueva convocatoria")}
+              </h2>
+            </div>
+            <CardContent className="space-y-4 p-4">
+              <div>
+                <SummaryRow label="Tipo" value={isRecurrent ? "Ciclo recurrente" : "Evento único"} />
+                <SummaryRow label="Estado" value={statusLabel} />
+                <SummaryRow label="Deporte" value={selectedSportName} />
+                <SummaryRow label="Categoría" value={selectedCategory} />
+                <SummaryRow label="Agenda" value={scheduleLabel} />
+                <SummaryRow label="Acceso" value={accessLabel} />
+                <SummaryRow
+                  label="Cupo"
+                  value={activeData.cupoMaximo > 0 ? `${activeData.cupoMaximo} jugador(es)` : "Sin límite"}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-md border border-border bg-muted/30 p-2">
+                  <Dumbbell size={14} className="mb-1 text-muted-foreground" />
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Modo</p>
+                  <p className="mt-0.5 truncate text-xs font-semibold">
+                    {activeData.modoFormacion === "EQUIPOS_POR_GRUPO" ? "Por grupo" : "Balanceado"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-muted/30 p-2">
+                  <Users size={14} className="mb-1 text-muted-foreground" />
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Grupos</p>
+                  <p className="mt-0.5 text-xs font-semibold">{selectedGrupoEquipoIds.length}</p>
+                </div>
+                <div className="rounded-md border border-border bg-muted/30 p-2">
+                  <ShieldCheck size={14} className="mb-1 text-muted-foreground" />
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Listo</p>
+                  <p className="mt-0.5 text-xs font-semibold">{canSubmit || isRecurrent ? "Sí" : "No"}</p>
+                </div>
+              </div>
+
+              {isDirty && (
+                <div className="rounded-md border border-warning/25 bg-warning/10 px-3 py-2 text-xs font-medium text-tone-warning">
+                  Cambios sin guardar
+                </div>
+              )}
+
+              <div className="space-y-2 border-t border-border pt-4">
+                <Button type="submit" disabled={saving || (!isRecurrent && !canSubmit)} className="w-full justify-between rounded-lg font-semibold">
+                  <span>{saving ? <Spinner /> : submitLabel}</span>
+                  {!saving && <ChevronRight size={15} />}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleCancel} className="w-full rounded-lg font-medium">
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
       </form>
     </div>
   );
