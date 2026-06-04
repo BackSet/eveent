@@ -30,12 +30,6 @@ public class ConvocatoriaGrupoEquipo {
     @Column(name = "nombre_equipo", nullable = false, length = 120)
     private String nombreEquipo;
 
-    @Column(name = "cupo_titulares", nullable = false)
-    private Integer cupoTitulares;
-
-    @Column(name = "cupo_espera")
-    private Integer cupoEspera;
-
     @Column(nullable = false)
     @Builder.Default
     private Integer orden = 0;

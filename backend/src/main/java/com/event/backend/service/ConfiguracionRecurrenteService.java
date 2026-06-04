@@ -9,6 +9,7 @@ import com.event.backend.model.ConfiguracionRecurrente;
 import com.event.backend.model.Deporte;
 import com.event.backend.model.Grupo;
 import com.event.backend.model.HorarioDia;
+import com.event.backend.model.ModoFormacion;
 import com.event.backend.model.Usuario;
 import com.event.backend.repository.ConfiguracionRecurrenteRepository;
 import com.event.backend.repository.DeporteRepository;
@@ -68,6 +69,11 @@ public class ConfiguracionRecurrenteService {
 
         Map<String, HorarioDia> horarios = convertHorarios(request.getHorariosPorDia());
 
+        ModoFormacion modoFormacion = request.getModoFormacion() != null
+                ? request.getModoFormacion()
+                : ModoFormacion.BALANCEADO;
+        List<Long> gruposEquipoIds = normalizeGruposEquipo(modoFormacion, request.getGrupoEquipoIds());
+
         ConfiguracionRecurrente config = ConfiguracionRecurrente.builder()
                 .titulo(request.getTitulo())
                 .descripcion(request.getDescripcion())
@@ -79,6 +85,8 @@ public class ConfiguracionRecurrenteService {
                 .rruleExpression(request.getRruleExpression())
                 .horariosPorDia(horarios)
                 .grupoDestino(grupoDestino)
+                .modoFormacion(modoFormacion)
+                .grupoEquipoIds(gruposEquipoIds)
                 .activo(request.getActivo() == null || request.getActivo())
                 .build();
 
@@ -117,8 +125,35 @@ public class ConfiguracionRecurrenteService {
             config.setGrupoDestino(null);
         }
 
+        if (request.getModoFormacion() != null) {
+            ModoFormacion modoFormacion = request.getModoFormacion();
+            config.setModoFormacion(modoFormacion);
+            if (modoFormacion == ModoFormacion.EQUIPOS_POR_GRUPO) {
+                config.setGrupoEquipoIds(normalizeGruposEquipo(modoFormacion, request.getGrupoEquipoIds()));
+            } else {
+                // Al volver a balanceado, limpiamos los grupos participantes.
+                config.setGrupoEquipoIds(null);
+            }
+        } else if (request.getGrupoEquipoIds() != null && config.getModoFormacion() == ModoFormacion.EQUIPOS_POR_GRUPO) {
+            config.setGrupoEquipoIds(normalizeGruposEquipo(ModoFormacion.EQUIPOS_POR_GRUPO, request.getGrupoEquipoIds()));
+        }
+
         config = configuracionRepository.save(config);
         return toResponse(config);
+    }
+
+    /** Valida y normaliza los grupos participantes (mínimo 2, sin duplicados) para equipos por grupo. */
+    private List<Long> normalizeGruposEquipo(ModoFormacion modoFormacion, List<Long> grupoEquipoIds) {
+        if (modoFormacion != ModoFormacion.EQUIPOS_POR_GRUPO) {
+            return null;
+        }
+        List<Long> unique = grupoEquipoIds == null ? List.of()
+                : grupoEquipoIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (unique.size() < 2) {
+            throw new com.event.backend.exception.BusinessException(
+                    "Una programación por grupos debe tener mínimo 2 grupos participantes.");
+        }
+        return new java.util.ArrayList<>(unique);
     }
 
     public void delete(Long id) {
@@ -182,6 +217,8 @@ public class ConfiguracionRecurrenteService {
                 .horariosPorDia(horariosResponse)
                 .grupoDestinoId(config.getGrupoDestino() != null ? config.getGrupoDestino().getId() : null)
                 .grupoDestinoNombre(config.getGrupoDestino() != null ? config.getGrupoDestino().getNombre() : null)
+                .modoFormacion(config.getModoFormacion() != null ? config.getModoFormacion() : ModoFormacion.BALANCEADO)
+                .grupoEquipoIds(config.getGrupoEquipoIds())
                 .activo(config.getActivo())
                 .creadoPorId(config.getCreadoPor() != null ? config.getCreadoPor().getId() : null)
                 .fechaCreacion(config.getFechaCreacion())

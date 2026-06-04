@@ -3,6 +3,7 @@ package com.event.backend.config;
 import com.event.backend.model.*;
 import com.event.backend.repository.*;
 import com.event.backend.service.AutoAceptacionService;
+import com.event.backend.service.ConvocatoriaGrupoEquipoService;
 import com.event.backend.util.ConvocatoriaScheduleHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,8 @@ public class RecurrenciaScheduler {
     private final ConvocatoriaRepository convocatoriaRepository;
     private final AsistenciaRepository asistenciaRepository;
     private final AutoAceptacionService autoAceptacionService;
+    private final ConvocatoriaGrupoEquipoService convocatoriaGrupoEquipoService;
+    private final GrupoRepository grupoRepository;
 
     @Scheduled(fixedRate = 60000)
     public void runScheduler() {
@@ -116,7 +119,9 @@ public class RecurrenciaScheduler {
 
                 log.info("Generando convocatoria: '{}' para fecha: {}", rule.getTitulo(), eventTime);
 
-                boolean hasGrupoDestino = rule.getGrupoDestino() != null;
+                boolean esEquiposPorGrupo = rule.getModoFormacion() == ModoFormacion.EQUIPOS_POR_GRUPO;
+                // En equipos por grupo el acceso lo definen los grupos participantes (no grupoDestino).
+                boolean hasGrupoDestino = !esEquiposPorGrupo && rule.getGrupoDestino() != null;
                 Convocatoria newConv = Convocatoria.builder()
                         .titulo(rule.getTitulo())
                         .descripcion(rule.getDescripcion())
@@ -131,6 +136,7 @@ public class RecurrenciaScheduler {
                         .categoria(rule.getCategoria())
                         .configuracionRecurrente(rule)
                         .manejoExcedente("LISTA_ESPERA")
+                        .modoFormacion(esEquiposPorGrupo ? ModoFormacion.EQUIPOS_POR_GRUPO : ModoFormacion.BALANCEADO)
                         .tipoInvitacion(hasGrupoDestino ? com.event.backend.model.TipoInvitacion.GRUPO : com.event.backend.model.TipoInvitacion.ABIERTA)
                         .grupo(hasGrupoDestino ? rule.getGrupoDestino() : null)
                         .build();
@@ -146,29 +152,49 @@ public class RecurrenciaScheduler {
 
                 newConv = convocatoriaRepository.save(newConv);
 
-                if (rule.getGrupoDestino() != null) {
+                if (esEquiposPorGrupo) {
+                    // Crea los equipos (uno por grupo) y propaga los cupos por grupo.
+                    convocatoriaGrupoEquipoService.syncForConvocatoria(
+                            newConv,
+                            rule.getGrupoEquipoIds());
+                    // Pre-invita (pendiente) a los miembros de todos los grupos participantes.
+                    java.util.Set<Usuario> miembros = new java.util.LinkedHashSet<>();
+                    if (rule.getGrupoEquipoIds() != null) {
+                        for (Long grupoId : rule.getGrupoEquipoIds()) {
+                            grupoRepository.findById(grupoId).ifPresent(g -> {
+                                if (g.getMiembros() != null) miembros.addAll(g.getMiembros());
+                            });
+                        }
+                    }
+                    bulkInvitar(newConv, miembros);
+                } else if (rule.getGrupoDestino() != null) {
                     Grupo grupo = rule.getGrupoDestino();
                     if (grupo.getMiembros() != null) {
-                        final Convocatoria savedConv = newConv;
-                        List<Asistencia> bulkAsistencias = grupo.getMiembros().stream()
-                                .map(member -> {
-                                    Asistencia asistencia = Asistencia.builder()
-                                            .convocatoria(savedConv)
-                                            .usuario(member)
-                                            .estado(EstadoAsistencia.PENDIENTE)
-                                            .fechaRespuesta(LocalDateTime.now())
-                                            .build();
-                                    autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, member);
-                                    return asistencia;
-                                })
-                                .toList();
-                        asistenciaRepository.saveAll(bulkAsistencias);
+                        bulkInvitar(newConv, grupo.getMiembros());
                     }
                 }
             } catch (Exception e) {
                 log.error("Error procesando configuracion ID {}: {}", rule.getId(), e.getMessage(), e);
             }
         }
+    }
+
+    /** Crea asistencias PENDIENTE (con auto-aceptación aplicada) para un conjunto de jugadores. */
+    private void bulkInvitar(Convocatoria convocatoria, java.util.Collection<Usuario> miembros) {
+        if (miembros == null || miembros.isEmpty()) return;
+        List<Asistencia> bulkAsistencias = miembros.stream()
+                .map(member -> {
+                    Asistencia asistencia = Asistencia.builder()
+                            .convocatoria(convocatoria)
+                            .usuario(member)
+                            .estado(EstadoAsistencia.PENDIENTE)
+                            .fechaRespuesta(LocalDateTime.now())
+                            .build();
+                    autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, member);
+                    return asistencia;
+                })
+                .toList();
+        asistenciaRepository.saveAll(bulkAsistencias);
     }
 
     private boolean shouldGenerateToday(ConfiguracionRecurrente rule, LocalDate today) {

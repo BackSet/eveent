@@ -20,6 +20,8 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { PlayerIdentity, PlayerIdentityChip } from "@/components/ui/player-identity";
 import { EventDateTimePicker } from "@/components/convocatoria/EventDateTimePicker";
 import { InscripcionDeadlinePicker } from "@/components/convocatoria/InscripcionDeadlinePicker";
+import { TeamFormationFields } from "@/components/convocatoria/TeamFormationFields";
+import { GrupoSearchSelect } from "@/components/convocatoria/GrupoSearchSelect";
 import { PresetChips } from "@/components/ui/preset-chips";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useFormDirty } from "@/hooks/useFormDirty";
@@ -36,19 +38,6 @@ const CATEGORIAS = [
   { value: "AMISTOSO", label: "Amistoso" },
   { value: "ENTRENAMIENTO", label: "Entrenamiento" },
 ];
-
-const MODOS_FORMACION = [
-  {
-    value: "BALANCEADO",
-    label: "Balanceado",
-    description: "Usa el autobalanceo actual para repartir jugadores entre bandos.",
-  },
-  {
-    value: "EQUIPOS_POR_GRUPO",
-    label: "Equipos por grupo",
-    description: "Mantiene a los jugadores de cada grupo juntos; no mezcla grupos al formar equipos.",
-  },
-] as const;
 
 const DEFAULT_HORARIO: HorarioDia = { horaApertura: "08:00", horaEvento: "20:00", duracionMinutos: 90 };
 
@@ -100,6 +89,7 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
     titulo: "", descripcion: "", deporteId: 0, lugar: "", cupoMaximo: 0, categoria: "",
     rruleExpression: "FREQ=WEEKLY;BYDAY=MO", horariosPorDia: { MO: { ...DEFAULT_HORARIO } } as Record<string, HorarioDia>,
     grupoDestinoId: "0", estado: "ABIERTA",
+    modoFormacion: "BALANCEADO",
   });
 
   const [invitationMode, setInvitationMode] = useState<"NONE" | "GROUP" | "MANUAL">("NONE");
@@ -136,7 +126,9 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
               cupoMaximo: data.cupoMaximo || 0, categoria: data.categoria || "", rruleExpression: data.rruleExpression || "FREQ=WEEKLY;BYDAY=MO",
               horariosPorDia: horarios,
               grupoDestinoId: data.grupoDestinoId || "", estado: data.activo ? "ABIERTA" : "BORRADOR",
+              modoFormacion: data.modoFormacion || "BALANCEADO",
             });
+            setSelectedGrupoEquipoIds(data.grupoEquipoIds || []);
             setIsRecurrent(true);
           } else {
             const { data } = await api.get(`/api/convocatorias/${id}`);
@@ -256,6 +248,10 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         setError(horarioError);
         return;
       }
+      if (recurrenteData.modoFormacion === "EQUIPOS_POR_GRUPO" && selectedGrupoEquipoIds.length < 2) {
+        setError("Selecciona al menos 2 grupos participantes para equipos por grupo.");
+        return;
+      }
     } else {
       if (!formData.deporteId) {
         setError("Selecciona un deporte.");
@@ -277,17 +273,22 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
     }
 
     if (!isRecurrent) {
-      if (invitationMode === "GROUP" && !selectedGrupoId) {
-        setError("Selecciona un grupo para convocatorias restringidas por grupo.");
-        return;
-      }
-      if (invitationMode === "MANUAL" && selectedUserIds.length === 0) {
-        setError("En modo manual debes invitar al menos un jugador.");
-        return;
-      }
-      if (formData.modoFormacion === "EQUIPOS_POR_GRUPO" && selectedGrupoEquipoIds.length < 2) {
-        setError("Selecciona al menos 2 grupos participantes para equipos por grupo.");
-        return;
+      if (formData.modoFormacion === "EQUIPOS_POR_GRUPO") {
+        // En equipos por grupo, los grupos participantes definen el acceso:
+        // no se usa el modo de invitación (abierto/grupo/manual).
+        if (selectedGrupoEquipoIds.length < 2) {
+          setError("Selecciona al menos 2 grupos participantes para equipos por grupo.");
+          return;
+        }
+      } else {
+        if (invitationMode === "GROUP" && !selectedGrupoId) {
+          setError("Selecciona un grupo para convocatorias restringidas por grupo.");
+          return;
+        }
+        if (invitationMode === "MANUAL" && selectedUserIds.length === 0) {
+          setError("En modo manual debes invitar al menos un jugador.");
+          return;
+        }
       }
     }
 
@@ -295,7 +296,18 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
     try {
       if (isRecurrent) {
         const { estado, ...rest } = recurrenteData;
-        const payload = { ...rest, activo: estado === "ABIERTA", grupoDestinoId: recurrenteData.grupoDestinoId && recurrenteData.grupoDestinoId !== "0" ? Number(recurrenteData.grupoDestinoId) : null };
+        const esEquiposPorGrupo = recurrenteData.modoFormacion === "EQUIPOS_POR_GRUPO";
+        const payload = {
+          ...rest,
+          activo: estado === "ABIERTA",
+          // En equipos por grupo el acceso lo definen los grupos participantes (sin grupo destino).
+          grupoDestinoId: esEquiposPorGrupo
+            ? null
+            : recurrenteData.grupoDestinoId && recurrenteData.grupoDestinoId !== "0"
+              ? Number(recurrenteData.grupoDestinoId)
+              : null,
+          grupoEquipoIds: esEquiposPorGrupo ? selectedGrupoEquipoIds : [],
+        };
         if (isEditing) {
           await api.put(`/api/configuraciones-recurrentes/${id}`, payload);
           toast.success("Regla actualizada");
@@ -309,15 +321,19 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
           );
         }
       } else {
-        const tipoInvitacion =
-          invitationMode === "NONE" ? "ABIERTA" : invitationMode === "GROUP" ? "GRUPO" : "MANUAL";
+        const isEquiposPorGrupo = formData.modoFormacion === "EQUIPOS_POR_GRUPO";
+        // En equipos por grupo el acceso lo definen los grupos participantes
+        // (el backend rechaza a externos), por lo que no hay modo de invitación.
+        const tipoInvitacion = isEquiposPorGrupo
+          ? "ABIERTA"
+          : invitationMode === "NONE" ? "ABIERTA" : invitationMode === "GROUP" ? "GRUPO" : "MANUAL";
         const payload = {
           ...formData,
           fechaHora: formData.fechaHora + ":00",
           fechaLimiteInscripcion: formData.fechaLimiteInscripcion ? formData.fechaLimiteInscripcion + ":00" : null,
           tipoInvitacion,
-          grupoId: invitationMode === "GROUP" && selectedGrupoId ? Number(selectedGrupoId) : null,
-          grupoEquipoIds: formData.modoFormacion === "EQUIPOS_POR_GRUPO" ? selectedGrupoEquipoIds : [],
+          grupoId: !isEquiposPorGrupo && invitationMode === "GROUP" && selectedGrupoId ? Number(selectedGrupoId) : null,
+          grupoEquipoIds: isEquiposPorGrupo ? selectedGrupoEquipoIds : [],
         };
         let createdId: number;
         if (isEditing) {
@@ -330,7 +346,15 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         }
         if (!isEditing && createdId) {
           let userIdsToInvite: number[] = [];
-          if (invitationMode === "GROUP" && selectedGrupoId) {
+          if (isEquiposPorGrupo) {
+            // Pre-invitar (como pendientes) a los miembros de todos los grupos participantes.
+            const memberSet = new Set<number>();
+            selectedGrupoEquipoIds.forEach((gid) => {
+              const grp = grupos.find(g => g.id === gid);
+              grp?.miembroIds?.forEach(mid => memberSet.add(mid));
+            });
+            userIdsToInvite = [...memberSet];
+          } else if (invitationMode === "GROUP" && selectedGrupoId) {
             const targetGrp = grupos.find(g => g.id === Number(selectedGrupoId));
             if (targetGrp && targetGrp.miembroIds) userIdsToInvite = targetGrp.miembroIds;
           } else if (invitationMode === "MANUAL") {
@@ -594,90 +618,14 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-1">
-                  <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <span>Modo de formación</span>
-                    <InfoHint side="right" maxWidth={320}>
-                      <strong>Balanceado</strong> mantiene el flujo actual.{" "}
-                      <strong>Equipos por grupo</strong> evita mezclar jugadores de grupos distintos
-                      cuando se formen equipos.
-                    </InfoHint>
-                  </Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {MODOS_FORMACION.map((modo) => {
-                      const active = formData.modoFormacion === modo.value;
-                      return (
-                        <button
-                          key={modo.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, modoFormacion: modo.value })}
-                          className={`text-left rounded-lg border p-3 transition-colors ${
-                            active
-                              ? "border-primary bg-primary/[0.06] text-foreground"
-                              : "border-border bg-card hover:bg-muted/50 text-muted-foreground"
-                          }`}
-                        >
-                          <span className="block text-xs font-bold">{modo.label}</span>
-                          <span className="block text-[10px] leading-relaxed mt-1">
-                            {modo.description}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {formData.modoFormacion === "EQUIPOS_POR_GRUPO" && (
-                    <div className="space-y-2 animate-fadeIn rounded-lg border border-border bg-muted/20 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          Grupos participantes ({selectedGrupoEquipoIds.length})
-                        </Label>
-                        {selectedGrupoEquipoIds.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedGrupoEquipoIds([])}
-                            className="text-[10px] font-medium text-muted-foreground hover:text-foreground"
-                          >
-                            Limpiar
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {grupos.map((grupo) => {
-                          const selected = selectedGrupoEquipoIds.includes(grupo.id);
-                          return (
-                            <button
-                              key={grupo.id}
-                              type="button"
-                              onClick={() => handleGrupoEquipoSelect(grupo.id)}
-                              className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
-                                selected
-                                  ? "border-primary bg-primary/[0.06] text-foreground"
-                                  : "border-border bg-card hover:bg-muted/50 text-muted-foreground"
-                              }`}
-                            >
-                              <span className="min-w-0">
-                                <span className="block truncate text-xs font-bold">{grupo.nombre}</span>
-                                <span className="block text-[10px]">{grupo.miembroIds?.length || 0} jugadores</span>
-                              </span>
-                              <span className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
-                                selected ? "bg-primary border-primary text-primary-foreground" : "border-border"
-                              }`}>
-                                {selected && <Check size={10} />}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {grupos.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No hay grupos disponibles.</p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Cada grupo seleccionado creará un equipo visible con el mismo nombre del grupo.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                <TeamFormationFields
+                  modoFormacion={formData.modoFormacion}
+                  onModoFormacionChange={(modo) => setFormData({ ...formData, modoFormacion: modo })}
+                  grupos={grupos}
+                  selectedGrupoIds={selectedGrupoEquipoIds}
+                  onToggleGrupo={handleGrupoEquipoSelect}
+                  onClearGrupos={() => setSelectedGrupoEquipoIds([])}
+                />
               </>
             )}
           </CardContent>
@@ -697,24 +645,41 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         {isRecurrent && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Grupo Destino</CardTitle>
+              <CardTitle className="text-sm font-semibold">Formación de equipos</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Seleccionar Grupo</Label>
-                <Select value={String(recurrenteData.grupoDestinoId)} onValueChange={(v) => setRecurrenteData({ ...recurrenteData, grupoDestinoId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar grupo" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Ninguno (Abierto)</SelectItem>
-                    {grupos.map((g) => <SelectItem key={g.id} value={String(g.id)}>{g.nombre}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+            <CardContent className="space-y-4">
+              <TeamFormationFields
+                modoFormacion={recurrenteData.modoFormacion}
+                onModoFormacionChange={(modo) => setRecurrenteData({ ...recurrenteData, modoFormacion: modo })}
+                grupos={grupos}
+                selectedGrupoIds={selectedGrupoEquipoIds}
+                onToggleGrupo={handleGrupoEquipoSelect}
+                onClearGrupos={() => setSelectedGrupoEquipoIds([])}
+              />
+
+              {recurrenteData.modoFormacion === "BALANCEADO" && (
+                <div className="space-y-1.5 pt-3 border-t">
+                  <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <span>Grupo destino (opcional)</span>
+                    <InfoHint side="right" maxWidth={300}>
+                      Si eliges un grupo, cada convocatoria generada queda restringida a sus miembros
+                      y se les pre-invita. Déjalo en "Ninguno" para una convocatoria abierta.
+                    </InfoHint>
+                  </Label>
+                  <Select value={String(recurrenteData.grupoDestinoId)} onValueChange={(v) => setRecurrenteData({ ...recurrenteData, grupoDestinoId: v })}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar grupo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Ninguno (Abierto)</SelectItem>
+                      {grupos.map((g) => <SelectItem key={g.id} value={String(g.id)}>{g.nombre}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {!isRecurrent && !isEditing && (
+        {!isRecurrent && !isEditing && formData.modoFormacion !== "EQUIPOS_POR_GRUPO" && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
@@ -747,10 +712,12 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
               {invitationMode === "GROUP" && (
                 <div className="space-y-1.5 animate-fadeIn">
                   <Label className="text-xs font-medium text-muted-foreground">Grupo</Label>
-                  <Select value={selectedGrupoId} onValueChange={setSelectedGrupoId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar grupo" /></SelectTrigger>
-                    <SelectContent>{grupos.map((g) => <SelectItem key={g.id} value={String(g.id)}>{g.nombre} ({g.miembroIds?.length || 0})</SelectItem>)}</SelectContent>
-                  </Select>
+                  <GrupoSearchSelect
+                    grupos={grupos}
+                    selectedIds={selectedGrupoId ? [Number(selectedGrupoId)] : []}
+                    onToggle={(id) => setSelectedGrupoId(String(id) === selectedGrupoId ? "" : String(id))}
+                    placeholder="Buscar grupo a invitar…"
+                  />
                 </div>
               )}
 

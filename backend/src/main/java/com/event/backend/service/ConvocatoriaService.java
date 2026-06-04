@@ -145,9 +145,7 @@ public class ConvocatoriaService {
         if (modoFormacion == ModoFormacion.EQUIPOS_POR_GRUPO) {
             convocatoriaGrupoEquipoService.syncForConvocatoria(
                     convocatoria,
-                    request.getGrupoEquipoIds(),
-                    request.getCupoTitularesPorGrupo(),
-                    request.getCupoEsperaPorGrupo());
+                    request.getGrupoEquipoIds());
         }
         return toResponse(convocatoria, true);
     }
@@ -196,9 +194,7 @@ public class ConvocatoriaService {
             if (request.getGrupoEquipoIds() != null) {
                 convocatoriaGrupoEquipoService.syncForConvocatoria(
                         convocatoria,
-                        request.getGrupoEquipoIds(),
-                        request.getCupoTitularesPorGrupo(),
-                        request.getCupoEsperaPorGrupo());
+                        request.getGrupoEquipoIds());
             } else {
                 convocatoriaGrupoEquipoService.assertHasEnoughGroups(convocatoria.getId());
             }

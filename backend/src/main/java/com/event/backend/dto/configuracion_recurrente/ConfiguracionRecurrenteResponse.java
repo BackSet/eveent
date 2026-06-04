@@ -1,7 +1,9 @@
 package com.event.backend.dto.configuracion_recurrente;
 
+import com.event.backend.model.ModoFormacion;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -18,6 +20,8 @@ public class ConfiguracionRecurrenteResponse {
     private Map<String, HorarioDiaResponse> horariosPorDia;
     private Long grupoDestinoId;
     private String grupoDestinoNombre;
+    private ModoFormacion modoFormacion;
+    private List<Long> grupoEquipoIds;
     private Boolean activo;
     private Long creadoPorId;
     private LocalDateTime fechaCreacion;

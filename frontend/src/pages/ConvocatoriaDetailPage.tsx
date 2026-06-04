@@ -1139,6 +1139,38 @@ export default function ConvocatoriaDetailPage() {
               </div>
             )}
 
+            {/* Resumen de grupos participantes (Equipos por grupo) */}
+            {usesGroupFormation && (convocatoria.gruposEquipo?.length ?? 0) > 0 && (
+              <div className="notion-callout bg-muted/20 border-border flex-col p-4 rounded-lg">
+                <div className="flex items-center gap-2 pb-3 border-b border-border/40">
+                  <Users size={15} className="text-primary" />
+                  <div className="font-bold text-sm text-foreground">
+                    Grupos participantes ({convocatoria.gruposEquipo?.length})
+                  </div>
+                  <InfoHint side="right" maxWidth={300}>
+                    Cada equipo corresponde a un grupo. Solo sus miembros pueden confirmar; el cupo de
+                    titulares por equipo es el <strong>cupo máximo</strong> de la convocatoria. Al llenarse,
+                    los siguientes del mismo grupo quedan en espera (ilimitada) y se promueven
+                    automáticamente si un titular cancela.
+                  </InfoHint>
+                </div>
+                <div className="flex items-center gap-2 pt-3 pb-1 text-[10px] font-semibold">
+                  <Badge variant="success" className="px-1.5 py-0">
+                    {convocatoria.cupoMaximo && convocatoria.cupoMaximo > 0 ? `${convocatoria.cupoMaximo} titulares/equipo` : "Titulares ilimitados"}
+                  </Badge>
+                  <Badge variant="info" className="px-1.5 py-0">Espera ∞</Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {convocatoria.gruposEquipo?.map((rel) => (
+                    <div key={rel.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2">
+                      <span className="text-xs font-bold text-foreground truncate">{rel.nombreEquipo}</span>
+                      <Users size={13} className="text-muted-foreground shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Mis Invitados Panel */}
             {managedInvitados.length > 0 && (
               <div className="notion-callout bg-muted/20 border-border flex-col p-4 rounded-lg">

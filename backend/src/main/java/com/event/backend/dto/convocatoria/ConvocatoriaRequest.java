@@ -36,6 +36,4 @@ public class ConvocatoriaRequest {
     private ModoFormacion modoFormacion;
     private Long grupoId;
     private List<Long> grupoEquipoIds;
-    private Integer cupoTitularesPorGrupo;
-    private Integer cupoEsperaPorGrupo;
 }
