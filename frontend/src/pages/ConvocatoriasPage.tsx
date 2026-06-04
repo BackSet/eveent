@@ -697,7 +697,11 @@ export default function ConvocatoriasPage() {
                           <div className="text-sm font-semibold text-foreground truncate">
                             {rec.titulo}
                           </div>
-                          {rec.grupoDestinoNombre && (
+                          {rec.modoFormacion === "EQUIPOS_POR_GRUPO" ? (
+                            <Badge variant="info" className="text-[9px] px-1.5 py-0 uppercase">
+                              Equipos por grupo ({rec.grupoEquipoIds?.length ?? 0})
+                            </Badge>
+                          ) : rec.grupoDestinoNombre && (
                             <span className="text-[10px] text-muted-foreground bg-muted/50 border border-border px-1.5 py-0.2 rounded font-semibold">
                               Grupo: {rec.grupoDestinoNombre}
                             </span>

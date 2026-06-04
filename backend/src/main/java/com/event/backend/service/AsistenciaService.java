@@ -594,7 +594,8 @@ public class AsistenciaService {
     }
 
     private TipoConfirmacion calcularTipoConfirmacion(Asistencia asistencia, ConvocatoriaGrupoEquipo relacion) {
-        Integer cupo = relacion.getCupoTitulares() != null ? relacion.getCupoTitulares() : 1;
+        // Fuente única del cupo de titulares por equipo: convocatorias.cupo_maximo. Espera indefinida.
+        int cupo = cupoTitularesPorEquipo(relacion.getConvocatoria());
         long titulares = asistenciaRepository.countByConvocatoriaIdAndBandoIdAndTipoConfirmacion(
                 relacion.getConvocatoria().getId(),
                 relacion.getEquipo().getId(),
@@ -610,6 +611,15 @@ public class AsistenciaService {
 
     private boolean isGroupFormation(Convocatoria convocatoria) {
         return convocatoria != null && convocatoria.getModoFormacion() == ModoFormacion.EQUIPOS_POR_GRUPO;
+    }
+
+    /**
+     * Cupo de titulares por equipo en EQUIPOS_POR_GRUPO. Es convocatorias.cupo_maximo (fuente única).
+     * Si no hay cupo (0 o nulo) los titulares son ilimitados (todos entran como TITULAR).
+     */
+    private int cupoTitularesPorEquipo(Convocatoria convocatoria) {
+        Integer cupoMaximo = convocatoria != null ? convocatoria.getCupoMaximo() : null;
+        return (cupoMaximo != null && cupoMaximo > 0) ? cupoMaximo : Integer.MAX_VALUE;
     }
 
     private void clearGroupAssignmentIfNeeded(Asistencia asistencia) {
@@ -706,7 +716,7 @@ public class AsistenciaService {
             List<Asistencia> candidatos,
             List<ReglaPosicionEquipo> reglas
     ) {
-        int cupo = equipo.getCupoTitulares() != null ? equipo.getCupoTitulares() : 1;
+        int cupo = cupoTitularesPorEquipo(equipo.getConvocatoria());
         java.util.Set<Long> titularesIds = new java.util.LinkedHashSet<>();
 
         for (ReglaPosicionEquipo regla : reglas) {

@@ -3,6 +3,7 @@ package com.event.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Entity
@@ -50,6 +51,16 @@ public class ConfiguracionRecurrente {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "grupo_destino_id")
     private Grupo grupoDestino;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modo_formacion", nullable = false, length = 30, columnDefinition = "VARCHAR(30) DEFAULT 'BALANCEADO'")
+    @Builder.Default
+    private ModoFormacion modoFormacion = ModoFormacion.BALANCEADO;
+
+    /** Grupos participantes cuando modoFormacion = EQUIPOS_POR_GRUPO (se propagan a cada convocatoria generada). */
+    @Convert(converter = LongListConverter.class)
+    @Column(name = "grupos_equipo_ids", columnDefinition = "text")
+    private List<Long> grupoEquipoIds;
 
     @Column(nullable = false)
     @Builder.Default

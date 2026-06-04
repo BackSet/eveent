@@ -105,8 +105,6 @@ export interface ConvocatoriaGrupoEquipo {
   grupoNombre: string;
   equipoId: number;
   nombreEquipo: string;
-  cupoTitulares: number;
-  cupoEspera?: number | null;
   orden: number;
 }
 
@@ -210,6 +208,8 @@ export interface ConfiguracionRecurrente {
   horariosPorDia: Record<string, HorarioDia>;
   grupoDestinoId?: number | null;
   grupoDestinoNombre?: string;
+  modoFormacion?: ModoFormacion;
+  grupoEquipoIds?: number[];
   activo: boolean;
   creadoPorId?: number;
   fechaCreacion?: string;

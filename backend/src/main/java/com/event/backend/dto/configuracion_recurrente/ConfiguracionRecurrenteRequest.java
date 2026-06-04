@@ -1,8 +1,10 @@
 package com.event.backend.dto.configuracion_recurrente;
 
+import com.event.backend.model.ModoFormacion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import java.util.List;
 import java.util.Map;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -18,6 +20,8 @@ public class ConfiguracionRecurrenteRequest {
     private String rruleExpression;
     private Map<String, HorarioDiaRequest> horariosPorDia;
     private Long grupoDestinoId;
+    private ModoFormacion modoFormacion;
+    private List<Long> grupoEquipoIds;
     private Boolean activo;
 
     @Data @NoArgsConstructor @AllArgsConstructor

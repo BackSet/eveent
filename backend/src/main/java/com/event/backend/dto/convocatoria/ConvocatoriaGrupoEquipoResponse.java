@@ -10,7 +10,5 @@ public class ConvocatoriaGrupoEquipoResponse {
     private String grupoNombre;
     private Long equipoId;
     private String nombreEquipo;
-    private Integer cupoTitulares;
-    private Integer cupoEspera;
     private Integer orden;
 }

@@ -30,16 +30,15 @@ public class ConvocatoriaGrupoEquipoService {
 
     public List<ConvocatoriaGrupoEquipo> syncForConvocatoria(
             Convocatoria convocatoria,
-            List<Long> grupoIds,
-            Integer cupoTitularesPorGrupo,
-            Integer cupoEsperaPorGrupo
+            List<Long> grupoIds
     ) {
         List<Long> normalizedGrupoIds = normalizeGrupoIds(grupoIds);
         validateMinGroups(normalizedGrupoIds);
 
         clearForConvocatoria(convocatoria.getId());
 
-        int cupoTitulares = resolveCupoTitulares(convocatoria, cupoTitularesPorGrupo);
+        // El cupo de titulares por equipo es convocatorias.cupo_maximo (fuente única).
+        // La espera es indefinida, por eso la tabla puente no guarda cupos.
         List<ConvocatoriaGrupoEquipo> relaciones = new ArrayList<>();
         for (int i = 0; i < normalizedGrupoIds.size(); i++) {
             Long grupoId = normalizedGrupoIds.get(i);
@@ -56,8 +55,6 @@ public class ConvocatoriaGrupoEquipoService {
                     .grupo(grupo)
                     .equipo(equipo)
                     .nombreEquipo(nombreEquipo)
-                    .cupoTitulares(cupoTitulares)
-                    .cupoEspera(cupoEsperaPorGrupo)
                     .orden(i)
                     .build()));
         }
@@ -112,21 +109,6 @@ public class ConvocatoriaGrupoEquipoService {
         }
     }
 
-    private int resolveCupoTitulares(Convocatoria convocatoria, Integer requested) {
-        if (requested != null && requested > 0) {
-            return requested;
-        }
-        if (convocatoria.getDeporte() != null
-                && convocatoria.getDeporte().getMaxJugadoresPorBando() != null
-                && convocatoria.getDeporte().getMaxJugadoresPorBando() > 0) {
-            return convocatoria.getDeporte().getMaxJugadoresPorBando();
-        }
-        if (convocatoria.getCupoMaximo() != null && convocatoria.getCupoMaximo() > 0) {
-            return convocatoria.getCupoMaximo();
-        }
-        return 1;
-    }
-
     private ConvocatoriaGrupoEquipoResponse toResponse(ConvocatoriaGrupoEquipo relacion) {
         return ConvocatoriaGrupoEquipoResponse.builder()
                 .id(relacion.getId())
@@ -135,8 +117,6 @@ public class ConvocatoriaGrupoEquipoService {
                 .grupoNombre(relacion.getGrupo().getNombre())
                 .equipoId(relacion.getEquipo().getId())
                 .nombreEquipo(relacion.getNombreEquipo())
-                .cupoTitulares(relacion.getCupoTitulares())
-                .cupoEspera(relacion.getCupoEspera())
                 .orden(relacion.getOrden())
                 .build();
     }
