@@ -53,7 +53,7 @@ public class ConfiguracionRecurrente {
     private Grupo grupoDestino;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "modo_formacion", length = 30, nullable = false)
+    @Column(name = "modo_formacion", nullable = false, length = 30, columnDefinition = "VARCHAR(30) DEFAULT 'BALANCEADO'")
     @Builder.Default
     private ModoFormacion modoFormacion = ModoFormacion.BALANCEADO;
 
