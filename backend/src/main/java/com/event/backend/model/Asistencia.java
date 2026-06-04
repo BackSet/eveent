@@ -68,6 +68,11 @@ public class Asistencia {
     @JoinColumn(name = "bando_id")
     private BandoConvocatoria bando;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_confirmacion", nullable = false, length = 30, columnDefinition = "VARCHAR(30) DEFAULT 'TITULAR'")
+    @Builder.Default
+    private TipoConfirmacion tipoConfirmacion = TipoConfirmacion.TITULAR;
+
     @Builder.Default
     private LocalDateTime fechaRespuesta = LocalDateTime.now();
 

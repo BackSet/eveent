@@ -54,6 +54,7 @@ export interface PosicionesDeporte {
 }
 
 export type TipoInvitacion = "ABIERTA" | "GRUPO" | "MANUAL";
+export type ModoFormacion = "BALANCEADO" | "EQUIPOS_POR_GRUPO";
 
 export enum EstadoConvocatoria {
   BORRADOR = "BORRADOR",
@@ -85,14 +86,28 @@ export interface Convocatoria {
   manejoExcedente?: string;
   deporteEsPorEquipos?: boolean;
   tipoInvitacion?: TipoInvitacion;
+  modoFormacion?: ModoFormacion;
   grupoId?: number | null;
   grupoNombre?: string | null;
+  gruposEquipo?: ConvocatoriaGrupoEquipo[];
   puedeVer?: boolean;
   puedeInscribirse?: boolean;
   /** BORRADOR con fecha de evento ya pasada */
   fechaEventoPasada?: boolean;
   /** Si el borrador puede publicarse (PUT /abrir) */
   puedePublicarse?: boolean;
+}
+
+export interface ConvocatoriaGrupoEquipo {
+  id: number;
+  convocatoriaId: number;
+  grupoId: number;
+  grupoNombre: string;
+  equipoId: number;
+  nombreEquipo: string;
+  cupoTitulares: number;
+  cupoEspera?: number | null;
+  orden: number;
 }
 
 export interface BandoConvocatoria {
@@ -108,6 +123,8 @@ export enum EstadoAsistencia {
   PENDIENTE = "PENDIENTE",
   LISTA_ESPERA = "LISTA_ESPERA",
 }
+
+export type TipoConfirmacion = "TITULAR" | "ESPERA";
 
 export interface Asistencia {
   id: number;
@@ -131,6 +148,7 @@ export interface Asistencia {
   posicionAsignadaNombre?: string | null;
   bandoId: number | null;
   bandoNombre?: string | null;
+  tipoConfirmacion?: TipoConfirmacion;
   numeroCamiseta?: number | null;
   fechaRespuesta: string;
   posicionesPreferidasIds?: number[];
@@ -153,7 +171,24 @@ export interface Grupo {
   creadoPorNombre: string;
   miembroIds: number[];
   miembroNombres: string[];
+  miembros?: GrupoMiembro[];
+  puedeGestionar?: boolean;
+  puedeAsignarOrganizadores?: boolean;
   fechaCreacion: string;
+}
+
+export type RolGrupo = "CREADOR" | "ORGANIZADOR" | "JUGADOR";
+
+export interface GrupoMiembro {
+  id: number;
+  nombre: string;
+  username?: string;
+  email: string;
+  numeroCamiseta?: number;
+  rolGrupo?: RolGrupo;
+  posiciones?: UsuarioPosicionDto[];
+  fechaFinSuspension?: string;
+  motivoSuspension?: string;
 }
 
 export interface HorarioDia {

@@ -1,6 +1,7 @@
 package com.event.backend.dto.asistencia;
 
 import com.event.backend.model.EstadoAsistencia;
+import com.event.backend.model.TipoConfirmacion;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -29,6 +30,7 @@ public class AsistenciaResponse {
     private java.util.List<String> posicionesPreferidasNombres;
     private Long bandoId;
     private String bandoNombre;
+    private TipoConfirmacion tipoConfirmacion;
     private Integer numeroCamiseta;
     private LocalDateTime fechaRespuesta;
     private Boolean autoAceptada;

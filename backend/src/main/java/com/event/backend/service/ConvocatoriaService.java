@@ -10,11 +10,14 @@ import com.event.backend.model.Convocatoria;
 import com.event.backend.model.Deporte;
 import com.event.backend.model.EstadoConvocatoria;
 import com.event.backend.model.Grupo;
+import com.event.backend.model.ModoFormacion;
+import com.event.backend.model.RolGrupo;
 import com.event.backend.model.TipoInvitacion;
 import com.event.backend.model.Usuario;
 import com.event.backend.repository.ConvocatoriaRepository;
 import com.event.backend.repository.DeporteRepository;
 import com.event.backend.repository.GrupoRepository;
+import com.event.backend.repository.GrupoJugadorRepository;
 import com.event.backend.security.SecurityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +38,8 @@ public class ConvocatoriaService {
     private final GrupoRepository grupoRepository;
     private final SecurityService securityService;
     private final ConvocatoriaAccessService convocatoriaAccessService;
+    private final ConvocatoriaGrupoEquipoService convocatoriaGrupoEquipoService;
+    private final GrupoJugadorRepository grupoJugadorRepository;
 
     public boolean canManageAny() {
         return convocatoriaAccessService.canManageAny();
@@ -105,6 +110,11 @@ public class ConvocatoriaService {
         TipoInvitacion tipoInvitacion = request.getTipoInvitacion() != null
                 ? request.getTipoInvitacion()
                 : TipoInvitacion.ABIERTA;
+        ModoFormacion modoFormacion = request.getModoFormacion() != null
+                ? request.getModoFormacion()
+                : ModoFormacion.BALANCEADO;
+        validateModoFormacionRequest(modoFormacion, request);
+        assertCanCreateConvocatoria(request, tipoInvitacion, modoFormacion);
         Grupo grupo = resolveGrupoForTipo(tipoInvitacion, request.getGrupoId());
 
         Convocatoria convocatoria = Convocatoria.builder()
@@ -123,6 +133,7 @@ public class ConvocatoriaService {
                 .fechaLimiteInscripcion(request.getFechaLimiteInscripcion())
                 .manejoExcedente(request.getManejoExcedente() != null ? request.getManejoExcedente() : "LISTA_ESPERA")
                 .tipoInvitacion(tipoInvitacion)
+                .modoFormacion(modoFormacion)
                 .grupo(grupo)
                 .build();
 
@@ -131,6 +142,13 @@ public class ConvocatoriaService {
         }
 
         convocatoria = convocatoriaRepository.save(convocatoria);
+        if (modoFormacion == ModoFormacion.EQUIPOS_POR_GRUPO) {
+            convocatoriaGrupoEquipoService.syncForConvocatoria(
+                    convocatoria,
+                    request.getGrupoEquipoIds(),
+                    request.getCupoTitularesPorGrupo(),
+                    request.getCupoEsperaPorGrupo());
+        }
         return toResponse(convocatoria, true);
     }
 
@@ -157,6 +175,7 @@ public class ConvocatoriaService {
         if (request.getFechaAperturaInscripcion() != null) convocatoria.setFechaAperturaInscripcion(request.getFechaAperturaInscripcion());
         if (request.getFechaLimiteInscripcion() != null) convocatoria.setFechaLimiteInscripcion(request.getFechaLimiteInscripcion());
         if (request.getManejoExcedente() != null) convocatoria.setManejoExcedente(request.getManejoExcedente());
+        if (request.getModoFormacion() != null) convocatoria.setModoFormacion(request.getModoFormacion());
 
         if (request.getDeporteId() != null && (convocatoria.getDeporte() == null || !request.getDeporteId().equals(convocatoria.getDeporte().getId()))) {
             Deporte deporte = deporteRepository.findById(request.getDeporteId())
@@ -173,6 +192,19 @@ public class ConvocatoriaService {
         }
 
         convocatoria = convocatoriaRepository.save(convocatoria);
+        if (convocatoria.getModoFormacion() == ModoFormacion.EQUIPOS_POR_GRUPO) {
+            if (request.getGrupoEquipoIds() != null) {
+                convocatoriaGrupoEquipoService.syncForConvocatoria(
+                        convocatoria,
+                        request.getGrupoEquipoIds(),
+                        request.getCupoTitularesPorGrupo(),
+                        request.getCupoEsperaPorGrupo());
+            } else {
+                convocatoriaGrupoEquipoService.assertHasEnoughGroups(convocatoria.getId());
+            }
+        } else {
+            convocatoriaGrupoEquipoService.clearForConvocatoria(convocatoria.getId());
+        }
         return toResponse(convocatoria, true);
     }
 
@@ -261,6 +293,41 @@ public class ConvocatoriaService {
                 .orElseThrow(() -> new NotFoundException("Grupo no encontrado con id: " + grupoId));
     }
 
+    private void validateModoFormacionRequest(ModoFormacion modoFormacion, ConvocatoriaRequest request) {
+        if (modoFormacion != ModoFormacion.EQUIPOS_POR_GRUPO) {
+            return;
+        }
+        if (request.getGrupoEquipoIds() == null || request.getGrupoEquipoIds().size() < 2) {
+            throw new BusinessException("Una convocatoria por grupos debe tener minimo 2 grupos participantes.");
+        }
+    }
+
+    private void assertCanCreateConvocatoria(
+            ConvocatoriaRequest request,
+            TipoInvitacion tipoInvitacion,
+            ModoFormacion modoFormacion
+    ) {
+        if (securityService.isSuperAdmin() || securityService.hasAuthority("crear_convocatorias")) {
+            return;
+        }
+        Long userId = securityService.getCurrentUserId();
+        List<Long> grupoIds = new java.util.ArrayList<>();
+        if (tipoInvitacion == TipoInvitacion.GRUPO && request.getGrupoId() != null) {
+            grupoIds.add(request.getGrupoId());
+        }
+        if (modoFormacion == ModoFormacion.EQUIPOS_POR_GRUPO && request.getGrupoEquipoIds() != null) {
+            grupoIds.addAll(request.getGrupoEquipoIds());
+        }
+        boolean canCreateForAGroup = grupoIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .anyMatch(grupoId -> grupoJugadorRepository.existsByIdGrupoIdAndIdUsuarioIdAndRolGrupoIn(
+                        grupoId, userId, List.of(RolGrupo.CREADOR, RolGrupo.ORGANIZADOR)));
+        if (!canCreateForAGroup) {
+            throw new ForbiddenException("No tienes permiso para crear convocatorias de estos grupos.");
+        }
+    }
+
     private ConvocatoriaResponse toResponse(Convocatoria c) {
         return toResponse(c, false);
     }
@@ -288,8 +355,10 @@ public class ConvocatoriaService {
                 .configuracionRecurrenteId(c.getConfiguracionRecurrente() != null ? c.getConfiguracionRecurrente().getId() : null)
                 .deporteEsPorEquipos(c.getDeporte() != null ? c.getDeporte().getEsPorEquipos() : true)
                 .tipoInvitacion(c.getTipoInvitacion() != null ? c.getTipoInvitacion() : TipoInvitacion.ABIERTA)
+                .modoFormacion(c.getModoFormacion() != null ? c.getModoFormacion() : ModoFormacion.BALANCEADO)
                 .grupoId(c.getGrupo() != null ? c.getGrupo().getId() : null)
-                .grupoNombre(c.getGrupo() != null ? c.getGrupo().getNombre() : null);
+                .grupoNombre(c.getGrupo() != null ? c.getGrupo().getNombre() : null)
+                .gruposEquipo(convocatoriaGrupoEquipoService.findResponsesByConvocatoriaId(c.getId()));
 
         LocalDateTime now = LocalDateTime.now();
         boolean fechaPasada = ConvocatoriaScheduleHelper.isDraftEventDatePassed(c, now);

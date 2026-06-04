@@ -1,12 +1,14 @@
 package com.event.backend.dto.convocatoria;
 
 import com.event.backend.model.EstadoConvocatoria;
+import com.event.backend.model.ModoFormacion;
 import com.event.backend.model.TipoInvitacion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class ConvocatoriaRequest {
@@ -31,5 +33,9 @@ public class ConvocatoriaRequest {
     private LocalDateTime fechaLimiteInscripcion;
     private String manejoExcedente;
     private TipoInvitacion tipoInvitacion;
+    private ModoFormacion modoFormacion;
     private Long grupoId;
+    private List<Long> grupoEquipoIds;
+    private Integer cupoTitularesPorGrupo;
+    private Integer cupoEsperaPorGrupo;
 }

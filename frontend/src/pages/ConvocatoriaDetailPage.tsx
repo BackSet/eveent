@@ -608,6 +608,7 @@ export default function ConvocatoriaDetailPage() {
   };
 
   const caps = useConvocatoriaCapabilities(convocatoria);
+  const usesGroupFormation = convocatoria?.modoFormacion === "EQUIPOS_POR_GRUPO";
 
   const isUserSuspended = useMemo(() => {
     if (!user?.fechaFinSuspension) return false;
@@ -1035,16 +1036,27 @@ export default function ConvocatoriaDetailPage() {
                   <div className="notion-callout-icon">⚡</div>
                   <div>
                     <div className="font-bold text-sm flex items-center gap-1.5">
-                      <span>Autobalanceo de Equipos</span>
+                      <span>{usesGroupFormation ? "Formación por grupos" : "Autobalanceo de Equipos"}</span>
                       <InfoHint side="right" maxWidth={300}>
-                        El <strong>autobalanceo</strong> distribuye automáticamente a los jugadores
-                        confirmados en bandos parejos, intentando respetar sus posiciones preferidas
-                        y mantener equipos del mismo tamaño. Puedes volver a ejecutarlo cuando
-                        cambien los confirmados.
+                        {usesGroupFormation ? (
+                          <>
+                            En <strong>equipos por grupo</strong>, el sistema no mezcla jugadores entre
+                            grupos. Crea o ajusta los bandos manualmente según los grupos participantes.
+                          </>
+                        ) : (
+                          <>
+                            El <strong>autobalanceo</strong> distribuye automáticamente a los jugadores
+                            confirmados en bandos parejos, intentando respetar sus posiciones preferidas
+                            y mantener equipos del mismo tamaño. Puedes volver a ejecutarlo cuando
+                            cambien los confirmados.
+                          </>
+                        )}
                       </InfoHint>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Reparte a los jugadores confirmados en {convocatoria.deporteEsPorEquipos === false ? "duelos" : "bandos"} parejos según sus posiciones.
+                      {usesGroupFormation
+                        ? "Este modo conserva los grupos como unidades de equipo y desactiva el autobalanceo."
+                        : `Reparte a los jugadores confirmados en ${convocatoria.deporteEsPorEquipos === false ? "duelos" : "bandos"} parejos según sus posiciones.`}
                     </p>
                   </div>
                 </div>
@@ -1073,52 +1085,56 @@ export default function ConvocatoriaDetailPage() {
                     </Tooltip>
                   )}
 
-                  <Tooltip content="Cantidad de bandos que se formarán al autobalancear">
-                    <div className="flex items-center gap-1.5 bg-background border border-border rounded px-2.5 py-1 h-8">
-                      <span className="text-[10px] text-muted-foreground font-black uppercase shrink-0 select-none">Equipos:</span>
-                      <select
-                        value={numEquipos}
-                        onChange={(e) => setNumEquipos(Number(e.target.value))}
-                        className="text-xs bg-transparent border-0 text-foreground cursor-pointer font-bold focus:outline-none py-0 pr-1 pl-0 shrink-0"
-                        aria-label="Número de equipos"
+                  {!usesGroupFormation && (
+                    <>
+                      <Tooltip content="Cantidad de bandos que se formarán al autobalancear">
+                        <div className="flex items-center gap-1.5 bg-background border border-border rounded px-2.5 py-1 h-8">
+                          <span className="text-[10px] text-muted-foreground font-black uppercase shrink-0 select-none">Equipos:</span>
+                          <select
+                            value={numEquipos}
+                            onChange={(e) => setNumEquipos(Number(e.target.value))}
+                            className="text-xs bg-transparent border-0 text-foreground cursor-pointer font-bold focus:outline-none py-0 pr-1 pl-0 shrink-0"
+                            aria-label="Número de equipos"
+                          >
+                            {Array.from({ length: 8 }, (_, i) => i + 1)
+                              .filter(n => {
+                                const isEquipos = convocatoria?.deporteEsPorEquipos !== false;
+                                return isEquipos ? n >= 2 : n >= 1;
+                              })
+                              .map((n) => (
+                                <option key={n} value={n}>{n}</option>
+                              ))}
+                          </select>
+                        </div>
+                      </Tooltip>
+
+                      <Tooltip
+                        content={
+                          playerLists.confirmadosTotales.length < numEquipos
+                            ? `Necesitas al menos ${numEquipos} confirmado(s) para formar ${numEquipos} equipo(s)`
+                            : "Genera los bandos automáticamente con los jugadores confirmados"
+                        }
                       >
-                        {Array.from({ length: 8 }, (_, i) => i + 1)
-                          .filter(n => {
-                            const isEquipos = convocatoria?.deporteEsPorEquipos !== false;
-                            return isEquipos ? n >= 2 : n >= 1;
-                          })
-                          .map((n) => (
-                            <option key={n} value={n}>{n}</option>
-                          ))}
-                      </select>
-                    </div>
-                  </Tooltip>
-                  
-                  <Tooltip
-                    content={
-                      playerLists.confirmadosTotales.length < numEquipos
-                        ? `Necesitas al menos ${numEquipos} confirmado(s) para formar ${numEquipos} equipo(s)`
-                        : "Genera los bandos automáticamente con los jugadores confirmados"
-                    }
-                  >
-                    <Button 
-                      onClick={() => handleMatchmaking(numEquipos)} 
-                      disabled={matchmakingLoading || playerLists.confirmadosTotales.length < numEquipos}
-                      className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
-                    >
-                      {matchmakingLoading ? (
-                        <>
-                          <Spinner size="sm" className="mr-1.5" />
-                          Calculando equipos...
-                        </>
-                      ) : (
-                        <>
-                          <Activity size={14} className="mr-1.5" />
-                          Autobalancear Equipos
-                        </>
-                      )}
-                    </Button>
-                  </Tooltip>
+                        <Button
+                          onClick={() => handleMatchmaking(numEquipos)}
+                          disabled={matchmakingLoading || playerLists.confirmadosTotales.length < numEquipos}
+                          className="h-8 px-4 font-bold text-xs bg-primary hover:bg-primary/95 text-primary-foreground rounded transition-premium shrink-0"
+                        >
+                          {matchmakingLoading ? (
+                            <>
+                              <Spinner size="sm" className="mr-1.5" />
+                              Calculando equipos...
+                            </>
+                          ) : (
+                            <>
+                              <Activity size={14} className="mr-1.5" />
+                              Autobalancear Equipos
+                            </>
+                          )}
+                        </Button>
+                      </Tooltip>
+                    </>
+                  )}
                 </div>
               </div>
             )}

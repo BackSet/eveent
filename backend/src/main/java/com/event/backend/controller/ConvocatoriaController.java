@@ -47,7 +47,7 @@ public class ConvocatoriaController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('crear_convocatorias')")
+    @PreAuthorize("hasAnyAuthority('crear_convocatorias', 'ver_grupos')")
     public ResponseEntity<ConvocatoriaResponse> create(@Valid @RequestBody ConvocatoriaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(convocatoriaService.create(request));
     }

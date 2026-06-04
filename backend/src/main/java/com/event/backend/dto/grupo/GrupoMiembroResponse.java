@@ -16,6 +16,7 @@ public class GrupoMiembroResponse {
     private String username;
     private String email;
     private Integer numeroCamiseta;
+    private String rolGrupo;
     private List<UsuarioPosicionDto> posiciones;
     private LocalDateTime fechaFinSuspension;
     private String motivoSuspension;

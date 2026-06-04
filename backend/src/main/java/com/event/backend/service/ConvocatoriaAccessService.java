@@ -5,7 +5,10 @@ import com.event.backend.model.Convocatoria;
 import com.event.backend.model.Deporte;
 import com.event.backend.model.EstadoConvocatoria;
 import com.event.backend.model.TipoInvitacion;
+import com.event.backend.model.RolGrupo;
 import com.event.backend.repository.AsistenciaRepository;
+import com.event.backend.repository.ConvocatoriaGrupoEquipoRepository;
+import com.event.backend.repository.GrupoJugadorRepository;
 import com.event.backend.repository.GrupoRepository;
 import com.event.backend.repository.UsuarioPosicionRepository;
 import com.event.backend.security.SecurityService;
@@ -20,6 +23,8 @@ public class ConvocatoriaAccessService {
     private final AsistenciaRepository asistenciaRepository;
     private final GrupoRepository grupoRepository;
     private final UsuarioPosicionRepository usuarioPosicionRepository;
+    private final GrupoJugadorRepository grupoJugadorRepository;
+    private final ConvocatoriaGrupoEquipoRepository convocatoriaGrupoEquipoRepository;
 
     public boolean isOwnerOrSuperAdmin(Convocatoria convocatoria, Long userId) {
         return isOwner(convocatoria, userId) || securityService.isSuperAdmin();
@@ -40,12 +45,14 @@ public class ConvocatoriaAccessService {
 
     public boolean canEdit(Convocatoria convocatoria, Long userId) {
         return isOwner(convocatoria, userId)
+                || isOrganizerOfConvocatoriaGroup(convocatoria, userId)
                 || securityService.isSuperAdmin()
                 || securityService.hasAuthority("editar_convocatorias");
     }
 
     public boolean canPublish(Convocatoria convocatoria, Long userId) {
         return isOwner(convocatoria, userId)
+                || isOrganizerOfConvocatoriaGroup(convocatoria, userId)
                 || securityService.isSuperAdmin()
                 || securityService.hasAuthority("editar_convocatorias");
     }
@@ -64,12 +71,14 @@ public class ConvocatoriaAccessService {
 
     public boolean canManageAttendance(Convocatoria convocatoria, Long userId) {
         return isOwner(convocatoria, userId)
+                || isOrganizerOfConvocatoriaGroup(convocatoria, userId)
                 || securityService.isSuperAdmin()
                 || securityService.hasAuthority("editar_convocatorias");
     }
 
     public boolean canInviteRegisteredPlayers(Convocatoria convocatoria, Long userId) {
         return isOwner(convocatoria, userId)
+                || isOrganizerOfConvocatoriaGroup(convocatoria, userId)
                 || securityService.isSuperAdmin()
                 || securityService.hasAuthority("editar_convocatorias");
     }
@@ -164,5 +173,17 @@ public class ConvocatoriaAccessService {
                 .anyMatch(up -> up.getPosicion() != null
                         && up.getPosicion().getDeporte() != null
                         && up.getPosicion().getDeporte().getId().equals(deporte.getId()));
+    }
+
+    private boolean isOrganizerOfConvocatoriaGroup(Convocatoria convocatoria, Long userId) {
+        if (convocatoria == null || userId == null) return false;
+        java.util.List<Long> grupoIds = new java.util.ArrayList<>();
+        if (convocatoria.getGrupo() != null) {
+            grupoIds.add(convocatoria.getGrupo().getId());
+        }
+        grupoIds.addAll(convocatoriaGrupoEquipoRepository.findGrupoIdsByConvocatoriaId(convocatoria.getId()));
+        return grupoIds.stream().distinct().anyMatch(grupoId ->
+                grupoJugadorRepository.existsByIdGrupoIdAndIdUsuarioIdAndRolGrupoIn(
+                        grupoId, userId, java.util.List.of(RolGrupo.CREADOR, RolGrupo.ORGANIZADOR)));
     }
 }

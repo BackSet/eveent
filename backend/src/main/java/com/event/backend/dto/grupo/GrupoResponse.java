@@ -17,4 +17,6 @@ public class GrupoResponse {
     private List<Long> miembroIds;
     private List<String> miembroNombres;
     private List<GrupoMiembroResponse> miembros;
+    private Boolean puedeGestionar;
+    private Boolean puedeAsignarOrganizadores;
 }

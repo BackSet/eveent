@@ -37,6 +37,19 @@ const CATEGORIAS = [
   { value: "ENTRENAMIENTO", label: "Entrenamiento" },
 ];
 
+const MODOS_FORMACION = [
+  {
+    value: "BALANCEADO",
+    label: "Balanceado",
+    description: "Usa el autobalanceo actual para repartir jugadores entre bandos.",
+  },
+  {
+    value: "EQUIPOS_POR_GRUPO",
+    label: "Equipos por grupo",
+    description: "Mantiene a los jugadores de cada grupo juntos; no mezcla grupos al formar equipos.",
+  },
+] as const;
+
 const DEFAULT_HORARIO: HorarioDia = { horaApertura: "08:00", horaEvento: "20:00", duracionMinutos: 90 };
 
 const getDayLabel = (key: string): string => {
@@ -78,6 +91,7 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
       categoria: "",
       fechaLimiteInscripcion: "",
       manejoExcedente: "LISTA_ESPERA",
+      modoFormacion: "BALANCEADO",
       duracionEstimadaMinutos: 90,
     };
   });
@@ -90,6 +104,7 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
 
   const [invitationMode, setInvitationMode] = useState<"NONE" | "GROUP" | "MANUAL">("NONE");
   const [selectedGrupoId, setSelectedGrupoId] = useState<string>("");
+  const [selectedGrupoEquipoIds, setSelectedGrupoEquipoIds] = useState<number[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
 
@@ -131,8 +146,10 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
               estado: data.estado, cupoMaximo: data.cupoMaximo || 0, categoria: data.categoria || "",
               fechaLimiteInscripcion: data.fechaLimiteInscripcion ? data.fechaLimiteInscripcion.slice(0, 16) : "",
               manejoExcedente: data.manejoExcedente || "LISTA_ESPERA",
+              modoFormacion: data.modoFormacion || "BALANCEADO",
               duracionEstimadaMinutos: data.duracionEstimadaMinutos || 90,
             });
+            setSelectedGrupoEquipoIds((data.gruposEquipo || []).map((rel: { grupoId: number }) => rel.grupoId));
             if (data.tipoInvitacion === "GRUPO") {
               setInvitationMode("GROUP");
               setSelectedGrupoId(data.grupoId ? String(data.grupoId) : "");
@@ -160,9 +177,10 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
       recurrenteData,
       invitationMode,
       selectedGrupoId,
+      selectedGrupoEquipoIds,
       selectedUserIds,
     }),
-    [isRecurrent, formData, recurrenteData, invitationMode, selectedGrupoId, selectedUserIds]
+    [isRecurrent, formData, recurrenteData, invitationMode, selectedGrupoId, selectedGrupoEquipoIds, selectedUserIds]
   );
   const { isDirty, checkDirty, resetSnapshot } = useFormDirty(dirtySnapshot);
 
@@ -199,6 +217,12 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
 
   const handleUserSelect = (userId: number) => {
     setSelectedUserIds(prev => prev.includes(userId) ? prev.filter(uid => uid !== userId) : [...prev, userId]);
+  };
+
+  const handleGrupoEquipoSelect = (grupoId: number) => {
+    setSelectedGrupoEquipoIds(prev =>
+      prev.includes(grupoId) ? prev.filter(id => id !== grupoId) : [...prev, grupoId]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -261,6 +285,10 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
         setError("En modo manual debes invitar al menos un jugador.");
         return;
       }
+      if (formData.modoFormacion === "EQUIPOS_POR_GRUPO" && selectedGrupoEquipoIds.length < 2) {
+        setError("Selecciona al menos 2 grupos participantes para equipos por grupo.");
+        return;
+      }
     }
 
     setSaving(true);
@@ -289,6 +317,7 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
           fechaLimiteInscripcion: formData.fechaLimiteInscripcion ? formData.fechaLimiteInscripcion + ":00" : null,
           tipoInvitacion,
           grupoId: invitationMode === "GROUP" && selectedGrupoId ? Number(selectedGrupoId) : null,
+          grupoEquipoIds: formData.modoFormacion === "EQUIPOS_POR_GRUPO" ? selectedGrupoEquipoIds : [],
         };
         let createdId: number;
         if (isEditing) {
@@ -563,6 +592,91 @@ export default function ConvocatoriaFormPage({ recurrente }: { recurrente?: bool
                         : "Comodín neutral: los excedentes quedan como reservas sin equipo asignado, listos para entrar en cualquier bando el día del juego."}
                     </p>
                   </div>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <span>Modo de formación</span>
+                    <InfoHint side="right" maxWidth={320}>
+                      <strong>Balanceado</strong> mantiene el flujo actual.{" "}
+                      <strong>Equipos por grupo</strong> evita mezclar jugadores de grupos distintos
+                      cuando se formen equipos.
+                    </InfoHint>
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {MODOS_FORMACION.map((modo) => {
+                      const active = formData.modoFormacion === modo.value;
+                      return (
+                        <button
+                          key={modo.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, modoFormacion: modo.value })}
+                          className={`text-left rounded-lg border p-3 transition-colors ${
+                            active
+                              ? "border-primary bg-primary/[0.06] text-foreground"
+                              : "border-border bg-card hover:bg-muted/50 text-muted-foreground"
+                          }`}
+                        >
+                          <span className="block text-xs font-bold">{modo.label}</span>
+                          <span className="block text-[10px] leading-relaxed mt-1">
+                            {modo.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {formData.modoFormacion === "EQUIPOS_POR_GRUPO" && (
+                    <div className="space-y-2 animate-fadeIn rounded-lg border border-border bg-muted/20 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Grupos participantes ({selectedGrupoEquipoIds.length})
+                        </Label>
+                        {selectedGrupoEquipoIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedGrupoEquipoIds([])}
+                            className="text-[10px] font-medium text-muted-foreground hover:text-foreground"
+                          >
+                            Limpiar
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {grupos.map((grupo) => {
+                          const selected = selectedGrupoEquipoIds.includes(grupo.id);
+                          return (
+                            <button
+                              key={grupo.id}
+                              type="button"
+                              onClick={() => handleGrupoEquipoSelect(grupo.id)}
+                              className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
+                                selected
+                                  ? "border-primary bg-primary/[0.06] text-foreground"
+                                  : "border-border bg-card hover:bg-muted/50 text-muted-foreground"
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-xs font-bold">{grupo.nombre}</span>
+                                <span className="block text-[10px]">{grupo.miembroIds?.length || 0} jugadores</span>
+                              </span>
+                              <span className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
+                                selected ? "bg-primary border-primary text-primary-foreground" : "border-border"
+                              }`}>
+                                {selected && <Check size={10} />}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {grupos.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No hay grupos disponibles.</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        Cada grupo seleccionado creará un equipo visible con el mismo nombre del grupo.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </>
             )}

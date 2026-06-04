@@ -36,6 +36,7 @@ public class AsistenciaMapper {
                         : java.util.List.of())
                 .bandoId(a.getBando() != null ? a.getBando().getId() : null)
                 .bandoNombre(a.getBando() != null ? a.getBando().getNombre() : null)
+                .tipoConfirmacion(a.getTipoConfirmacion())
                 .numeroCamiseta(a.getUsuario() != null ? a.getUsuario().getNumeroCamiseta() : null)
                 .fechaRespuesta(a.getFechaRespuesta())
                 .autoAceptada(a.isAutoAceptada())

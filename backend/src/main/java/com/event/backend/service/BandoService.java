@@ -6,6 +6,7 @@ import com.event.backend.exception.NotFoundException;
 import com.event.backend.model.BandoConvocatoria;
 import com.event.backend.model.Convocatoria;
 import com.event.backend.repository.BandoConvocatoriaRepository;
+import com.event.backend.repository.ConvocatoriaGrupoEquipoRepository;
 import com.event.backend.repository.ConvocatoriaRepository;
 import com.event.backend.security.SecurityService;
 import com.event.backend.util.ConvocatoriaScheduleHelper;
@@ -26,6 +27,7 @@ public class BandoService {
     private final ConvocatoriaRepository convocatoriaRepository;
     private final SecurityService securityService;
     private final ConvocatoriaAccessService convocatoriaAccessService;
+    private final ConvocatoriaGrupoEquipoRepository convocatoriaGrupoEquipoRepository;
 
     @Transactional(readOnly = true)
     public List<BandoResponse> findByConvocatoriaId(Long convocatoriaId) {
@@ -79,6 +81,10 @@ public class BandoService {
         assertCanManageLineup(bando.getConvocatoria());
         ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(
                 bando.getConvocatoria(), LocalDateTime.now());
+        if (convocatoriaGrupoEquipoRepository.existsByEquipoId(id)) {
+            throw new com.event.backend.exception.BusinessException(
+                    "Este bando pertenece a una convocatoria por grupos y no se puede eliminar manualmente.");
+        }
 
         bandoRepository.delete(bando);
     }

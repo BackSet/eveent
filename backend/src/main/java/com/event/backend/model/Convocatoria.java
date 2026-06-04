@@ -83,6 +83,11 @@ public class Convocatoria {
     @Builder.Default
     private TipoInvitacion tipoInvitacion = TipoInvitacion.ABIERTA;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modo_formacion", nullable = false, length = 30, columnDefinition = "VARCHAR(30) DEFAULT 'BALANCEADO'")
+    @Builder.Default
+    private ModoFormacion modoFormacion = ModoFormacion.BALANCEADO;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "grupo_id")
     private Grupo grupo;

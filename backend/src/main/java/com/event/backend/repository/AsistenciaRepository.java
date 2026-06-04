@@ -2,6 +2,7 @@ package com.event.backend.repository;
 
 import com.event.backend.model.Asistencia;
 import com.event.backend.model.EstadoAsistencia;
+import com.event.backend.model.TipoConfirmacion;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -25,6 +26,14 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, Long> {
     List<Asistencia> findByConvocatoriaIdAndEstado(Long convocatoriaId, EstadoAsistencia estado);
 
     long countByConvocatoriaIdAndEstado(Long convocatoriaId, EstadoAsistencia estado);
+
+    long countByConvocatoriaIdAndBandoIdAndTipoConfirmacion(Long convocatoriaId, Long bandoId, TipoConfirmacion tipoConfirmacion);
+
+    @EntityGraph(value = "Asistencia.withRelations")
+    List<Asistencia> findByConvocatoriaIdAndBandoIdAndTipoConfirmacionOrderByFechaRespuestaAsc(
+            Long convocatoriaId,
+            Long bandoId,
+            TipoConfirmacion tipoConfirmacion);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE Asistencia a SET a.posicionPreferida = null WHERE a.posicionPreferida.id IN :posIds")

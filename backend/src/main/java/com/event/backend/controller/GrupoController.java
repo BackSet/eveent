@@ -2,6 +2,7 @@ package com.event.backend.controller;
 
 import com.event.backend.dto.grupo.GrupoRequest;
 import com.event.backend.dto.grupo.GrupoResponse;
+import com.event.backend.dto.grupo.GrupoMiembroResponse;
 import com.event.backend.service.GrupoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -48,5 +49,35 @@ public class GrupoController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         grupoService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{grupoId}/jugadores")
+    @PreAuthorize("hasAuthority('ver_grupos')")
+    public ResponseEntity<List<GrupoMiembroResponse>> findJugadores(@PathVariable Long grupoId) {
+        return ResponseEntity.ok(grupoService.findJugadores(grupoId));
+    }
+
+    @PostMapping("/{grupoId}/jugadores/{usuarioId}")
+    @PreAuthorize("hasAuthority('ver_grupos')")
+    public ResponseEntity<GrupoResponse> addJugador(@PathVariable Long grupoId, @PathVariable Long usuarioId) {
+        return ResponseEntity.ok(grupoService.addJugador(grupoId, usuarioId));
+    }
+
+    @DeleteMapping("/{grupoId}/jugadores/{usuarioId}")
+    @PreAuthorize("hasAuthority('ver_grupos')")
+    public ResponseEntity<GrupoResponse> removeJugador(@PathVariable Long grupoId, @PathVariable Long usuarioId) {
+        return ResponseEntity.ok(grupoService.removeJugador(grupoId, usuarioId));
+    }
+
+    @PostMapping("/{grupoId}/organizadores/{usuarioId}")
+    @PreAuthorize("hasAuthority('ver_grupos')")
+    public ResponseEntity<GrupoResponse> assignOrganizador(@PathVariable Long grupoId, @PathVariable Long usuarioId) {
+        return ResponseEntity.ok(grupoService.assignOrganizador(grupoId, usuarioId));
+    }
+
+    @DeleteMapping("/{grupoId}/organizadores/{usuarioId}")
+    @PreAuthorize("hasAuthority('ver_grupos')")
+    public ResponseEntity<GrupoResponse> removeOrganizador(@PathVariable Long grupoId, @PathVariable Long usuarioId) {
+        return ResponseEntity.ok(grupoService.removeOrganizador(grupoId, usuarioId));
     }
 }

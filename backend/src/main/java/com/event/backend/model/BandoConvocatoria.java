@@ -18,7 +18,7 @@ public class BandoConvocatoria {
     @JoinColumn(name = "convocatoria_id", nullable = false)
     private Convocatoria convocatoria;
 
-    @Column(nullable = false, length = 80)
+    @Column(nullable = false, length = 120)
     private String nombre;
 
     @Column(length = 20)

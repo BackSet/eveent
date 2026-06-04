@@ -34,6 +34,8 @@ public class AsistenciaService {
     private final UsuarioPosicionRepository usuarioPosicionRepository;
     private final ConvocatoriaAccessService convocatoriaAccessService;
     private final AutoAceptacionService autoAceptacionService;
+    private final ConvocatoriaGrupoEquipoRepository convocatoriaGrupoEquipoRepository;
+    private final ReglaPosicionEquipoRepository reglaPosicionEquipoRepository;
 
     @Transactional(readOnly = true)
     public List<AsistenciaResponse> findByConvocatoriaId(Long convocatoriaId) {
@@ -146,6 +148,9 @@ public class AsistenciaService {
 
         // Si es un jugador externo (invitado por el usuario actual)
         if (request.getNombreExterno() != null && !request.getNombreExterno().trim().isEmpty()) {
+            if (isGroupFormation(convocatoria)) {
+                throw new BusinessException("Los invitados externos no pueden confirmar en convocatorias por grupos.");
+            }
             boolean isOwnerOrSuperAdmin = convocatoriaAccessService.isOwnerOrSuperAdmin(convocatoria, usuario.getId());
             if (!isOwnerOrSuperAdmin && !hasAuthority("invitar_externos")) {
                 throw new ForbiddenException("No tienes permiso para registrar invitados externos.");
@@ -208,10 +213,21 @@ public class AsistenciaService {
             Asistencia asistencia = existing.get();
             if (request.getEstado() != null) {
                 EstadoAsistencia requestedEstado = EstadoAsistencia.valueOf(request.getEstado());
-                if (requestedEstado == EstadoAsistencia.ASISTIRE && asistencia.getEstado() != EstadoAsistencia.ASISTIRE) {
-                    asistencia.setEstado(evaluateEstadoWithCupo(asistencia.getConvocatoria(), requestedEstado));
+                EstadoAsistencia oldEstado = asistencia.getEstado();
+                Long oldBandoId = asistencia.getBando() != null ? asistencia.getBando().getId() : null;
+                TipoConfirmacion oldTipo = asistencia.getTipoConfirmacion();
+                if (requestedEstado == EstadoAsistencia.ASISTIRE) {
+                    if (isGroupFormation(asistencia.getConvocatoria())) {
+                        confirmarAsistenciaPorGrupo(asistencia, requestedEstado);
+                    } else if (asistencia.getEstado() != EstadoAsistencia.ASISTIRE) {
+                        asistencia.setEstado(evaluateEstadoWithCupo(asistencia.getConvocatoria(), requestedEstado));
+                    } else {
+                        asistencia.setEstado(requestedEstado);
+                    }
                 } else {
                     asistencia.setEstado(requestedEstado);
+                    clearGroupAssignmentIfNeeded(asistencia);
+                    promoteAfterLeaving(oldEstado, oldTipo, asistencia.getConvocatoria().getId(), oldBandoId);
                 }
             }
             asistencia.setFechaRespuesta(LocalDateTime.now());
@@ -279,6 +295,9 @@ public class AsistenciaService {
                 && autoAceptacionService.matches(usuario, convocatoria.getFechaHora(), LocalDateTime.now())) {
             autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, usuario);
         }
+        if (isGroupFormation(convocatoria) && asistencia.getEstado() == EstadoAsistencia.ASISTIRE) {
+            confirmarAsistenciaPorGrupo(asistencia, EstadoAsistencia.ASISTIRE);
+        }
         asistencia = asistenciaRepository.save(asistencia);
         
         AsistenciaResponse response = asistenciaMapper.toResponse(asistencia);
@@ -321,7 +340,17 @@ public class AsistenciaService {
             boolean isOldAttending = (oldEstado == EstadoAsistencia.ASISTIRE || oldEstado == EstadoAsistencia.LISTA_ESPERA);
             boolean isNewAttending = (newEstado == EstadoAsistencia.ASISTIRE || newEstado == EstadoAsistencia.LISTA_ESPERA);
 
-            if (isNewAttending && isOldAttending) {
+            Long oldBandoId = asistencia.getBando() != null ? asistencia.getBando().getId() : null;
+            TipoConfirmacion oldTipo = asistencia.getTipoConfirmacion();
+
+            if (isGroupFormation(asistencia.getConvocatoria()) && newEstado == EstadoAsistencia.ASISTIRE) {
+                confirmarAsistenciaPorGrupo(asistencia, newEstado);
+                if (oldTipo == TipoConfirmacion.TITULAR
+                        && oldBandoId != null
+                        && !oldBandoId.equals(asistencia.getBando() != null ? asistencia.getBando().getId() : null)) {
+                    promoverSiguienteEnEspera(oldBandoId, asistencia.getConvocatoria().getId());
+                }
+            } else if (isNewAttending && isOldAttending) {
                 newEstado = oldEstado;
             } else if (newEstado == EstadoAsistencia.ASISTIRE && !isOldAttending) {
                 Convocatoria conv = asistencia.getConvocatoria();
@@ -330,7 +359,13 @@ public class AsistenciaService {
             } else if (newEstado != oldEstado) {
                 asistencia.setFechaRespuesta(LocalDateTime.now());
             }
-            asistencia.setEstado(newEstado);
+            if (!isGroupFormation(asistencia.getConvocatoria()) || newEstado != EstadoAsistencia.ASISTIRE) {
+                asistencia.setEstado(newEstado);
+            }
+            if (!isNewAttending) {
+                clearGroupAssignmentIfNeeded(asistencia);
+                promoteAfterLeaving(oldEstado, oldTipo, asistencia.getConvocatoria().getId(), oldBandoId);
+            }
         }
 
         if (request.getPosicionPreferidaId() != null) {
@@ -357,6 +392,13 @@ public class AsistenciaService {
         }
 
         if (request.getBandoId() != null) {
+            if (isGroupFormation(asistencia.getConvocatoria()) && asistencia.getUsuario() != null) {
+                ConvocatoriaGrupoEquipo relacion = resolverEquipoDelUsuario(
+                        asistencia.getConvocatoria(), asistencia.getUsuario());
+                if (!relacion.getEquipo().getId().equals(request.getBandoId())) {
+                    throw new BusinessException("Un jugador no puede quedar en el equipo de otro grupo.");
+                }
+            }
             if (request.getBandoId() <= 0) {
                 asistencia.setBando(null);
             } else {
@@ -368,7 +410,10 @@ public class AsistenciaService {
 
         asistencia = asistenciaRepository.save(asistencia);
 
-        if (oldEstado == EstadoAsistencia.ASISTIRE && newEstado != null && newEstado != EstadoAsistencia.ASISTIRE) {
+        if (!isGroupFormation(asistencia.getConvocatoria())
+                && oldEstado == EstadoAsistencia.ASISTIRE
+                && newEstado != null
+                && newEstado != EstadoAsistencia.ASISTIRE) {
             promoteFromWaitlist(asistencia.getConvocatoria().getId());
         }
 
@@ -399,10 +444,14 @@ public class AsistenciaService {
 
         EstadoAsistencia estado = asistencia.getEstado();
         Long convocatoriaId = asistencia.getConvocatoria().getId();
+        Long bandoId = asistencia.getBando() != null ? asistencia.getBando().getId() : null;
+        TipoConfirmacion tipoConfirmacion = asistencia.getTipoConfirmacion();
 
         asistenciaRepository.deleteById(id);
 
-        if (estado == EstadoAsistencia.ASISTIRE) {
+        if (isGroupFormation(asistencia.getConvocatoria()) && tipoConfirmacion == TipoConfirmacion.TITULAR && bandoId != null) {
+            promoverSiguienteEnEspera(bandoId, convocatoriaId);
+        } else if (estado == EstadoAsistencia.ASISTIRE) {
             promoteFromWaitlist(convocatoriaId);
         }
     }
@@ -419,6 +468,22 @@ public class AsistenciaService {
         if (!waitlist.isEmpty()) {
             Asistencia first = waitlist.get(0);
             first.setEstado(EstadoAsistencia.ASISTIRE);
+            first.setFechaRespuesta(LocalDateTime.now());
+            asistenciaRepository.save(first);
+        }
+    }
+
+    private void promoverSiguienteEnEspera(Long bandoId, Long convocatoriaId) {
+        if (bandoId == null) {
+            return;
+        }
+        List<Asistencia> waitlist = asistenciaRepository
+                .findByConvocatoriaIdAndBandoIdAndTipoConfirmacionOrderByFechaRespuestaAsc(
+                        convocatoriaId, bandoId, TipoConfirmacion.ESPERA);
+        if (!waitlist.isEmpty()) {
+            Asistencia first = waitlist.get(0);
+            first.setEstado(EstadoAsistencia.ASISTIRE);
+            first.setTipoConfirmacion(TipoConfirmacion.TITULAR);
             first.setFechaRespuesta(LocalDateTime.now());
             asistenciaRepository.save(first);
         }
@@ -453,6 +518,9 @@ public class AsistenciaService {
                             .estado(EstadoAsistencia.PENDIENTE)
                             .build();
                     autoAceptacionService.enrichAsistenciaForAutoAccept(asistencia, usuario);
+                    if (isGroupFormation(convocatoria) && asistencia.getEstado() == EstadoAsistencia.ASISTIRE) {
+                        confirmarAsistenciaPorGrupo(asistencia, EstadoAsistencia.ASISTIRE);
+                    }
                     return asistencia;
                 })
                 .toList();
@@ -493,9 +561,67 @@ public class AsistenciaService {
         asistenciaRepository.deleteAll(asistencias);
         
         for (Asistencia a : asistencias) {
-            if (a.getEstado() == EstadoAsistencia.ASISTIRE) {
+            if (isGroupFormation(a.getConvocatoria()) && a.getTipoConfirmacion() == TipoConfirmacion.TITULAR && a.getBando() != null) {
+                promoverSiguienteEnEspera(a.getBando().getId(), a.getConvocatoria().getId());
+            } else if (a.getEstado() == EstadoAsistencia.ASISTIRE) {
                 promoteFromWaitlist(a.getConvocatoria().getId());
             }
+        }
+    }
+
+    private void confirmarAsistenciaPorGrupo(Asistencia asistencia, EstadoAsistencia requestedEstado) {
+        if (!isGroupFormation(asistencia.getConvocatoria()) || requestedEstado != EstadoAsistencia.ASISTIRE) {
+            return;
+        }
+        if (asistencia.getUsuario() == null) {
+            throw new BusinessException("Los invitados externos no pueden confirmar en convocatorias por grupos.");
+        }
+
+        ConvocatoriaGrupoEquipo relacion = resolverEquipoDelUsuario(asistencia.getConvocatoria(), asistencia.getUsuario());
+        TipoConfirmacion tipoConfirmacion = calcularTipoConfirmacion(asistencia, relacion);
+        asistencia.setBando(relacion.getEquipo());
+        asistencia.setTipoConfirmacion(tipoConfirmacion);
+        asistencia.setEstado(tipoConfirmacion == TipoConfirmacion.TITULAR
+                ? EstadoAsistencia.ASISTIRE
+                : EstadoAsistencia.LISTA_ESPERA);
+        asistencia.setFechaRespuesta(LocalDateTime.now());
+    }
+
+    private ConvocatoriaGrupoEquipo resolverEquipoDelUsuario(Convocatoria convocatoria, Usuario usuario) {
+        return convocatoriaGrupoEquipoRepository.findParticipatingGroupForUser(convocatoria.getId(), usuario.getId())
+                .orElseThrow(() -> new BusinessException(
+                        "No perteneces a ningun grupo participante de esta convocatoria."));
+    }
+
+    private TipoConfirmacion calcularTipoConfirmacion(Asistencia asistencia, ConvocatoriaGrupoEquipo relacion) {
+        Integer cupo = relacion.getCupoTitulares() != null ? relacion.getCupoTitulares() : 1;
+        long titulares = asistenciaRepository.countByConvocatoriaIdAndBandoIdAndTipoConfirmacion(
+                relacion.getConvocatoria().getId(),
+                relacion.getEquipo().getId(),
+                TipoConfirmacion.TITULAR);
+        if (asistencia.getId() != null
+                && asistencia.getBando() != null
+                && asistencia.getBando().getId().equals(relacion.getEquipo().getId())
+                && asistencia.getTipoConfirmacion() == TipoConfirmacion.TITULAR) {
+            titulares = Math.max(0, titulares - 1);
+        }
+        return titulares < cupo ? TipoConfirmacion.TITULAR : TipoConfirmacion.ESPERA;
+    }
+
+    private boolean isGroupFormation(Convocatoria convocatoria) {
+        return convocatoria != null && convocatoria.getModoFormacion() == ModoFormacion.EQUIPOS_POR_GRUPO;
+    }
+
+    private void clearGroupAssignmentIfNeeded(Asistencia asistencia) {
+        if (isGroupFormation(asistencia.getConvocatoria())) {
+            asistencia.setBando(null);
+            asistencia.setTipoConfirmacion(TipoConfirmacion.TITULAR);
+        }
+    }
+
+    private void promoteAfterLeaving(EstadoAsistencia oldEstado, TipoConfirmacion oldTipo, Long convocatoriaId, Long oldBandoId) {
+        if (oldTipo == TipoConfirmacion.TITULAR && oldBandoId != null && oldEstado == EstadoAsistencia.ASISTIRE) {
+            promoverSiguienteEnEspera(oldBandoId, convocatoriaId);
         }
     }
 
@@ -538,6 +664,119 @@ public class AsistenciaService {
                 }
             }
         }
+    }
+
+    public List<AsistenciaResponse> recalcularPosicionesPorEquipo(Long convocatoriaId) {
+        Convocatoria convocatoria = convocatoriaRepository.findById(convocatoriaId)
+                .orElseThrow(() -> new NotFoundException("Convocatoria no encontrada con id: " + convocatoriaId));
+        if (!convocatoriaAccessService.canManageAttendance(convocatoria, securityService.getCurrentUserId())) {
+            throw new ForbiddenException("No tienes permiso para recalcular posiciones de esta convocatoria.");
+        }
+        if (!isGroupFormation(convocatoria)) {
+            throw new BusinessException("El recalculo por posiciones solo aplica a equipos por grupo.");
+        }
+
+        List<ConvocatoriaGrupoEquipo> equipos = convocatoriaGrupoEquipoRepository.findByConvocatoriaIdOrderByOrdenAsc(convocatoriaId);
+        List<ReglaPosicionEquipo> reglas = convocatoria.getDeporte() == null
+                ? List.of()
+                : reglaPosicionEquipoRepository.findByDeporteIdAndActivoTrueOrderByPosicionNombreAsc(convocatoria.getDeporte().getId());
+        List<Asistencia> asistencias = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
+
+        for (ConvocatoriaGrupoEquipo equipo : equipos) {
+            List<Asistencia> candidatos = asistencias.stream()
+                    .filter(a -> a.getBando() != null && a.getBando().getId().equals(equipo.getEquipo().getId()))
+                    .filter(a -> a.getEstado() == EstadoAsistencia.ASISTIRE || a.getEstado() == EstadoAsistencia.LISTA_ESPERA)
+                    .sorted(java.util.Comparator.comparing(Asistencia::getFechaRespuesta))
+                    .toList();
+            recalcularEquipoPorPosicion(equipo, candidatos, reglas);
+        }
+
+        List<Asistencia> saved = asistenciaRepository.saveAll(asistencias);
+        List<AsistenciaResponse> responses = saved.stream()
+                .map(asistenciaMapper::toResponse)
+                .collect(Collectors.toList());
+        if (convocatoria.getDeporte() != null) {
+            populateUserPositions(responses, convocatoria.getDeporte().getId());
+        }
+        return responses;
+    }
+
+    private void recalcularEquipoPorPosicion(
+            ConvocatoriaGrupoEquipo equipo,
+            List<Asistencia> candidatos,
+            List<ReglaPosicionEquipo> reglas
+    ) {
+        int cupo = equipo.getCupoTitulares() != null ? equipo.getCupoTitulares() : 1;
+        java.util.Set<Long> titularesIds = new java.util.LinkedHashSet<>();
+
+        for (ReglaPosicionEquipo regla : reglas) {
+            int cantidad = regla.getCantidadTitulares() != null ? regla.getCantidadTitulares() : 0;
+            if (cantidad <= 0) {
+                continue;
+            }
+            List<Asistencia> matches = candidatos.stream()
+                    .filter(a -> !titularesIds.contains(a.getId()))
+                    .filter(a -> matchesPosicion(a, regla.getPosicion()))
+                    .sorted(java.util.Comparator.comparing(Asistencia::getFechaRespuesta))
+                    .toList();
+            int asignados = 0;
+            for (Asistencia asistencia : matches) {
+                if (titularesIds.size() >= cupo || asignados >= cantidad) {
+                    break;
+                }
+                titularesIds.add(asistencia.getId());
+                asistencia.setPosicionAsignada(regla.getPosicion());
+                asignados++;
+            }
+        }
+
+        for (Asistencia asistencia : candidatos) {
+            if (titularesIds.size() >= cupo) {
+                break;
+            }
+            titularesIds.add(asistencia.getId());
+            if (asistencia.getPosicionAsignada() == null) {
+                asistencia.setPosicionAsignada(resolvePreferredPosition(asistencia));
+            }
+        }
+
+        for (Asistencia asistencia : candidatos) {
+            if (titularesIds.contains(asistencia.getId())) {
+                asistencia.setEstado(EstadoAsistencia.ASISTIRE);
+                asistencia.setTipoConfirmacion(TipoConfirmacion.TITULAR);
+            } else {
+                asistencia.setEstado(EstadoAsistencia.LISTA_ESPERA);
+                asistencia.setTipoConfirmacion(TipoConfirmacion.ESPERA);
+                asistencia.setPosicionAsignada(null);
+            }
+        }
+    }
+
+    private boolean matchesPosicion(Asistencia asistencia, PosicionesDeporte posicion) {
+        if (posicion == null) {
+            return false;
+        }
+        if (asistencia.getPosicionAsignada() != null && asistencia.getPosicionAsignada().getId().equals(posicion.getId())) {
+            return true;
+        }
+        if (asistencia.getPosicionPreferida() != null && asistencia.getPosicionPreferida().getId().equals(posicion.getId())) {
+            return true;
+        }
+        return asistencia.getPosicionesPreferidas() != null
+                && asistencia.getPosicionesPreferidas().stream().anyMatch(p -> p.getId().equals(posicion.getId()));
+    }
+
+    private PosicionesDeporte resolvePreferredPosition(Asistencia asistencia) {
+        if (asistencia.getPosicionAsignada() != null) {
+            return asistencia.getPosicionAsignada();
+        }
+        if (asistencia.getPosicionPreferida() != null) {
+            return asistencia.getPosicionPreferida();
+        }
+        if (asistencia.getPosicionesPreferidas() != null && !asistencia.getPosicionesPreferidas().isEmpty()) {
+            return asistencia.getPosicionesPreferidas().get(0);
+        }
+        return null;
     }
 
 }

@@ -42,6 +42,14 @@ public class MatchmakingService {
 
         ConvocatoriaScheduleHelper.assertConvocatoriaMatchmakingAllowed(convocatoria, LocalDateTime.now());
 
+        ModoFormacion modoFormacion = convocatoria.getModoFormacion() != null
+                ? convocatoria.getModoFormacion()
+                : ModoFormacion.BALANCEADO;
+        if (modoFormacion == ModoFormacion.EQUIPOS_POR_GRUPO) {
+            throw new com.event.backend.exception.BusinessException(
+                    "Esta convocatoria usa equipos por grupo. El balanceo automatico no se aplica a este modo.");
+        }
+
         List<Asistencia> allAsistencias = asistenciaRepository.findByConvocatoriaId(convocatoriaId);
 
         List<Asistencia> confirmados = allAsistencias.stream()
